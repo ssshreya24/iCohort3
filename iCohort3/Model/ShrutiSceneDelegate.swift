@@ -7,7 +7,7 @@
 
 import UIKit
 
-class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+class ShrutiSceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
