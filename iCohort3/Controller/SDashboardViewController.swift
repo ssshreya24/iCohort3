@@ -46,6 +46,18 @@ class SDashboardViewController: UIViewController {
             collectionView.dropDelegate = self
             collectionView.dragInteractionEnabled = true
         }
+    
+        override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+            super.viewWillTransition(to: size, with: coordinator)
+        
+
+            coordinator.animate(alongsideTransition: { _ in
+
+                self.collectionView.collectionViewLayout.invalidateLayout()
+            
+            }, completion: { _ in
+        })
+    }
         
         private func applyBackgroundGradient() {
             let g = CAGradientLayer()
@@ -94,23 +106,34 @@ class SDashboardViewController: UIViewController {
         func collectionView(_ cv: UICollectionView,
                             layout cvl: UICollectionViewLayout,
                             sizeForItemAt indexPath: IndexPath) -> CGSize {
-            let padding: CGFloat = 16
-            let availableWidth = cv.frame.width - padding
-            let width = (availableWidth / 2) - 8
+            let cardSpacing: CGFloat = 4.0
+            let sectionEdgePadding: CGFloat = 8.0
+            let numberOfColumns: CGFloat = 2.0
+            let _: CGFloat = 100.0
+            let totalHorizontalSpacing = (sectionEdgePadding * 2) + (cardSpacing * (numberOfColumns - 1))
+            let availableWidth = cv.frame.width - totalHorizontalSpacing
+            let width = availableWidth / numberOfColumns
             return CGSize(width: width, height: 100)
         }
         
         func collectionView(_ cv: UICollectionView,
                             layout cvl: UICollectionViewLayout,
                             minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-            return 12
+            return 4.0
         }
         
         func collectionView(_ cv: UICollectionView,
                             layout cvl: UICollectionViewLayout,
                             minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-            return 12
+            return 8.0
         }
+        func collectionView(_ cv: UICollectionView,
+                                layout cvl: UICollectionViewLayout,
+                                insetForSectionAt section: Int) -> UIEdgeInsets {
+                // Must match the sectionEdgePadding used in the size calculation
+                let padding: CGFloat = 8.0
+                return UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+            }
     }
 
     // MARK: - Drag and Drop Reordering
