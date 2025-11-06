@@ -63,9 +63,24 @@ class LoginViewController: UIViewController {
     
     @IBAction func signInTapped(_ sender: UIButton) {
         print("Sign In button tapped")
-        if rememberMeButton.isSelected {
-                    print("Remember Me is checked. Save credentials/state.")
-                }
+            
+            // Example: simple validation
+            guard let email = emailTextField.text, !email.isEmpty,
+                  let password = passwordTextField.text, !password.isEmpty else {
+                print("Email or password cannot be empty")
+                return
+            }
+
+            // Navigate to Dashboard
+            let storyboard = UIStoryboard(name: "SDashboard", bundle: nil)
+            if let dashboardVC = storyboard.instantiateViewController(withIdentifier: "SDashboardVC") as? SDashboardViewController {
+                dashboardVC.modalPresentationStyle = .fullScreen
+                navigationController?.pushViewController(dashboardVC, animated: true)
+            }
+
+            if rememberMeButton.isSelected {
+                print("Remember Me is checked. Save credentials/state.")
+            }
     }
     
     

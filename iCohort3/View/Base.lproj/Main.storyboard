@@ -267,6 +267,7 @@
                                 <constraints>
                                     <constraint firstAttribute="height" constant="36" id="jDg-ww-KEH"/>
                                 </constraints>
+                                <color key="tintColor" name="Button Color"/>
                                 <state key="normal" title="Button"/>
                                 <buttonConfiguration key="configuration" style="tinted" image="chevron.left" catalog="system"/>
                                 <connections>
