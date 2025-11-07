@@ -32,6 +32,12 @@ class LoginViewController: UIViewController {
         
         // Do any additional setup after loading the view.
     }
+    @IBAction func forgotPasswordTapped(_ sender: UIButton) {
+        let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
+        otpVC.modalPresentationStyle = .fullScreen
+        present(otpVC, animated: true, completion: nil)
+    }
+
     
     @IBAction func signUpButtonTapped(_ sender: UIButton) {
             let signUpVC = SignUpViewController(nibName: "SignUpViewController", bundle: nil)
@@ -64,7 +70,11 @@ class LoginViewController: UIViewController {
             print("Already at the root screen.")
         }
     }
-    
+    @IBAction func confirmButtonTapped(_ sender: UIButton) {
+        let loginVC = LoginViewController(nibName: "LoginViewController", bundle: nil)
+        loginVC.modalPresentationStyle = .fullScreen
+        present(loginVC, animated: true, completion: nil)
+    }
     
     func setupUI() {
         
