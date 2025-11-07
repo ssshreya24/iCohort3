@@ -22,13 +22,12 @@ class StudentProfileViewController: UIViewController {
         @IBOutlet weak var personalMailField: UITextField!
         @IBOutlet weak var contactNumberField: UITextField!
 
-    @IBOutlet weak var profileCardView: UIView!
-    @IBOutlet weak var academicCardView: UIView!
-    @IBOutlet weak var personalCardView: UIView!
+    @IBOutlet weak var profileCardStack: UIStackView!
+    @IBOutlet weak var academicCardStack: UIStackView!
+    @IBOutlet weak var personalCardStack: UIStackView!
 
-        private var isEditingProfile = false
+    private var isEditingProfile = false
 
-        // Simple model to store data
         struct Profile {
             var firstName: String?
             var lastName: String?
@@ -41,86 +40,83 @@ class StudentProfileViewController: UIViewController {
 
         private var profile = Profile()
 
+        // MARK: - Lifecycle
         override func viewDidLoad() {
             super.viewDidLoad()
             setupInitialState()
         }
 
-        private func setupInitialState() {
-            // Disable all textfields
-            allTextFields.forEach { tf in
-                tf.isEnabled = false
-                tf.textColor = .systemBlue
-                tf.placeholder = "Not Set"
-            }
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            // Apply rounded backgrounds to your stack views
+            profileCardStack.applyRoundedBackground()
+            academicCardStack.applyRoundedBackground()
+            personalCardStack.applyRoundedBackground()
         }
-    private func setupCardViews() {
-        let cards = [profileCardView, academicCardView, personalCardView]
 
-        for card in cards {
-            guard let card = card else { continue }
-            card.layer.cornerRadius = 16
-            card.layer.masksToBounds = false
-            card.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
-            card.layer.shadowOffset = CGSize(width: 0, height: 3)
-            card.layer.shadowOpacity = 0.3
-            card.layer.shadowRadius = 6
-        }
-    }
-
-        // MARK: - All Fields
-        private var allTextFields: [UITextField] {
+        // MARK: - Setup
+        private var allTextFields: [UITextField?] {
             [firstNameField, lastNameField, departmentField, srmMailField,
              regNoField, personalMailField, contactNumberField]
         }
 
-        // MARK: - Edit/Save Button
+        private func setupInitialState() {
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.isEnabled = false
+                tf.placeholder = "Not Set"
+                tf.textColor = .systemBlue
+                tf.text = "Not Set"
+            }
+        }
+
+        // MARK: - Edit/Save
         @IBAction func editButtonTapped(_ sender: UIButton) {
             isEditingProfile.toggle()
 
             if isEditingProfile {
-                // Enable editing
                 editButton.setTitle("Save", for: .normal)
-                allTextFields.forEach { tf in
+                for tf in allTextFields.compactMap({ $0 }) {
                     tf.isEnabled = true
-                    tf.layer.borderWidth = 0.5
-                    tf.layer.borderColor = UIColor.lightGray.cgColor
-                    tf.layer.cornerRadius = 6
-                    tf.backgroundColor = UIColor.systemGray6
+                    tf.textColor = .label
+                    if tf.text == "Not Set" { tf.text = "" }
                 }
-                firstNameField.becomeFirstResponder()
-
+                firstNameField?.becomeFirstResponder()
             } else {
-                // Save data and disable editing
                 editButton.setTitle("Edit", for: .normal)
                 saveProfileData()
-                allTextFields.forEach { tf in
+                for tf in allTextFields.compactMap({ $0 }) {
                     tf.isEnabled = false
-                    tf.layer.borderWidth = 0
-                    tf.backgroundColor = .clear
+                    tf.textColor = tf.text?.isEmpty == true ? .systemBlue : .label
+                    if tf.text?.isEmpty == true { tf.text = "Not Set" }
                 }
             }
         }
 
-        // MARK: - Save Profile Data
+        // MARK: - Save
         private func saveProfileData() {
-            profile.firstName = firstNameField.text?.isEmpty == true ? nil : firstNameField.text
-            profile.lastName = lastNameField.text?.isEmpty == true ? nil : lastNameField.text
-            profile.department = departmentField.text?.isEmpty == true ? nil : departmentField.text
-            profile.srmMail = srmMailField.text?.isEmpty == true ? nil : srmMailField.text
-            profile.regNo = regNoField.text?.isEmpty == true ? nil : regNoField.text
-            profile.personalMail = personalMailField.text?.isEmpty == true ? nil : personalMailField.text
-            profile.contactNumber = contactNumberField.text?.isEmpty == true ? nil : contactNumberField.text
-
-            // Update placeholders for empty fields
-            allTextFields.forEach { tf in
-                if tf.text?.isEmpty ?? true {
-                    tf.placeholder = "Not Set"
-                    tf.textColor = .systemBlue
-                } else {
-                    tf.textColor = .label
-                }
-            }
+            profile.firstName = firstNameField?.text
+            profile.lastName = lastNameField?.text
+            profile.department = departmentField?.text
+            profile.srmMail = srmMailField?.text
+            profile.regNo = regNoField?.text
+            profile.personalMail = personalMailField?.text
+            profile.contactNumber = contactNumberField?.text
         }
     }
+extension UIStackView {
+    func applyRoundedBackground(_ color: UIColor = .systemBackground) {
+        // Remove old background if it exists (prevents duplicates)
+        if let oldBg = subviews.first(where: { $0.tag == 999 }) {
+            oldBg.removeFromSuperview()
+        }
+
+        let backgroundLayer = UIView(frame: bounds)
+        backgroundLayer.backgroundColor = color
+        backgroundLayer.layer.cornerRadius = 16
+        backgroundLayer.layer.masksToBounds = true
+        backgroundLayer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        backgroundLayer.tag = 999 // so we can identify it later
+        insertSubview(backgroundLayer, at: 0)
+    }
+}
 
