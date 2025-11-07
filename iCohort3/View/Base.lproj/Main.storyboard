@@ -224,6 +224,7 @@
                                         <state key="normal" title="Button"/>
                                         <buttonConfiguration key="configuration" style="plain" image="eye" catalog="system"/>
                                         <connections>
+                                            <action selector="signInTapped:" destination="UV5-7Z-VGu" eventType="touchUpInside" id="eIF-Ih-W8w"/>
                                             <action selector="togglePasswordVisibility:" destination="UV5-7Z-VGu" eventType="touchUpInside" id="MtO-cR-LBg"/>
                                         </connections>
                                     </button>
