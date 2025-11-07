@@ -18,12 +18,12 @@ class SignUpViewController: UIViewController {
     
     private func setupBackButton() {
             let backButton = UIButton(type: .system)
-            let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+            let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
             let image = UIImage(systemName: "chevron.left", withConfiguration: config)
             backButton.setImage(image, for: .normal)
             
-            backButton.tintColor = UIColor.systemBlue
-            backButton.backgroundColor = UIColor(red: 196/255, green: 220/255, blue: 247/255, alpha: 1.0)
+            backButton.tintColor = UIColor.black
+        backButton.backgroundColor = UIColor.white
             backButton.layer.cornerRadius = 20
             backButton.layer.masksToBounds = true
             backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)

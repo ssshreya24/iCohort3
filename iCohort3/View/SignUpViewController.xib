@@ -171,7 +171,10 @@
                     </constraints>
                 </view>
                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="8PO-7j-O26">
-                    <rect key="frame" x="40" y="713.33333333333337" width="313" height="35"/>
+                    <rect key="frame" x="40" y="713.33333333333337" width="313" height="50"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="50" id="aSs-iO-ueG"/>
+                    </constraints>
                     <state key="normal" title="Button"/>
                     <buttonConfiguration key="configuration" style="filled" title="Sign Up">
                         <color key="baseBackgroundColor" name="Primary"/>
