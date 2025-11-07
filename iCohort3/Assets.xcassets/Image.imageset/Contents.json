@@ -1,22 +1,6 @@
 {
   "images" : [
-    {
-<<<<<<< HEAD
-      "filename" : "Image.png",
-=======
-      "filename" : "Screenshot 2025-10-31 at 23.20.16 17.32.56.png",
->>>>>>> Pre
-      "idiom" : "universal",
-      "scale" : "1x"
-    },
-    {
-      "idiom" : "universal",
-      "scale" : "2x"
-    },
-    {
-      "idiom" : "universal",
-      "scale" : "3x"
-    }
+
   ],
   "info" : {
     "author" : "xcode",
