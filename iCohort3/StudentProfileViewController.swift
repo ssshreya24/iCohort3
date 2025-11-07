@@ -11,7 +11,8 @@ class StudentProfileViewController: UIViewController {
 
    
 
-        // MARK: - Outlets
+    @IBOutlet weak var backButton: UIButton!
+    // MARK: - Outlets
         @IBOutlet weak var editButton: UIButton!
 
         @IBOutlet weak var firstNameField: UITextField!
@@ -68,6 +69,15 @@ class StudentProfileViewController: UIViewController {
                 tf.text = "Not Set"
             }
         }
+    @IBAction func backButtonTapped(_ sender: UIButton) {
+        if let nav = navigationController {
+            // If this VC was pushed (via navigation)
+            nav.popViewController(animated: true)
+        } else {
+            // If it was presented modally
+            dismiss(animated: true, completion: nil)
+        }
+    }
 
         // MARK: - Edit/Save
         @IBAction func editButtonTapped(_ sender: UIButton) {

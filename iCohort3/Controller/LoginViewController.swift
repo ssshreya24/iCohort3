@@ -32,6 +32,13 @@ class LoginViewController: UIViewController {
         
         // Do any additional setup after loading the view.
     }
+    
+    @IBAction func signUpButtonTapped(_ sender: UIButton) {
+            let signUpVC = SignUpViewController(nibName: "SignUpViewController", bundle: nil)
+               signUpVC.modalPresentationStyle = .fullScreen
+               present(signUpVC, animated: true, completion: nil)
+        }
+    
     @IBAction func togglePasswordVisibility(_ sender: UIButton) {
         passwordTextField.isSecureTextEntry.toggle()
         

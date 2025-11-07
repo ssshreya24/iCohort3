@@ -19,7 +19,7 @@
             <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Image 1" translatesAutoresizingMaskIntoConstraints="NO" id="Wdx-9B-a4d">
+                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Image 2" translatesAutoresizingMaskIntoConstraints="NO" id="Wdx-9B-a4d">
                     <rect key="frame" x="76" y="128" width="240" height="128"/>
                     <constraints>
                         <constraint firstAttribute="height" constant="128" id="bHy-pJ-E2N"/>
@@ -222,7 +222,7 @@
         </view>
     </objects>
     <resources>
-        <image name="Image 1" width="380" height="242"/>
+        <image name="Image 2" width="356" height="334"/>
         <image name="envelope" catalog="system" width="128" height="85"/>
         <image name="lock" catalog="system" width="111" height="128"/>
         <image name="person.fill" catalog="system" width="128" height="120"/>
