@@ -12,9 +12,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
         let window = UIWindow(windowScene: windowScene)
-        let mainVC = AnnouncementsViewController(nibName: "AnnouncementViewController", bundle: nil)
-        let navController = UINavigationController(rootViewController: mainVC)
-        window.rootViewController = navController
+
+        // ✅ Load your Tab Bar
+        let tabBarController = MainTabBarViewController()
+        window.rootViewController = tabBarController
+
         self.window = window
         window.makeKeyAndVisible()
     }

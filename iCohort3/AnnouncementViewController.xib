@@ -59,6 +59,15 @@
                     <color key="sectionIndexBackgroundColor" name="Color"/>
                     <color key="sectionIndexTrackingBackgroundColor" name="Color"/>
                 </tableView>
+                <tabBar contentMode="scaleToFill" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="vMs-Ld-MXK">
+                    <rect key="frame" x="0.0" y="673" width="393" height="49"/>
+                    <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <items>
+                        <tabBarItem image="horn" id="o6b-Hi-uFr"/>
+                        <tabBarItem systemItem="more" id="KtD-Xb-HxY"/>
+                    </items>
+                </tabBar>
             </subviews>
             <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
             <color key="backgroundColor" name="Color"/>
@@ -82,6 +91,7 @@
         </view>
     </objects>
     <resources>
+        <image name="horn" width="128" height="128"/>
         <image name="magnifyingglass" catalog="system" width="128" height="117"/>
         <namedColor name="Color">
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
