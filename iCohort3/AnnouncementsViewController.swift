@@ -15,10 +15,10 @@ class AnnouncementsViewController: UIViewController {
     @IBOutlet weak var tableView: UITableView!
 
     private var announcements: [Announcement] = [] {
-        didSet { updateUI() }
-    }
+           didSet { updateUI() }
+       }
 
-    // MARK: - Search UI Elements
+       // MARK: - Search UI Elements
        private var filteredAnnouncements: [Announcement] = []
        private var searchContainer: UIView!
        private var searchField: UITextField!
@@ -59,10 +59,11 @@ class AnnouncementsViewController: UIViewController {
 
            // Container
            searchContainer.translatesAutoresizingMaskIntoConstraints = false
-           searchContainer.backgroundColor = UIColor.init(white: 4, alpha: 1)
+           searchContainer.backgroundColor = UIColor.white
            searchContainer.layer.cornerRadius = 20
            searchContainer.clipsToBounds = true
            searchContainer.alpha = 0
+           searchContainer.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
            view.addSubview(searchContainer)
 
            // Icon
@@ -85,13 +86,13 @@ class AnnouncementsViewController: UIViewController {
            closeButton.addTarget(self, action: #selector(hideSearchField), for: .touchUpInside)
            searchContainer.addSubview(closeButton)
 
-           // Constraints - Start ABOVE the screen (hidden)
-           searchContainerTopConstraint = searchContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 0)
+           // Constraints - Align with search button's Y position
+           searchContainerTopConstraint = searchContainer.centerYAnchor.constraint(equalTo: searchButton.centerYAnchor)
 
            NSLayoutConstraint.activate([
                searchContainerTopConstraint,
+               searchContainer.trailingAnchor.constraint(equalTo: searchButton.trailingAnchor),
                searchContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-               searchContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
                searchContainer.heightAnchor.constraint(equalToConstant: 45),
 
                searchIcon.leadingAnchor.constraint(equalTo: searchContainer.leadingAnchor, constant: 12),
@@ -112,6 +113,7 @@ class AnnouncementsViewController: UIViewController {
            view.layoutIfNeeded()
        }
 
+
     // MARK: - Actions
     @IBAction func searchButtonTapped(_ sender: UIButton) {
         if searchVisible {
@@ -124,38 +126,23 @@ class AnnouncementsViewController: UIViewController {
     private func showSearchField() {
             searchVisible = true
             
-            // Deactivate the old constraint
-            searchContainerTopConstraint.isActive = false
-            
-            // Create new constraint to drop down into view
-            searchContainerTopConstraint = searchContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12)
-            searchContainerTopConstraint.isActive = true
-            
-            // Animate the dropdown with spring effect
-            UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: .curveEaseOut, animations: {
+            // Magical expansion animation from the search button
+            UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: .curveEaseOut, animations: {
                 self.searchContainer.alpha = 1
-                self.view.layoutIfNeeded()
+                self.searchContainer.transform = .identity
             }, completion: { _ in
                 self.searchField.becomeFirstResponder()
             })
         }
-    
 
-    @objc private func hideSearchField() {
+        @objc private func hideSearchField() {
             searchVisible = false
             searchField.resignFirstResponder()
             
-            // Deactivate the old constraint
-            searchContainerTopConstraint.isActive = false
-            
-            // Create new constraint to slide back up
-            searchContainerTopConstraint = searchContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 0)
-            searchContainerTopConstraint.isActive = true
-            
-            // Animate the slide up
-            UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseIn, animations: {
+            // Magical collapse animation back to the search button
+            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0, options: .curveEaseIn, animations: {
                 self.searchContainer.alpha = 0
-                self.view.layoutIfNeeded()
+                self.searchContainer.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
             }, completion: { _ in
                 self.searchField.text = ""
                 self.filteredAnnouncements.removeAll()
@@ -179,60 +166,56 @@ class AnnouncementsViewController: UIViewController {
             tableView.reloadData()
         }
 
-
-    private func updateUI() {
-        let empty = announcements.isEmpty
-        placeholderLabel.isHidden = !empty
-        tableView.isHidden = empty
-        titleLabel.isHidden = false
-        searchButton.isHidden = false
-        if !empty { tableView.reloadData() }
-    }
-
-    // Sample data for testing
-    func addSample() {
-        let a = Announcement(
-            id: UUID(),
-            title: "DEI Workshop",
-            body: "The Workshop will be conducted in Bel 5 floor for the next two days",
-            tag: "Event",
-            createdAt: Date(),
-            author: "Arshad Sheikh"
-        )
-        announcements.insert(a, at: 0)
-    }
-}
-
-// MARK: - Table data source
-extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegate {
-    
-    func numberOfSections(in tableView: UITableView) -> Int {
-        return 1
-    }
-
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return filteredAnnouncements.isEmpty ? announcements.count : filteredAnnouncements.count
-    }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        // Make sure to use the same identifier that you set in the XIB
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "AnnouncementCell", for: indexPath) as? AnnouncementCell else {
-            return UITableViewCell()
+        private func updateUI() {
+            let empty = announcements.isEmpty
+            placeholderLabel.isHidden = !empty
+            tableView.isHidden = empty
+            titleLabel.isHidden = false
+            searchButton.isHidden = false
+            if !empty { tableView.reloadData() }
         }
 
-        let announcement = filteredAnnouncements.isEmpty ? announcements[indexPath.row] : filteredAnnouncements[indexPath.row]
-        cell.configure(with: announcement)
-        cell.selectionStyle = .none
-        return cell
+        // Sample data for testing
+        func addSample() {
+            let a = Announcement(
+                id: UUID(),
+                title: "DEI Workshop",
+                body: "The Workshop will be conducted in Bel 5 floor for the next two days",
+                tag: "Event",
+                createdAt: Date(),
+                author: "Arshad Sheikh"
+            )
+            announcements.insert(a, at: 0)
+        }
     }
 
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        // You can open a detail view here if needed
-    }
+    // MARK: - Table data source
+    extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegate {
+        
+        func numberOfSections(in tableView: UITableView) -> Int {
+            return 1
+        }
 
-    // Optional: spacing between cells (padding like in your screenshot)
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
+        func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+            return filteredAnnouncements.isEmpty ? announcements.count : filteredAnnouncements.count
+        }
+
+        func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: "AnnouncementCell", for: indexPath) as? AnnouncementCell else {
+                return UITableViewCell()
+            }
+
+            let announcement = filteredAnnouncements.isEmpty ? announcements[indexPath.row] : filteredAnnouncements[indexPath.row]
+            cell.configure(with: announcement)
+            cell.selectionStyle = .none
+            return cell
+        }
+
+        func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+            tableView.deselectRow(at: indexPath, animated: true)
+        }
+
+        func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+            return UITableView.automaticDimension
+        }
     }
-}
