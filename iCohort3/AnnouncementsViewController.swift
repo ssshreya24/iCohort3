@@ -19,142 +19,166 @@ class AnnouncementsViewController: UIViewController {
     }
 
     // MARK: - Search UI Elements
-    private var filteredAnnouncements: [Announcement] = []
-    private var searchContainer: UIView!
-    private var searchField: UITextField!
-    private var searchVisible = false
-    private let searchIcon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
-    private let closeButton = UIButton(type: .system)
-    private var searchContainerTopConstraint: NSLayoutConstraint!
+       private var filteredAnnouncements: [Announcement] = []
+       private var searchContainer: UIView!
+       private var searchField: UITextField!
+       private var searchVisible = false
+       private let searchIcon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
+       private let closeButton = UIButton(type: .system)
+       private var searchContainerTopConstraint: NSLayoutConstraint!
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        setupViews()
-        setupTableView()
-        setupSearchUI()
-    
+       override func viewDidLoad() {
+           super.viewDidLoad()
+           setupViews()
+           setupTableView()
+           setupSearchUI()
 
-        announcements = [] // empty state
+           announcements = []
 
-        //DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.addSample() }
-    }
+           DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.addSample() }
+       }
 
-    private func setupViews() {
+       private func setupViews() {
+           searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
+           searchButton.tintColor = .label
+       }
 
-        searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
-        searchButton.tintColor = .label
-    }
+       private func setupTableView() {
+           tableView.dataSource = self
+           tableView.delegate = self
+           let nib = UINib(nibName: "AnnouncementTableViewCell", bundle: nil)
+           tableView.register(nib, forCellReuseIdentifier: "AnnouncementCell")
+           tableView.rowHeight = UITableView.automaticDimension
+           tableView.tableFooterView = UIView()
+       }
 
-    private func setupTableView() {
-        tableView.dataSource = self
-        tableView.delegate = self
-        let nib = UINib(nibName: "AnnouncementTableViewCell", bundle: nil)
-        tableView.register(nib, forCellReuseIdentifier: "AnnouncementCell")
-        tableView.rowHeight = UITableView.automaticDimension
-        tableView.tableFooterView = UIView()
-    }
+       // MARK: - Setup Search Container
+       private func setupSearchUI() {
+           searchContainer = UIView()
+           searchField = UITextField()
 
-    // MARK: - Setup Search Container
-    private func setupSearchUI() {
-        searchContainer = UIView()
-        searchField = UITextField()
+           // Container
+           searchContainer.translatesAutoresizingMaskIntoConstraints = false
+           searchContainer.backgroundColor = UIColor.init(white: 4, alpha: 1)
+           searchContainer.layer.cornerRadius = 20
+           searchContainer.clipsToBounds = true
+           searchContainer.alpha = 0
+           view.addSubview(searchContainer)
 
-        // Container
-        searchContainer.translatesAutoresizingMaskIntoConstraints = false
-        searchContainer.backgroundColor = UIColor.white
-        searchContainer.layer.cornerRadius = 20
-        searchContainer.heightAnchor.constraint(lessThanOrEqualToConstant: 50).isActive = true
-        searchContainer.clipsToBounds = true
-        searchContainer.isHidden = true
-        view.addSubview(searchContainer)
+           // Icon
+           searchIcon.tintColor = .systemGray
+           searchIcon.translatesAutoresizingMaskIntoConstraints = false
+           searchContainer.addSubview(searchIcon)
 
-        // Icon
-        searchIcon.tintColor = .systemGray
-        searchIcon.translatesAutoresizingMaskIntoConstraints = false
-        searchContainer.addSubview(searchIcon)
+           // Search field
+           searchField.placeholder = "Search"
+           searchField.borderStyle = .none
+           searchField.translatesAutoresizingMaskIntoConstraints = false
+           searchField.addTarget(self, action: #selector(searchTextChanged), for: .editingChanged)
+           searchContainer.addSubview(searchField)
 
-        // Search field
-        searchField.placeholder = "Search"
-        searchField.borderStyle = .none
-        searchField.translatesAutoresizingMaskIntoConstraints = false
-        searchField.addTarget(self, action: #selector(searchTextChanged), for: .editingChanged)
-        searchContainer.addSubview(searchField)
+           // Close button
+           let closeImage = UIImage(systemName: "xmark.circle.fill")
+           closeButton.setImage(closeImage, for: .normal)
+           closeButton.tintColor = .systemGray
+           closeButton.translatesAutoresizingMaskIntoConstraints = false
+           closeButton.addTarget(self, action: #selector(hideSearchField), for: .touchUpInside)
+           searchContainer.addSubview(closeButton)
 
-        // Close button
-        let closeImage = UIImage(systemName: "xmark.circle.fill")
-        closeButton.setImage(closeImage, for: .normal)
-        closeButton.tintColor = .systemGray
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.addTarget(self, action: #selector(hideSearchField), for: .touchUpInside)
-        searchContainer.addSubview(closeButton)
+           // Constraints - Start ABOVE the screen (hidden)
+           searchContainerTopConstraint = searchContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 0)
 
-        // Constraints
-        searchContainerTopConstraint = searchContainer.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12)
+           NSLayoutConstraint.activate([
+               searchContainerTopConstraint,
+               searchContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+               searchContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+               searchContainer.heightAnchor.constraint(equalToConstant: 45),
 
-        NSLayoutConstraint.activate([
-            searchContainerTopConstraint,
-            searchContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            searchContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            searchContainer.heightAnchor.constraint(equalToConstant: 45),
+               searchIcon.leadingAnchor.constraint(equalTo: searchContainer.leadingAnchor, constant: 12),
+               searchIcon.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
+               searchIcon.widthAnchor.constraint(equalToConstant: 20),
+               searchIcon.heightAnchor.constraint(equalToConstant: 20),
 
-            searchIcon.leadingAnchor.constraint(equalTo: searchContainer.leadingAnchor, constant: 12),
-            searchIcon.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
-            searchIcon.widthAnchor.constraint(equalToConstant: 20),
-            searchIcon.heightAnchor.constraint(equalToConstant: 20),
+               closeButton.trailingAnchor.constraint(equalTo: searchContainer.trailingAnchor, constant: -12),
+               closeButton.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
+               closeButton.widthAnchor.constraint(equalToConstant: 24),
+               closeButton.heightAnchor.constraint(equalToConstant: 24),
 
-            closeButton.trailingAnchor.constraint(equalTo: searchContainer.trailingAnchor, constant: -12),
-            closeButton.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor),
-            closeButton.widthAnchor.constraint(equalToConstant: 24),
-            closeButton.heightAnchor.constraint(equalToConstant: 24),
-
-            searchField.leadingAnchor.constraint(equalTo: searchIcon.trailingAnchor, constant: 8),
-            searchField.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
-            searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor)
-        ])
-    }
+               searchField.leadingAnchor.constraint(equalTo: searchIcon.trailingAnchor, constant: 8),
+               searchField.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+               searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor)
+           ])
+           
+           view.layoutIfNeeded()
+       }
 
     // MARK: - Actions
     @IBAction func searchButtonTapped(_ sender: UIButton) {
-        searchVisible.toggle()
-
-        UIView.animate(withDuration: 0.3, animations: {
-            self.searchContainer.isHidden = !self.searchVisible
-            self.searchContainer.alpha = self.searchVisible ? 1 : 0
-        }, completion: { _ in
-            if self.searchVisible {
-                self.searchField.becomeFirstResponder()
-            } else {
-                self.hideSearchField()
+        if searchVisible {
+                    hideSearchField()
+                } else {
+                    showSearchField()
+                }
             }
-        })
-    }
+    
+    private func showSearchField() {
+            searchVisible = true
+            
+            // Deactivate the old constraint
+            searchContainerTopConstraint.isActive = false
+            
+            // Create new constraint to drop down into view
+            searchContainerTopConstraint = searchContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12)
+            searchContainerTopConstraint.isActive = true
+            
+            // Animate the dropdown with spring effect
+            UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: .curveEaseOut, animations: {
+                self.searchContainer.alpha = 1
+                self.view.layoutIfNeeded()
+            }, completion: { _ in
+                self.searchField.becomeFirstResponder()
+            })
+        }
+    
 
     @objc private func hideSearchField() {
-        searchVisible = false
-        UIView.animate(withDuration: 0.3) {
-            self.searchContainer.isHidden = true
-            self.searchField.text = ""
-            self.filteredAnnouncements.removeAll()
-            self.tableView.reloadData()
+            searchVisible = false
+            searchField.resignFirstResponder()
+            
+            // Deactivate the old constraint
+            searchContainerTopConstraint.isActive = false
+            
+            // Create new constraint to slide back up
+            searchContainerTopConstraint = searchContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 0)
+            searchContainerTopConstraint.isActive = true
+            
+            // Animate the slide up
+            UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseIn, animations: {
+                self.searchContainer.alpha = 0
+                self.view.layoutIfNeeded()
+            }, completion: { _ in
+                self.searchField.text = ""
+                self.filteredAnnouncements.removeAll()
+                self.tableView.reloadData()
+            })
         }
-        searchField.resignFirstResponder()
-    }
 
-    @objc private func searchTextChanged(_ textField: UITextField) {
-        guard let text = textField.text?.lowercased(), !text.isEmpty else {
-            filteredAnnouncements = []
+        @objc private func searchTextChanged(_ textField: UITextField) {
+            guard let text = textField.text?.lowercased(), !text.isEmpty else {
+                filteredAnnouncements = []
+                tableView.reloadData()
+                return
+            }
+
+            filteredAnnouncements = announcements.filter {
+                $0.title.lowercased().contains(text) ||
+                $0.body.lowercased().contains(text) ||
+                ($0.tag?.lowercased().contains(text) ?? false) ||
+                $0.author.lowercased().contains(text)
+            }
             tableView.reloadData()
-            return
         }
 
-        filteredAnnouncements = announcements.filter {
-            $0.title.lowercased().contains(text) ||
-            $0.body.lowercased().contains(text) ||
-            ($0.tag?.lowercased().contains(text) ?? false) ||
-            $0.author.lowercased().contains(text)
-        }
-        tableView.reloadData()
-    }
 
     private func updateUI() {
         let empty = announcements.isEmpty
