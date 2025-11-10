@@ -26,7 +26,7 @@ class NotStartedViewController: UIViewController {
         override func viewDidLoad() {
             super.viewDidLoad()
             
-            
+            applyBackgroundGradient()
             // Add empty label
             view.addSubview(emptyLabel)
             NSLayoutConstraint.activate([
@@ -47,6 +47,24 @@ class NotStartedViewController: UIViewController {
                 self.loadTasks()
             }
         }
+    private func applyBackgroundGradient() {
+                let g = CAGradientLayer()
+                g.frame = view.bounds
+                g.colors = [
+                    UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor, // top blue
+                    UIColor(white: 0.95, alpha: 1).cgColor // bottom light gray
+                ]
+                g.startPoint = CGPoint(x: 0.5, y: 0)
+                g.endPoint = CGPoint(x: 0.5, y: 1)
+                view.layer.insertSublayer(g, at: 0)
+            }
+            
+            override func viewDidLayoutSubviews() {
+                super.viewDidLayoutSubviews()
+                if let g = view.layer.sublayers?.first as? CAGradientLayer {
+                    g.frame = view.bounds
+                }
+            }
 
         func loadTasks() {
             // Add your task
