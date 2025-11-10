@@ -30,7 +30,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		55F004262EBA004A00C4CE12 /* Exceptions for "iCohort3" folder in "iCohort3" target */ = {
+		59E7D6D12EC20B100040F270 /* Exceptions for "iCohort3" folder in "iCohort3" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -40,14 +40,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		55F004002EBA004900C4CE12 /* iCohort3 */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				55F004262EBA004A00C4CE12 /* Exceptions for "iCohort3" folder in "iCohort3" target */,
-			);
-			path = iCohort3;
-			sourceTree = "<group>";
-		};
 		55F004172EBA004A00C4CE12 /* iCohort3Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = iCohort3Tests;
@@ -56,6 +48,14 @@
 		55F004212EBA004A00C4CE12 /* iCohort3UITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = iCohort3UITests;
+			sourceTree = "<group>";
+		};
+		59E7D6C42EC20ACD0040F270 /* iCohort3 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				59E7D6D12EC20B100040F270 /* Exceptions for "iCohort3" folder in "iCohort3" target */,
+			);
+			path = iCohort3;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -88,7 +88,7 @@
 		55F003F52EBA004900C4CE12 = {
 			isa = PBXGroup;
 			children = (
-				55F004002EBA004900C4CE12 /* iCohort3 */,
+				59E7D6C42EC20ACD0040F270 /* iCohort3 */,
 				55F004172EBA004A00C4CE12 /* iCohort3Tests */,
 				55F004212EBA004A00C4CE12 /* iCohort3UITests */,
 				55F003FF2EBA004900C4CE12 /* Products */,
@@ -121,7 +121,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				55F004002EBA004900C4CE12 /* iCohort3 */,
+				59E7D6C42EC20ACD0040F270 /* iCohort3 */,
 			);
 			name = iCohort3;
 			packageProductDependencies = (
