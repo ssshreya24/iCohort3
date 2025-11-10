@@ -38,6 +38,9 @@ class AnnouncementsViewController: UIViewController {
 
            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.addSample() }
            navigationController?.isNavigationBarHidden = true
+           self.extendedLayoutIncludesOpaqueBars = true
+           self.edgesForExtendedLayout = [.bottom, .top]
+           
        }
 
        private func setupViews() {

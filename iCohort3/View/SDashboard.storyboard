@@ -237,6 +237,7 @@
                         <outlet property="cardView2" destination="T55-4B-XTG" id="RcJ-7b-aeG"/>
                         <outlet property="collectionView" destination="L5V-EG-OUj" id="KUP-xD-MeZ"/>
                         <outlet property="editButton" destination="pcc-BF-Rwy" id="AGe-W2-yEl"/>
+                        <outlet property="tableView" destination="Olb-95-I2y" id="obl-Rf-vb6"/>
                         <outlet property="taskCard" destination="FFp-f5-vgo" id="wIM-2l-p1K"/>
                     </connections>
                 </viewController>

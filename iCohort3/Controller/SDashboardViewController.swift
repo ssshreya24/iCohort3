@@ -14,6 +14,7 @@ class SDashboardViewController: UIViewController {
     @IBOutlet weak var cardView: UIView!
     @IBOutlet weak var taskCard: UIView!
     
+    @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var editButton: UIButton!
     
     var isEditingMode = false
@@ -45,6 +46,13 @@ class SDashboardViewController: UIViewController {
             collectionView.dragDelegate = self
             collectionView.dropDelegate = self
             collectionView.dragInteractionEnabled = true
+            
+            self.extendedLayoutIncludesOpaqueBars = true
+            self.edgesForExtendedLayout = [.bottom, .top]
+            
+            tableView.contentInsetAdjustmentBehavior = .never
+
+            
         }
     
         override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
