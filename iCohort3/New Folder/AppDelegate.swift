@@ -1,12 +1,11 @@
-//
+
 //  AppDelegate.swift
 //  iCohort3
 //
-//  Created by Shreya on 07/11/25.
-//
+
 import UIKit
 
-@main
+
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
@@ -32,4 +31,3 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
 }
-

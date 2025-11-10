@@ -1,12 +1,11 @@
-//
+
 //  SceneDelegate.swift
 //  iCohort3
 //
-//  Created by Shreya on 07/11/25.
-//
+
 import UIKit
 
-class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+class sceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
 
