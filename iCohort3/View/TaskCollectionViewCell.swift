@@ -52,9 +52,6 @@ class TaskCollectionViewCell: UICollectionViewCell {
         titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
         descriptionLabel.font = UIFont.systemFont(ofSize: 14)
         descriptionLabel.textColor = .darkGray
-        
-        dueDateLabel.font = UIFont.systemFont(ofSize: 13)
-        dueDateLabel.textColor = .systemGray
     }
     
     func configure(title: String, desc: String, image: UIImage?, name: String) {
