@@ -36,6 +36,7 @@ class AnnouncementsViewController: UIViewController {
            announcements = []
 
            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.addSample() }
+           navigationController?.isNavigationBarHidden = true
        }
 
        private func setupViews() {
@@ -65,6 +66,7 @@ class AnnouncementsViewController: UIViewController {
            searchContainer.alpha = 0
            searchContainer.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
            view.addSubview(searchContainer)
+           view.bringSubviewToFront(searchButton) 
 
            // Icon
            searchIcon.tintColor = .systemGray
@@ -124,98 +126,103 @@ class AnnouncementsViewController: UIViewController {
             }
     
     private func showSearchField() {
-            searchVisible = true
-            
-            // Magical expansion animation from the search button
-            UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: .curveEaseOut, animations: {
-                self.searchContainer.alpha = 1
-                self.searchContainer.transform = .identity
-            }, completion: { _ in
-                self.searchField.becomeFirstResponder()
-            })
-        }
+                searchVisible = true
+                
+                // Magical expansion animation from the search button
+                UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.5, options: .curveEaseOut, animations: {
+                    self.searchContainer.alpha = 1
+                    self.searchContainer.transform = .identity
+                    self.searchButton.alpha = 0
+                }, completion: { _ in
+                    self.searchButton.isHidden = true
+                    self.searchField.becomeFirstResponder()
+                })
+            }
 
-        @objc private func hideSearchField() {
-            searchVisible = false
-            searchField.resignFirstResponder()
-            
-            // Magical collapse animation back to the search button
-            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0, options: .curveEaseIn, animations: {
-                self.searchContainer.alpha = 0
-                self.searchContainer.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
-            }, completion: { _ in
-                self.searchField.text = ""
-                self.filteredAnnouncements.removeAll()
-                self.tableView.reloadData()
-            })
-        }
+            @objc private func hideSearchField() {
+                searchVisible = false
+                searchField.resignFirstResponder()
+                
+                // Show search button before starting animation
+                searchButton.isHidden = false
+                
+                // Magical collapse animation back to the search button
+                UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0, options: .curveEaseIn, animations: {
+                    self.searchContainer.alpha = 0
+                    self.searchContainer.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
+                    self.searchButton.alpha = 1
+                }, completion: { _ in
+                    self.searchField.text = ""
+                    self.filteredAnnouncements.removeAll()
+                    self.tableView.reloadData()
+                })
+            }
 
-        @objc private func searchTextChanged(_ textField: UITextField) {
-            guard let text = textField.text?.lowercased(), !text.isEmpty else {
-                filteredAnnouncements = []
+            @objc private func searchTextChanged(_ textField: UITextField) {
+                guard let text = textField.text?.lowercased(), !text.isEmpty else {
+                    filteredAnnouncements = []
+                    tableView.reloadData()
+                    return
+                }
+
+                filteredAnnouncements = announcements.filter {
+                    $0.title.lowercased().contains(text) ||
+                    $0.body.lowercased().contains(text) ||
+                    ($0.tag?.lowercased().contains(text) ?? false) ||
+                    $0.author.lowercased().contains(text)
+                }
                 tableView.reloadData()
-                return
             }
 
-            filteredAnnouncements = announcements.filter {
-                $0.title.lowercased().contains(text) ||
-                $0.body.lowercased().contains(text) ||
-                ($0.tag?.lowercased().contains(text) ?? false) ||
-                $0.author.lowercased().contains(text)
-            }
-            tableView.reloadData()
-        }
-
-        private func updateUI() {
-            let empty = announcements.isEmpty
-            placeholderLabel.isHidden = !empty
-            tableView.isHidden = empty
-            titleLabel.isHidden = false
-            searchButton.isHidden = false
-            if !empty { tableView.reloadData() }
-        }
-
-        // Sample data for testing
-        func addSample() {
-            let a = Announcement(
-                id: UUID(),
-                title: "DEI Workshop",
-                body: "The Workshop will be conducted in Bel 5 floor for the next two days",
-                tag: "Event",
-                createdAt: Date(),
-                author: "Arshad Sheikh"
-            )
-            announcements.insert(a, at: 0)
-        }
-    }
-
-    // MARK: - Table data source
-    extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegate {
-        
-        func numberOfSections(in tableView: UITableView) -> Int {
-            return 1
-        }
-
-        func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-            return filteredAnnouncements.isEmpty ? announcements.count : filteredAnnouncements.count
-        }
-
-        func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-            guard let cell = tableView.dequeueReusableCell(withIdentifier: "AnnouncementCell", for: indexPath) as? AnnouncementCell else {
-                return UITableViewCell()
+            private func updateUI() {
+                let empty = announcements.isEmpty
+                placeholderLabel.isHidden = !empty
+                tableView.isHidden = empty
+                searchButton.isHidden = false
+                if !empty { tableView.reloadData() }
             }
 
-            let announcement = filteredAnnouncements.isEmpty ? announcements[indexPath.row] : filteredAnnouncements[indexPath.row]
-            cell.configure(with: announcement)
-            cell.selectionStyle = .none
-            return cell
+            // Sample data for testing
+            func addSample() {
+                let a = Announcement(
+                    id: UUID(),
+                    title: "DEI Workshop",
+                    body: "The Workshop will be conducted in Bel 5 floor for the next two days",
+                    tag: "Event",
+                    createdAt: Date(),
+                    author: "Arshad Sheikh"
+                )
+                announcements.insert(a, at: 0)
+            }
         }
 
-        func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-            tableView.deselectRow(at: indexPath, animated: true)
-        }
+        // MARK: - Table data source
+        extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegate {
+            
+            func numberOfSections(in tableView: UITableView) -> Int {
+                return 1
+            }
 
-        func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-            return UITableView.automaticDimension
+            func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+                return filteredAnnouncements.isEmpty ? announcements.count : filteredAnnouncements.count
+            }
+
+            func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+                guard let cell = tableView.dequeueReusableCell(withIdentifier: "AnnouncementCell", for: indexPath) as? AnnouncementCell else {
+                    return UITableViewCell()
+                }
+
+                let announcement = filteredAnnouncements.isEmpty ? announcements[indexPath.row] : filteredAnnouncements[indexPath.row]
+                cell.configure(with: announcement)
+                cell.selectionStyle = .none
+                return cell
+            }
+
+            func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+                tableView.deselectRow(at: indexPath, animated: true)
+            }
+
+            func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+                return UITableView.automaticDimension
+            }
         }
-    }

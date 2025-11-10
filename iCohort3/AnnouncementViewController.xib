@@ -65,15 +65,16 @@
             <color key="tintColor" name="Color"/>
             <constraints>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="eFc-ui-7cf" secondAttribute="trailing" constant="20" id="14u-Da-EAU"/>
+                <constraint firstItem="eFc-ui-7cf" firstAttribute="top" secondItem="i5M-Pr-FkT" secondAttribute="top" constant="78" id="EGO-cX-QHv"/>
                 <constraint firstItem="4X6-FT-DIM" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" constant="20" id="ETt-tx-pIj"/>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="j2w-ss-lbU" secondAttribute="trailing" id="Okh-hS-06C"/>
                 <constraint firstAttribute="bottom" secondItem="j2w-ss-lbU" secondAttribute="bottom" id="SsP-g5-i6y"/>
-                <constraint firstItem="4X6-FT-DIM" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" constant="16" id="Xd6-lv-nIg"/>
                 <constraint firstItem="2XL-du-MK8" firstAttribute="top" secondItem="4X6-FT-DIM" secondAttribute="bottom" constant="20" id="XtH-EG-qeK"/>
                 <constraint firstItem="j2w-ss-lbU" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="YKF-db-Mn8"/>
                 <constraint firstItem="2XL-du-MK8" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" constant="20" id="a3H-Jb-Co4"/>
                 <constraint firstItem="2XL-du-MK8" firstAttribute="centerX" secondItem="i5M-Pr-FkT" secondAttribute="centerX" id="bRP-QY-Vf5"/>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="4X6-FT-DIM" secondAttribute="trailing" constant="60" id="edy-DJ-TDR"/>
+                <constraint firstItem="4X6-FT-DIM" firstAttribute="top" secondItem="eFc-ui-7cf" secondAttribute="bottom" constant="12" id="h1T-j6-N7p"/>
                 <constraint firstItem="eFc-ui-7cf" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" constant="-40" id="hXe-uU-urN"/>
                 <constraint firstItem="j2w-ss-lbU" firstAttribute="top" secondItem="4X6-FT-DIM" secondAttribute="bottom" constant="20" id="nDw-lw-Cdd"/>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="2XL-du-MK8" secondAttribute="trailing" constant="20" id="q2w-el-lQ4"/>
