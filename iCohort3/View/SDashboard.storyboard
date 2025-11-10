@@ -34,7 +34,7 @@
                                         <nil key="highlightedColor"/>
                                     </label>
                                     <stackView opaque="NO" contentMode="scaleToFill" spacing="8" translatesAutoresizingMaskIntoConstraints="NO" id="LCc-1i-dX0">
-                                        <rect key="frame" x="243" y="-4" width="122" height="44"/>
+                                        <rect key="frame" x="243" y="-15" width="122" height="44"/>
                                         <subviews>
                                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="pcc-BF-Rwy">
                                                 <rect key="frame" x="0.0" y="0.0" width="70" height="44"/>
@@ -71,7 +71,7 @@
                                 </subviews>
                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>
-                                    <constraint firstItem="LCc-1i-dX0" firstAttribute="top" secondItem="3f9-ob-PuI" secondAttribute="top" constant="-4" id="100-vo-d6J"/>
+                                    <constraint firstItem="LCc-1i-dX0" firstAttribute="top" secondItem="3f9-ob-PuI" secondAttribute="top" constant="-15" id="100-vo-d6J"/>
                                     <constraint firstItem="MwR-k6-jHe" firstAttribute="leading" secondItem="Led-d8-4z5" secondAttribute="leading" id="NCt-Ko-Byw"/>
                                     <constraint firstItem="MwR-k6-jHe" firstAttribute="top" secondItem="Led-d8-4z5" secondAttribute="bottom" constant="30" id="dXN-sl-3ix"/>
                                     <constraint firstItem="Led-d8-4z5" firstAttribute="leading" secondItem="3f9-ob-PuI" secondAttribute="leading" id="nOq-Rh-xEX"/>
@@ -255,7 +255,7 @@
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemRedColor">
-            <color red="1" green="0.23137254900000001" blue="0.18823529410000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="1" green="0.2196078431372549" blue="0.23529411764705882" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>

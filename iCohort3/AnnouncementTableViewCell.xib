@@ -66,6 +66,7 @@
                         </constraints>
                     </view>
                 </subviews>
+                <color key="backgroundColor" name="bg"/>
                 <constraints>
                     <constraint firstAttribute="trailing" secondItem="pN4-ZA-8bN" secondAttribute="trailing" constant="16" id="D4U-tb-k6J"/>
                     <constraint firstItem="pN4-ZA-8bN" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" constant="8" id="ZMZ-u4-o6j"/>
@@ -87,6 +88,9 @@
     </objects>
     <resources>
         <namedColor name="Color">
+            <color red="0.75686274509803919" green="0.75294117647058822" blue="0.75686274509803919" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <namedColor name="bg">
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <systemColor name="systemBackgroundColor">
