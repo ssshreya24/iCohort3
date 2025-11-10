@@ -11,6 +11,12 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="SignUpViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
+                <outlet property="confirmContainer" destination="mvO-9m-eJI" id="bSG-Jw-qqF"/>
+                <outlet property="emailContainer" destination="rIG-4L-ais" id="EUs-GA-HR8"/>
+                <outlet property="fullNameContainer" destination="Zxe-mq-8kf" id="Cta-IQ-oIb"/>
+                <outlet property="passwordContainer" destination="TFN-Wz-bX3" id="Jxc-Zq-YHb"/>
+                <outlet property="regContainer" destination="GNr-oj-ZMI" id="DEt-xY-oxc"/>
+                <outlet property="signUpButton" destination="8PO-7j-O26" id="EvW-jz-qlk"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
         </placeholder>
@@ -179,6 +185,9 @@
                     <buttonConfiguration key="configuration" style="filled" title="Sign Up">
                         <color key="baseBackgroundColor" name="Primary"/>
                     </buttonConfiguration>
+                    <connections>
+                        <action selector="signUpTapped:" destination="-1" eventType="touchUpInside" id="ydM-dB-oLm"/>
+                    </connections>
                 </button>
             </subviews>
             <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>

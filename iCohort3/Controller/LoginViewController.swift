@@ -41,8 +41,7 @@ class LoginViewController: UIViewController {
     
     @IBAction func signUpButtonTapped(_ sender: UIButton) {
             let signUpVC = SignUpViewController(nibName: "SignUpViewController", bundle: nil)
-               signUpVC.modalPresentationStyle = .fullScreen
-               present(signUpVC, animated: true, completion: nil)
+        self.navigationController?.pushViewController(signUpVC, animated: true)
         }
     
     @IBAction func togglePasswordVisibility(_ sender: UIButton) {
