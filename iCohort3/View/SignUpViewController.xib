@@ -12,10 +12,15 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="SignUpViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
                 <outlet property="confirmContainer" destination="mvO-9m-eJI" id="bSG-Jw-qqF"/>
+                <outlet property="confirmField" destination="oIt-yw-W8j" id="BmV-Fl-pDi"/>
                 <outlet property="emailContainer" destination="rIG-4L-ais" id="EUs-GA-HR8"/>
+                <outlet property="emailField" destination="v5c-rd-yjp" id="fY5-ci-PHN"/>
                 <outlet property="fullNameContainer" destination="Zxe-mq-8kf" id="Cta-IQ-oIb"/>
+                <outlet property="fullNameField" destination="bwZ-hR-3Ok" id="WAb-Tj-f5M"/>
                 <outlet property="passwordContainer" destination="TFN-Wz-bX3" id="Jxc-Zq-YHb"/>
+                <outlet property="passwordField" destination="4xF-dc-XlZ" id="yXk-U5-eN5"/>
                 <outlet property="regContainer" destination="GNr-oj-ZMI" id="DEt-xY-oxc"/>
+                <outlet property="regField" destination="PFa-iA-AJZ" id="F5F-7x-S1J"/>
                 <outlet property="signUpButton" destination="8PO-7j-O26" id="EvW-jz-qlk"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
@@ -52,8 +57,8 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Zxe-mq-8kf" userLabel="Full NAme View">
                     <rect key="frame" x="40" y="307" width="313" height="40.333333333333314"/>
                     <subviews>
-                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="Enter Your Full Name" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="bwZ-hR-3Ok">
-                            <rect key="frame" x="45" y="11.000000000000002" width="252" height="18.666666666666671"/>
+                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="bwZ-hR-3Ok">
+                            <rect key="frame" x="45" y="9.3333333333333144" width="252" height="22"/>
                             <fontDescription key="fontDescription" type="system" pointSize="14"/>
                             <textInputTraits key="textInputTraits"/>
                         </textField>
@@ -75,8 +80,8 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="rIG-4L-ais" userLabel="SRM Mail View">
                     <rect key="frame" x="40" y="393.33333333333331" width="313" height="41"/>
                     <subviews>
-                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="Enter Your SRM Email ID" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="v5c-rd-yjp">
-                            <rect key="frame" x="51.333333333333329" y="11.333333333333373" width="245.66666666666669" height="18.666666666666671"/>
+                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="v5c-rd-yjp">
+                            <rect key="frame" x="51.333333333333329" y="9.6666666666666856" width="245.66666666666669" height="22"/>
                             <fontDescription key="fontDescription" type="system" pointSize="14"/>
                             <textInputTraits key="textInputTraits"/>
                         </textField>
@@ -98,8 +103,8 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="GNr-oj-ZMI" userLabel="RegistrationView">
                     <rect key="frame" x="40" y="480.33333333333331" width="313" height="40.333333333333314"/>
                     <subviews>
-                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="Enter the Registration Number" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="PFa-iA-AJZ">
-                            <rect key="frame" x="49" y="10.666666666666686" width="248" height="19"/>
+                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="PFa-iA-AJZ">
+                            <rect key="frame" x="49" y="9.3333333333333712" width="248" height="22"/>
                             <fontDescription key="fontDescription" type="system" pointSize="14"/>
                             <textInputTraits key="textInputTraits"/>
                         </textField>
@@ -121,8 +126,8 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="TFN-Wz-bX3" userLabel="Password View">
                     <rect key="frame" x="40" y="566.66666666666663" width="313" height="40.333333333333371"/>
                     <subviews>
-                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="Enter the Password" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="4xF-dc-XlZ">
-                            <rect key="frame" x="43" y="11.000000000000002" width="254" height="18.666666666666671"/>
+                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="4xF-dc-XlZ">
+                            <rect key="frame" x="43" y="9.3333333333333712" width="254" height="22"/>
                             <fontDescription key="fontDescription" type="system" pointSize="14"/>
                             <textInputTraits key="textInputTraits"/>
                         </textField>
@@ -156,8 +161,8 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="mvO-9m-eJI" userLabel="Password View">
                     <rect key="frame" x="40" y="653" width="313" height="40.333333333333371"/>
                     <subviews>
-                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="Confirm Password" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="oIt-yw-W8j">
-                            <rect key="frame" x="43" y="11.000000000000002" width="254" height="18.666666666666671"/>
+                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="oIt-yw-W8j">
+                            <rect key="frame" x="43" y="9.3333333333333712" width="254" height="22"/>
                             <fontDescription key="fontDescription" type="system" pointSize="14"/>
                             <textInputTraits key="textInputTraits"/>
                         </textField>

@@ -14,13 +14,27 @@ class SignUpViewController: UIViewController {
     @IBOutlet weak var passwordContainer: UIView!
     @IBOutlet weak var confirmContainer: UIView!
     @IBOutlet weak var signUpButton: UIButton!
+    @IBOutlet weak var fullNameField: UITextField!
+    @IBOutlet weak var emailField: UITextField!
+    @IBOutlet weak var regField: UITextField!
+    @IBOutlet weak var passwordField: UITextField!
+    @IBOutlet weak var confirmField: UITextField!
+
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupBackButton()
         roundViews()
+        setupPlaceholders()
         
         // Do any additional setup after loading the view.
+    }
+    func setupPlaceholders() {
+        fullNameField.placeholder = "Enter your full name"
+        emailField.placeholder = "Enter your email address"
+        regField.placeholder = "Enter your registration number"
+        passwordField.placeholder = "Enter your password"
+        confirmField.placeholder = "Confirm your password"
     }
     func roundViews() {
         let containers = [fullNameContainer, emailContainer, regContainer, passwordContainer, confirmContainer]
@@ -67,7 +81,11 @@ class SignUpViewController: UIViewController {
     }
     
     @objc private func backTapped() {
-        dismiss(animated: true, completion: nil)
+        if let navigationController = self.navigationController {
+                navigationController.popViewController(animated: true)
+            } else {
+                dismiss(animated: true, completion: nil)
+            }
     }
     @IBAction func signUpTapped(_ sender: UIButton) {
         view.endEditing(true) 
