@@ -86,14 +86,9 @@ class SDashboardViewController: UIViewController {
     // In the screen that has the person icon (e.g., DashboardViewController)
     @IBAction func profileTapped(_ sender: Any) {
         let vc = StudentProfileViewController(nibName: "StudentProfileViewController", bundle: nil)
-        // If you're inside a Navigation Controller, push:
-        if let nav = self.navigationController {
-            nav.pushViewController(vc, animated: true)
-        } else {
-            // Otherwise present modally (wrap in nav so it can have a back button)
-            let nav = UINavigationController(rootViewController: vc)
-            present(nav, animated: true)
-        }
+            vc.modalPresentationStyle = .fullScreen        // covers tab bar & no system back
+            vc.modalTransitionStyle = .coverVertical       // default slide up
+            present(vc, animated: true)
     }
 
     }

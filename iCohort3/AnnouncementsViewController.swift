@@ -29,6 +29,7 @@ class AnnouncementsViewController: UIViewController {
 
        override func viewDidLoad() {
            super.viewDidLoad()
+        
            setupViews()
            setupTableView()
            setupSearchUI()
@@ -238,3 +239,4 @@ class AnnouncementsViewController: UIViewController {
                 return UITableView.automaticDimension
             }
         }
+

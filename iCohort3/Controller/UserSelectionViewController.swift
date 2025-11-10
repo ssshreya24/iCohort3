@@ -39,15 +39,20 @@ class UserSelectionViewController: UIViewController {
         }
 
     
-    
-    func navigateToLogin() {
-        guard let loginVC = UIStoryboard(name: "Main", bundle: nil)
-                .instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController else {
-            print("ERROR: Navigation Failed! Check if 'LoginViewController' has 'Storyboard ID' set to 'LoginVC' in the Identity Inspector.")
+    private func navigateToLogin() {
+        let sb = UIStoryboard(name: "Main", bundle: nil)
+        guard let loginVC = sb.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController else {
+            print("ERROR: Couldn't instantiate LoginViewController with Storyboard ID 'SLoginVC'.")
             return
         }
 
-        navigationController?.pushViewController(loginVC, animated: true)
+        if let nav = navigationController {
+            nav.pushViewController(loginVC, animated: true)
+        } else {
+            let nav = UINavigationController(rootViewController: loginVC)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
     }
 
             

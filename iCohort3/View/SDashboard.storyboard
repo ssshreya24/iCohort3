@@ -214,26 +214,6 @@
                                     <constraint firstItem="Olb-95-I2y" firstAttribute="leading" secondItem="T55-4B-XTG" secondAttribute="leading" constant="16" id="ybT-jD-4sk"/>
                                 </constraints>
                             </view>
-                            <tabBar contentMode="scaleToFill" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2c6-0e-4Qp">
-                                <rect key="frame" x="0.0" y="1360" width="393" height="49"/>
-                                <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
-                                <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                <items>
-                                    <tabBarItem title="Home" image="house.fill" catalog="system" id="oNl-t7-3jg">
-                                        <color key="badgeColor" red="0.0" green="0.04097064584" blue="0.17808294299999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                    </tabBarItem>
-                                    <tabBarItem title="Calendar" image="calendar" catalog="system" id="POw-oj-svM"/>
-                                    <tabBarItem title="Updates" image="horn.fill" catalog="system" id="F7I-bV-Phn"/>
-                                </items>
-                                <color key="tintColor" red="0.0" green="0.04097064584" blue="0.17808294299999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <color key="barTintColor" red="0.0" green="0.04097064584" blue="0.17808294299999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <color key="selectedImageTintColor" red="0.0" green="0.04097064584" blue="0.17808294299999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                <tabBarAppearance key="scrollEdgeAppearance">
-                                    <color key="backgroundColor" red="0.0" green="0.04097064584" blue="0.17808294299999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                    <color key="shadowColor" red="0.0" green="0.04097064584" blue="0.17808294299999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                    <color key="selectionIndicatorTintColor" red="0.0" green="0.04097064584" blue="0.17808294299999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                                </tabBarAppearance>
-                            </tabBar>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="vDu-zF-Fre"/>
                         <color key="backgroundColor" name="Background Color"/>
@@ -266,9 +246,6 @@
         </scene>
     </scenes>
     <resources>
-        <image name="calendar" catalog="system" width="128" height="107"/>
-        <image name="horn.fill" catalog="system" width="128" height="99"/>
-        <image name="house.fill" catalog="system" width="128" height="104"/>
         <image name="minus.circle.fill" catalog="system" width="128" height="123"/>
         <image name="person.crop.circle" catalog="system" width="128" height="123"/>
         <namedColor name="Background Color">

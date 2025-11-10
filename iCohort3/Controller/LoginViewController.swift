@@ -30,8 +30,9 @@ class LoginViewController: UIViewController {
         super.viewDidLoad()
         navigationController?.setNavigationBarHidden(true, animated: false)
         setupUI()
+//        handleLoginSuccess()
         
-        // Do any additional setup after loading the view.
+        
     }
     @IBAction func forgotPasswordTapped(_ sender: UIButton) {
         let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
@@ -75,6 +76,20 @@ class LoginViewController: UIViewController {
         loginVC.modalPresentationStyle = .fullScreen
         present(loginVC, animated: true, completion: nil)
     }
+    func handleLoginSuccess() {
+        let tab = MainTabBarViewController()
+
+        let win = view.window ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+
+        guard let window = win else { return }
+
+        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
+            window.rootViewController = tab
+        }
+    }
     
     func setupUI() {
         
@@ -106,28 +121,28 @@ class LoginViewController: UIViewController {
     
     
     @IBAction func signInTapped(_ sender: UIButton) {
-        print("Sign In button tapped")
-        if rememberMeButton.isSelected {
-            print("Remember Me is checked. Save credentials/state.")
+            print("Sign In button tapped")
+
+            // Basic validation
+            guard let email = emailTextField.text, !email.isEmpty,
+                  let password = passwordTextField.text, !password.isEmpty else {
+                print("Email or password cannot be empty")
+                return
+            }
+
+            // Example: simulate login success
+            print("Login successful for user:", email)
+
+            // Optionally store remember-me preference
+            if rememberMeButton.isSelected {
+                print("Remember Me is checked. Saving credentials/state.")
+                UserDefaults.standard.set(true, forKey: "isLoggedIn")
+            }
+        handleLoginSuccess()
+
+       
         }
-        
-        // Example: simple validation
-        guard let email = emailTextField.text, !email.isEmpty,
-              let password = passwordTextField.text, !password.isEmpty else {
-            print("Email or password cannot be empty")
-            return
-        }
-        
-        // Navigate to Dashboard
-        let storyboard = UIStoryboard(name: "SDashboard", bundle: nil)
-        if let dashboardVC = storyboard.instantiateViewController(withIdentifier: "SDashboardVC") as? SDashboardViewController {
-            dashboardVC.modalPresentationStyle = .fullScreen
-            navigationController?.pushViewController(dashboardVC, animated: true)
-        }
-        
-        if rememberMeButton.isSelected {
-            print("Remember Me is checked. Save credentials/state.")
-        }
+
         
         
         
@@ -145,4 +160,4 @@ class LoginViewController: UIViewController {
          */
         
     }
-}
+
