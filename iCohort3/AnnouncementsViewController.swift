@@ -183,17 +183,29 @@ class AnnouncementsViewController: UIViewController {
             }
 
             // Sample data for testing
-            func addSample() {
-                let a = Announcement(
-                    id: UUID(),
-                    title: "DEI Workshop",
-                    body: "The Workshop will be conducted in Bel 5 floor for the next two days",
-                    tag: "Event",
-                    createdAt: Date(),
-                    author: "Arshad Sheikh"
-                )
-                announcements.insert(a, at: 0)
-            }
+    func addSample() {
+        let a = Announcement(
+            id: UUID(),
+            title: "DEI Workshop",
+            body: "The Workshop will be conducted in Bel 5 floor for the next two days",
+            tag: "Event",
+            createdAt: Date(),
+            author: "Arshad Sheikh"
+        )
+        
+        let b = Announcement(
+            id: UUID(),
+            title: "Hackathon 2025",
+            body: "Join the upcoming Hackathon 2025! Register your team before November 15th to participate.",
+            tag: "Competition",
+            createdAt: Date(),
+            author: "Lakshy Pandey"
+        )
+        
+        announcements.insert(a, at: 0)
+        announcements.insert(b, at: 0)
+    }
+
         }
 
         // MARK: - Table data source

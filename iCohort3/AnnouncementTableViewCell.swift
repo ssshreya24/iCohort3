@@ -7,6 +7,7 @@
 
 import UIKit
 
+
 class AnnouncementCell: UITableViewCell {
     @IBOutlet weak var containerView: UIView!
     @IBOutlet weak var titleLabel: UILabel!
