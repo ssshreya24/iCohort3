@@ -11,6 +11,7 @@ class StudentProfileViewController: UIViewController {
 
    
 
+    @IBOutlet weak var logOut: UIButton!
     @IBOutlet weak var backButton: UIButton!
     // MARK: - Outlets
         @IBOutlet weak var editButton: UIButton!
@@ -23,9 +24,10 @@ class StudentProfileViewController: UIViewController {
         @IBOutlet weak var personalMailField: UITextField!
         @IBOutlet weak var contactNumberField: UITextField!
 
-    @IBOutlet weak var profileCardStack: UIStackView!
-    @IBOutlet weak var academicCardStack: UIStackView!
-    @IBOutlet weak var personalCardStack: UIStackView!
+    @IBOutlet weak var profileCardView: UIView!
+    @IBOutlet weak var academicCardView: UIView!
+    @IBOutlet weak var personalCardView: UIView!
+    
 
     private var isEditingProfile = false
 
@@ -45,15 +47,19 @@ class StudentProfileViewController: UIViewController {
         override func viewDidLoad() {
             super.viewDidLoad()
             setupInitialState()
+            applyRoundedCorners()
         }
 
-        override func viewDidLayoutSubviews() {
-            super.viewDidLayoutSubviews()
-            // Apply rounded backgrounds to your stack views
-            profileCardStack.applyRoundedBackground()
-            academicCardStack.applyRoundedBackground()
-            personalCardStack.applyRoundedBackground()
+    private func applyRoundedCorners() {
+        let cardViews = [profileCardView, academicCardView, personalCardView]
+        for view in cardViews.compactMap({ $0 }) {
+            view.layer.cornerRadius = 16
+            view.layer.masksToBounds = true
+            view.layer.borderWidth = 0.5
+            view.layer.borderColor = UIColor.systemGray5.cgColor
+            view.backgroundColor = .systemBackground
         }
+    }
 
         // MARK: - Setup
         private var allTextFields: [UITextField?] {
@@ -77,8 +83,24 @@ class StudentProfileViewController: UIViewController {
             // If it was presented modally
             dismiss(animated: true, completion: nil)
         }
+    
     }
+    
+    @IBAction func logOutButtonTapped(_ sender: Any) {
+        view.endEditing(true)
 
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            if let loginVC = storyboard.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController {
+                let transition = CATransition()
+                transition.duration = 0.35
+                transition.type = .push
+                transition.subtype = .fromBottom
+                transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                navigationController?.view.layer.add(transition, forKey: kCATransition)
+                navigationController?.pushViewController(loginVC, animated: false)
+            }
+    }
+    
         // MARK: - Edit/Save
         @IBAction func editButtonTapped(_ sender: UIButton) {
             isEditingProfile.toggle()
