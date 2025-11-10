@@ -5,7 +5,7 @@ class MainTabBarViewController: UITabBarController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTabs()
-        styleTabBar()
+        setupTabBar()
     }
 
     private func setupTabs() {
@@ -35,44 +35,26 @@ class MainTabBarViewController: UITabBarController {
                 selectedIndex = 0
             }
 
-            private func styleTabBar() {
-                // Modern appearance with blur
-                let appearance = UITabBarAppearance()
-                appearance.configureWithTransparentBackground()
-                appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialLight)
-                appearance.shadowColor = .clear
-
-                tabBar.standardAppearance = appearance
+    private func setupTabBar() {
+            // Configure tab bar appearance
+            let appearance = UITabBarAppearance()
+            appearance.configureWithDefaultBackground()
+            appearance.backgroundColor = .systemBackground
+            
+            // Configure item appearance
+            let itemAppearance = UITabBarItemAppearance()
+            itemAppearance.normal.iconColor = .systemGray
+            itemAppearance.selected.iconColor = .systemBlue
+            itemAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.systemGray]
+            itemAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.systemBlue]
+            
+            appearance.stackedLayoutAppearance = itemAppearance
+            appearance.inlineLayoutAppearance = itemAppearance
+            appearance.compactInlineLayoutAppearance = itemAppearance
+            
+            tabBar.standardAppearance = appearance
+            if #available(iOS 15.0, *) {
                 tabBar.scrollEdgeAppearance = appearance
-
-                tabBar.layer.cornerRadius = 22
-                tabBar.layer.masksToBounds = true
-                tabBar.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-
-                // Add subtle shadow for floating effect
-                tabBar.layer.shadowColor = UIColor.black.cgColor
-                tabBar.layer.shadowOpacity = 0.1
-                tabBar.layer.shadowOffset = CGSize(width: 0, height: -3)
-                tabBar.layer.shadowRadius = 12
-                tabBar.layer.masksToBounds = false
-
-                tabBar.tintColor = .black
-                tabBar.unselectedItemTintColor = .gray
-            }
-
-            override func viewDidLayoutSubviews() {
-                super.viewDidLayoutSubviews()
-
-                guard let windowScene = view.window?.windowScene else { return }
-                let screenBounds = windowScene.screen.bounds
-                let bottomInset = view.safeAreaInsets.bottom
-
-                let tabBarHeight = tabBar.frame.height + 6
-                tabBar.frame = CGRect(
-                    x: 20,
-                    y: screenBounds.height - (tabBarHeight + bottomInset + 10),
-                    width: screenBounds.width - 40,
-                    height: tabBarHeight
-                )
             }
         }
+    }
