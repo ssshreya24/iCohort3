@@ -87,17 +87,29 @@ class StudentProfileViewController: UIViewController {
     }
     
     @IBAction func logOutButtonTapped(_ sender: Any) {
-        view.endEditing(true)
-
-            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-            if let loginVC = storyboard.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController {
+        DispatchQueue.main.async {
+                guard let windowScene = UIApplication.shared.connectedScenes
+                        .compactMap({ $0 as? UIWindowScene })
+                        .first(where: { $0.activationState == .foregroundActive }),
+                      let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
+                    print("⚠️ No key window found")
+                    return
+                }
+                let sb = UIStoryboard(name: "Main", bundle: nil)
+                guard let loginVC = sb.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController else {
+                    print("⚠️ Couldn't instantiate SLoginVC")
+                    return
+                }
+                let loginNav = UINavigationController(rootViewController: loginVC)
+                loginNav.navigationBar.isTranslucent = false
                 let transition = CATransition()
                 transition.duration = 0.35
                 transition.type = .push
                 transition.subtype = .fromBottom
                 transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                navigationController?.view.layer.add(transition, forKey: kCATransition)
-                navigationController?.pushViewController(loginVC, animated: false)
+                window.layer.add(transition, forKey: kCATransition)
+                window.rootViewController = loginNav
+                window.makeKeyAndVisible()
             }
     }
     
