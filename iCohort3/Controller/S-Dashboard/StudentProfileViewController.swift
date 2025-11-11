@@ -135,6 +135,7 @@ class StudentProfileViewController: UIViewController {
             profile.contactNumber = contactNumberField?.text
         }
     }
+
 extension UIStackView {
     func applyRoundedBackground(_ color: UIColor = .systemBackground) {
         // Remove old background if it exists (prevents duplicates)
