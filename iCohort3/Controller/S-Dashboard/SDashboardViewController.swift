@@ -19,17 +19,7 @@ class SDashboardViewController: UIViewController {
     
     var isEditingMode = false
         
-        // Data source for collection view (icon + title)
-        var statuses: [(iconName: String, title: String)] = [
-            ("dot.circle.fill", "Not started"),
-            ("clock.fill", "In Progress"),
-            ("magnifyingglass.circle.fill", "For Review"),
-            ("checkmark.circle.fill", "Approved"),
-            ("xmark.circle.fill", "Rejected"),
-            ("cube.box.fill", "Prepared"),
-            ("airplane.circle.fill", "Completed"),
-            ("circle.grid.3x3.fill", "All")
-        ]
+
         
         override func viewDidLoad() {
             super.viewDidLoad()
@@ -102,95 +92,109 @@ class SDashboardViewController: UIViewController {
     }
 
 
-    // MARK: - UICollectionViewDataSource & UICollectionViewDelegateFlowLayout
+// MARK: - UICollectionViewDataSource & UICollectionViewDelegateFlowLayout
 
-    extension SDashboardViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
-        
-        func collectionView(_ cv: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-            return statuses.count
-        }
-        
-        func collectionView(_ cv: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-            let cell = cv.dequeueReusableCell(withReuseIdentifier: "StatusCardCell", for: indexPath) as! StatusCardCell
-            let s = statuses[indexPath.item]
-            cell.iconImageView.image = UIImage(systemName: s.iconName)
-            cell.titleLabel.text = s.title
-            cell.countLabel.text = "0"
-            cell.configure(title: s.title, count: 0, isEditing: isEditingMode)
-            return cell
-        }
-        
-        func collectionView(_ cv: UICollectionView,
-                            layout cvl: UICollectionViewLayout,
-                            sizeForItemAt indexPath: IndexPath) -> CGSize {
-            let cardSpacing: CGFloat = 4.0
-            let sectionEdgePadding: CGFloat = 8.0
-            let numberOfColumns: CGFloat = 2.0
-            let _: CGFloat = 100.0
-            let totalHorizontalSpacing = (sectionEdgePadding * 2) + (cardSpacing * (numberOfColumns - 1))
-            let availableWidth = cv.frame.width - totalHorizontalSpacing
-            let width = availableWidth / numberOfColumns
-            return CGSize(width: width, height: 100)
-        }
-        
-        func collectionView(_ cv: UICollectionView,
-                            layout cvl: UICollectionViewLayout,
-                            minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-            return 4.0
-        }
-        
-        func collectionView(_ cv: UICollectionView,
-                            layout cvl: UICollectionViewLayout,
-                            minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-            return 8.0
-        }
-        func collectionView(_ cv: UICollectionView,
-                                layout cvl: UICollectionViewLayout,
-                                insetForSectionAt section: Int) -> UIEdgeInsets {
-                // Must match the sectionEdgePadding used in the size calculation
-                let padding: CGFloat = 8.0
-                return UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
-            }
+extension SDashboardViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    
+    // Updated data source with custom colors
+    var statuses: [(iconName: String, title: String, color: UIColor)] {
+        return [
+            ("dot.circle.fill", "Not started", .systemGray),
+            ("clock.fill", "In Progress", .systemOrange),
+            ("magnifyingglass.circle.fill", "For Review", .systemYellow),
+            ("checkmark.circle.fill", "Approved", .systemGreen),
+            ("xmark.circle.fill", "Rejected", .systemRed),
+            ("cube.box.fill", "Prepared", .systemCyan),
+            ("airplane.circle.fill", "Completed", .systemBlue),
+            ("circle.grid.3x3.fill", "All", .black)
+        ]
     }
-
-    // MARK: - Drag and Drop Reordering
-
-    extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
+    
+    func collectionView(_ cv: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return statuses.count
+    }
+    
+    func collectionView(_ cv: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = cv.dequeueReusableCell(withReuseIdentifier: "StatusCardCell", for: indexPath) as! StatusCardCell
+        let s = statuses[indexPath.item]
         
-        func collectionView(_ collectionView: UICollectionView,
-                            itemsForBeginning session: UIDragSession,
-                            at indexPath: IndexPath) -> [UIDragItem] {
-            guard isEditingMode else { return [] }
-            let item = statuses[indexPath.item]
-            let itemProvider = NSItemProvider(object: item.title as NSString) // ✅ fixed here
-            let dragItem = UIDragItem(itemProvider: itemProvider)
-            dragItem.localObject = item
-            return [dragItem]
-        }
+        // Apply icon and color
+        cell.iconImageView.image = UIImage(systemName: s.iconName)?
+            .withRenderingMode(.alwaysTemplate)
+        cell.iconImageView.tintColor = s.color
         
-        func collectionView(_ collectionView: UICollectionView,
-                            performDropWith coordinator: UICollectionViewDropCoordinator) {
-            guard let destinationIndexPath = coordinator.destinationIndexPath else { return }
+        // Apply title and count
+        cell.titleLabel.text = s.title
+        cell.countLabel.text = "0"
+        cell.configure(title: s.title, count: 0, isEditing: isEditingMode)
+        
+        return cell
+    }
+    
+    func collectionView(_ cv: UICollectionView,
+                        layout cvl: UICollectionViewLayout,
+                        sizeForItemAt indexPath: IndexPath) -> CGSize {
+        let cardSpacing: CGFloat = 4.0
+        let sectionEdgePadding: CGFloat = 8.0
+        let numberOfColumns: CGFloat = 2.0
+        let totalHorizontalSpacing = (sectionEdgePadding * 2) + (cardSpacing * (numberOfColumns - 1))
+        let availableWidth = cv.frame.width - totalHorizontalSpacing
+        let width = availableWidth / numberOfColumns
+        return CGSize(width: width, height: 100)
+    }
+    
+    func collectionView(_ cv: UICollectionView,
+                        layout cvl: UICollectionViewLayout,
+                        minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
+        return 4.0
+    }
+    
+    func collectionView(_ cv: UICollectionView,
+                        layout cvl: UICollectionViewLayout,
+                        minimumLineSpacingForSectionAt section: Int) -> CGFloat {
+        return 8.0
+    }
+    
+    func collectionView(_ cv: UICollectionView,
+                        layout cvl: UICollectionViewLayout,
+                        insetForSectionAt section: Int) -> UIEdgeInsets {
+        let padding: CGFloat = 8.0
+        return UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+    }
+}
 
-            coordinator.items.forEach { item in
-                guard let sourceIndexPath = item.sourceIndexPath,
-                      let draggedItem = item.dragItem.localObject as? (iconName: String, title: String)
-                else { return }
-                
-                collectionView.performBatchUpdates {
-                    statuses.remove(at: sourceIndexPath.item)
-                    statuses.insert(draggedItem, at: destinationIndexPath.item)
-                    collectionView.deleteItems(at: [sourceIndexPath])
-                    collectionView.insertItems(at: [destinationIndexPath])
-                }
-                coordinator.drop(item.dragItem, toItemAt: destinationIndexPath)
+// MARK: - Drag and Drop Reordering
+
+extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
+    
+    func collectionView(_ collectionView: UICollectionView,
+                        itemsForBeginning session: UIDragSession,
+                        at indexPath: IndexPath) -> [UIDragItem] {
+        guard isEditingMode else { return [] }
+        let item = statuses[indexPath.item]
+        let itemProvider = NSItemProvider(object: item.title as NSString)
+        let dragItem = UIDragItem(itemProvider: itemProvider)
+        dragItem.localObject = item
+        return [dragItem]
+    }
+    
+    func collectionView(_ collectionView: UICollectionView,
+                        performDropWith coordinator: UICollectionViewDropCoordinator) {
+        guard let destinationIndexPath = coordinator.destinationIndexPath else { return }
+
+        coordinator.items.forEach { item in
+            guard let sourceIndexPath = item.sourceIndexPath,
+                  let draggedItem = item.dragItem.localObject as? (iconName: String, title: String, color: UIColor)
+            else { return }
+            
+            collectionView.performBatchUpdates {
+                var statusesCopy = statuses
+                statusesCopy.remove(at: sourceIndexPath.item)
+                statusesCopy.insert(draggedItem, at: destinationIndexPath.item)
+                collectionView.deleteItems(at: [sourceIndexPath])
+                collectionView.insertItems(at: [destinationIndexPath])
             }
+            coordinator.drop(item.dragItem, toItemAt: destinationIndexPath)
         }
     }
-
-    
-    
-    
-    
-    
-
+}
