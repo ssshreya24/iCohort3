@@ -83,9 +83,123 @@ class SDashboardViewController: UIViewController {
     }
     // In the screen that has the person icon (e.g., DashboardViewController)
     @IBAction func profileTapped(_ sender: Any) {
-        let vc = SProfileViewController(nibName: "SProfileViewController", bundle: nil)
-        vc.modalPresentationStyle = .pageSheet
-        vc.modalTransitionStyle = .coverVertical
+        let vc = StudentProfileViewController(nibName: "StudentProfileViewController", bundle: nil)
+            vc.modalPresentationStyle = .fullScreen        // covers tab bar & no system back
+            vc.modalTransitionStyle = .coverVertical       // default slide up
+            present(vc, animated: true)
+    }
+
+    }
+
+
+    // MARK: - UICollectionViewDataSource & UICollectionViewDelegateFlowLayout
+
+    extension SDashboardViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+        
+        func collectionView(_ cv: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+            return statuses.count
+        }
+        
+        func collectionView(_ cv: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+            let cell = cv.dequeueReusableCell(withReuseIdentifier: "StatusCardCell", for: indexPath) as! StatusCardCell
+            let s = statuses[indexPath.item]
+            cell.iconImageView.image = UIImage(systemName: s.iconName)
+            cell.titleLabel.text = s.title
+            cell.countLabel.text = "0"
+            cell.configure(title: s.title, count: 0, isEditing: isEditingMode)
+            return cell
+        }
+        
+        func collectionView(_ cv: UICollectionView,
+                            layout cvl: UICollectionViewLayout,
+                            sizeForItemAt indexPath: IndexPath) -> CGSize {
+            let cardSpacing: CGFloat = 4.0
+            let sectionEdgePadding: CGFloat = 8.0
+            let numberOfColumns: CGFloat = 2.0
+            let _: CGFloat = 100.0
+            let totalHorizontalSpacing = (sectionEdgePadding * 2) + (cardSpacing * (numberOfColumns - 1))
+            let availableWidth = cv.frame.width - totalHorizontalSpacing
+            let width = availableWidth / numberOfColumns
+            return CGSize(width: width, height: 100)
+        }
+        
+        func collectionView(_ cv: UICollectionView,
+                            layout cvl: UICollectionViewLayout,
+                            minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
+            return 4.0
+        }
+        
+        func collectionView(_ cv: UICollectionView,
+                            layout cvl: UICollectionViewLayout,
+                            minimumLineSpacingForSectionAt section: Int) -> CGFloat {
+            return 8.0
+        }
+        func collectionView(_ cv: UICollectionView,
+                                layout cvl: UICollectionViewLayout,
+                                insetForSectionAt section: Int) -> UIEdgeInsets {
+                // Must match the sectionEdgePadding used in the size calculation
+                let padding: CGFloat = 8.0
+                return UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+            }
+        func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+            let selectedStatus = statuses[indexPath.item].title
+
+            if selectedStatus == "Not started" {
+                let vc = NotStartedViewController(nibName: "NotStartedViewController", bundle: nil)
+                vc.modalPresentationStyle = .fullScreen
+                self.present(vc, animated: true)
+            }
+            else if selectedStatus == "For Review" {
+                    let vc = ForReviewViewController(nibName: "ForReviewViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
+            else if selectedStatus == "In Progress" {
+                    let vc = InProgressViewController(nibName: "InProgressViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
+            else if selectedStatus == "Prepared" {
+                    let vc = PreparedViewController(nibName: "PreparedViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
+            else if selectedStatus == "Completed" {
+                    let vc = CompletedViewController(nibName: "CompletedViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
+            else if selectedStatus == "Approved" {
+                let vc = ApprovedViewController(nibName: "ApprovedViewController", bundle: nil)
+                vc.modalPresentationStyle = .fullScreen
+                self.present(vc, animated: true)
+            }
+
+            else if selectedStatus == "Rejected" {
+                let vc = RejectedViewController(nibName: "RejectedViewController", bundle: nil)
+                vc.modalPresentationStyle = .fullScreen
+                self.present(vc, animated: true)
+            }
+        }
+        
+        
+
+    }
+
+    // MARK: - Drag and Drop Reordering
+
+    extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
+        
+        func collectionView(_ collectionView: UICollectionView,
+                            itemsForBeginning session: UIDragSession,
+                            at indexPath: IndexPath) -> [UIDragItem] {
+            guard isEditingMode else { return [] }
+            let item = statuses[indexPath.item]
+            let itemProvider = NSItemProvider(object: item.title as NSString) // ✅ fixed here
+            let dragItem = UIDragItem(itemProvider: itemProvider)
+            dragItem.localObject = item
+            return [dragItem]
+        }
         
         if let sheet = vc.sheetPresentationController {
             let topGap: CGFloat = 10   // leaves very little space from top
@@ -211,4 +325,11 @@ extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionVi
             coordinator.drop(item.dragItem, toItemAt: destinationIndexPath)
         }
     }
-}
+
+
+    
+    
+    
+    
+    
+
