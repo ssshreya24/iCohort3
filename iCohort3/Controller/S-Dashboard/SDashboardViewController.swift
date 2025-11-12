@@ -8,7 +8,7 @@
 import UIKit
 
 class SDashboardViewController: UIViewController {
-
+    
     @IBOutlet weak var collectionView: UICollectionView!
     @IBOutlet weak var cardView2: UIView!
     @IBOutlet weak var cardView: UIView!
@@ -18,88 +18,102 @@ class SDashboardViewController: UIViewController {
     @IBOutlet weak var editButton: UIButton!
     
     var isEditingMode = false
-        
-        // Data source for collection view (icon + title)
-        var statuses: [(iconName: String, title: String)] = [
-            ("dot.circle.fill", "Not started"),
-            ("clock.fill", "In Progress"),
-            ("magnifyingglass.circle.fill", "For Review"),
-            ("checkmark.circle.fill", "Approved"),
-            ("xmark.circle.fill", "Rejected"),
-            ("cube.box.fill", "Prepared"),
-            ("airplane.circle.fill", "Completed"),
-            ("circle.grid.3x3.fill", "All")
-        ]
-        
-        override func viewDidLoad() {
-            super.viewDidLoad()
-            applyBackgroundGradient()
-            
-            cardView.backgroundColor = .clear
-            collectionView.backgroundColor = .clear
-            cardView2.layer.cornerRadius = 30
-            taskCard.layer.cornerRadius = 30
-            
-            collectionView.dataSource = self
-            collectionView.delegate = self
-            
-            collectionView.dragDelegate = self
-            collectionView.dropDelegate = self
-            collectionView.dragInteractionEnabled = true
-            
-            self.extendedLayoutIncludesOpaqueBars = true
-            self.edgesForExtendedLayout = [.bottom, .top]
-            
-            tableView.contentInsetAdjustmentBehavior = .never
-
-            
-        }
     
-        override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-            super.viewWillTransition(to: size, with: coordinator)
+    // Data source for collection view (icon + title)
+    var statuses: [(iconName: String, title: String)] = [
+        ("dot.circle.fill", "Not started"),
+        ("clock.fill", "In Progress"),
+        ("magnifyingglass.circle.fill", "For Review"),
+        ("checkmark.circle.fill", "Approved"),
+        ("xmark.circle.fill", "Rejected"),
+        ("cube.box.fill", "Prepared"),
+        ("airplane.circle.fill", "Completed"),
+        ("circle.grid.3x3.fill", "All")
+    ]
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        applyBackgroundGradient()
         
-
-            coordinator.animate(alongsideTransition: { _ in
-
-                self.collectionView.collectionViewLayout.invalidateLayout()
+        cardView.backgroundColor = .clear
+        collectionView.backgroundColor = .clear
+        cardView2.layer.cornerRadius = 30
+        taskCard.layer.cornerRadius = 30
+        
+        collectionView.dataSource = self
+        collectionView.delegate = self
+        
+        collectionView.dragDelegate = self
+        collectionView.dropDelegate = self
+        collectionView.dragInteractionEnabled = true
+        
+        self.extendedLayoutIncludesOpaqueBars = true
+        self.edgesForExtendedLayout = [.bottom, .top]
+        
+        tableView.contentInsetAdjustmentBehavior = .never
+        
+        
+    }
+    
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        
+        
+        coordinator.animate(alongsideTransition: { _ in
             
-            }, completion: { _ in
+            self.collectionView.collectionViewLayout.invalidateLayout()
+            
+        }, completion: { _ in
         })
     }
-        
-        private func applyBackgroundGradient() {
-            let g = CAGradientLayer()
+    
+    private func applyBackgroundGradient() {
+        let g = CAGradientLayer()
+        g.frame = view.bounds
+        g.colors = [
+            UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor, // top blue
+            UIColor(white: 0.95, alpha: 1).cgColor // bottom light gray
+        ]
+        g.startPoint = CGPoint(x: 0.5, y: 0)
+        g.endPoint = CGPoint(x: 0.5, y: 1)
+        view.layer.insertSublayer(g, at: 0)
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if let g = view.layer.sublayers?.first as? CAGradientLayer {
             g.frame = view.bounds
-            g.colors = [
-                UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor, // top blue
-                UIColor(white: 0.95, alpha: 1).cgColor // bottom light gray
-            ]
-            g.startPoint = CGPoint(x: 0.5, y: 0)
-            g.endPoint = CGPoint(x: 0.5, y: 1)
-            view.layer.insertSublayer(g, at: 0)
         }
-        
-        override func viewDidLayoutSubviews() {
-            super.viewDidLayoutSubviews()
-            if let g = view.layer.sublayers?.first as? CAGradientLayer {
-                g.frame = view.bounds
-            }
-        }
-        
-        @IBAction func editButtonTapped(_ sender: UIButton) {
-            isEditingMode.toggle()
-            editButton.setTitle(isEditingMode ? "Done" : "Edit", for: .normal)
-            collectionView.reloadData()
-        }
+    }
+    
+    @IBAction func editButtonTapped(_ sender: UIButton) {
+        isEditingMode.toggle()
+        editButton.setTitle(isEditingMode ? "Done" : "Edit", for: .normal)
+        collectionView.reloadData()
+    }
     // In the screen that has the person icon (e.g., DashboardViewController)
     @IBAction func profileTapped(_ sender: Any) {
-        let vc = StudentProfileViewController(nibName: "StudentProfileViewController", bundle: nil)
-            vc.modalPresentationStyle = .fullScreen        // covers tab bar & no system back
-            vc.modalTransitionStyle = .coverVertical       // default slide up
-            present(vc, animated: true)
+        let vc = SProfileViewController(nibName: "SProfileViewController", bundle: nil)
+        vc.modalPresentationStyle = .pageSheet
+        vc.modalTransitionStyle = .coverVertical
+        
+        if let sheet = vc.sheetPresentationController {
+            let topGap: CGFloat = 10   // leaves very little space from top
+            
+            sheet.detents = [
+                .custom(identifier: .init("almostFull")) { context in
+                    context.maximumDetentValue - topGap
+                }
+            ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        
+        present(vc, animated: true)
     }
-
-    }
+}
 
 
     // MARK: - UICollectionViewDataSource & UICollectionViewDelegateFlowLayout

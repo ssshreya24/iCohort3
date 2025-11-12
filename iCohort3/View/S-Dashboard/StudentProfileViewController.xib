@@ -171,7 +171,7 @@
                                         <constraint firstAttribute="height" constant="35" id="KOQ-W6-7Mh"/>
                                     </constraints>
                                     <state key="normal" title="Button"/>
-                                    <buttonConfiguration key="configuration" style="gray" title="Log Out">
+                                    <buttonConfiguration key="configuration" style="gray" title="Sign Out">
                                         <color key="baseForegroundColor" systemColor="systemPinkColor"/>
                                     </buttonConfiguration>
                                     <connections>
