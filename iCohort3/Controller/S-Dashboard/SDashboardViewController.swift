@@ -185,7 +185,11 @@ class SDashboardViewController: UIViewController {
                 self.present(vc, animated: true)
             }
 
-            
+            else if selectedStatus == "Rejected" {
+                let vc = RejectedViewController(nibName: "RejectedViewController", bundle: nil)
+                vc.modalPresentationStyle = .fullScreen
+                self.present(vc, animated: true)
+            }
         }
         
         
