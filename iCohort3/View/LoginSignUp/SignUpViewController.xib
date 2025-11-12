@@ -188,10 +188,10 @@
                         <action selector="signUpTapped:" destination="-1" eventType="touchUpInside" id="ydM-dB-oLm"/>
                     </connections>
                 </button>
-                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" image="Image 2" translatesAutoresizingMaskIntoConstraints="NO" id="Wdx-9B-a4d">
-                    <rect key="frame" x="106" y="148" width="180" height="120"/>
+                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Image 2" translatesAutoresizingMaskIntoConstraints="NO" id="Wdx-9B-a4d">
+                    <rect key="frame" x="106" y="148" width="183" height="120"/>
                     <constraints>
-                        <constraint firstAttribute="height" constant="128" id="bHy-pJ-E2N"/>
+                        <constraint firstAttribute="height" constant="120" id="bHy-pJ-E2N"/>
                     </constraints>
                 </imageView>
             </subviews>
@@ -212,18 +212,18 @@
                 <constraint firstItem="rIG-4L-ais" firstAttribute="trailing" secondItem="5Sq-Ub-yUW" secondAttribute="trailing" id="Q3A-uc-20w"/>
                 <constraint firstItem="TFN-Wz-bX3" firstAttribute="leading" secondItem="Zxe-mq-8kf" secondAttribute="leading" id="QbV-8v-ycs"/>
                 <constraint firstItem="8PO-7j-O26" firstAttribute="leading" secondItem="5Sq-Ub-yUW" secondAttribute="leading" id="Rfv-Aj-w1E"/>
-                <constraint firstItem="Wdx-9B-a4d" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" constant="76" id="USB-ht-XCS"/>
+                <constraint firstItem="Wdx-9B-a4d" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" constant="106" id="USB-ht-XCS"/>
                 <constraint firstItem="GNr-oj-ZMI" firstAttribute="trailing" secondItem="Zxe-mq-8kf" secondAttribute="trailing" id="UpS-T5-10K"/>
                 <constraint firstItem="GNr-oj-ZMI" firstAttribute="top" secondItem="3oQ-nV-xe6" secondAttribute="bottom" constant="10" id="XFh-EJ-ZGK"/>
                 <constraint firstItem="K4g-7W-P4Q" firstAttribute="top" secondItem="Zxe-mq-8kf" secondAttribute="bottom" constant="15" id="Yi6-Sk-kTX"/>
                 <constraint firstItem="K4g-7W-P4Q" firstAttribute="trailing" secondItem="5Sq-Ub-yUW" secondAttribute="trailing" id="Zy6-ZK-oQd"/>
                 <constraint firstItem="mvO-9m-eJI" firstAttribute="trailing" secondItem="Zxe-mq-8kf" secondAttribute="trailing" id="aAT-lL-WdW"/>
-                <constraint firstItem="Wdx-9B-a4d" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" id="dp9-0k-gOU"/>
+                <constraint firstItem="Wdx-9B-a4d" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" constant="1" id="dp9-0k-gOU"/>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="5Sq-Ub-yUW" secondAttribute="trailing" constant="40" id="e6O-5r-LQh"/>
-                <constraint firstItem="Wdx-9B-a4d" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" constant="60" id="ePo-nj-ZWS"/>
+                <constraint firstItem="Wdx-9B-a4d" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" constant="30" id="ePo-nj-ZWS"/>
                 <constraint firstItem="Zxe-mq-8kf" firstAttribute="trailing" secondItem="5Sq-Ub-yUW" secondAttribute="trailing" id="eaV-fS-0aR"/>
                 <constraint firstItem="8PO-7j-O26" firstAttribute="top" secondItem="mvO-9m-eJI" secondAttribute="bottom" constant="20" id="ecI-OF-xRv"/>
-                <constraint firstItem="5Sq-Ub-yUW" firstAttribute="top" secondItem="Wdx-9B-a4d" secondAttribute="bottom" constant="20" id="fnu-jx-z6G"/>
+                <constraint firstItem="5Sq-Ub-yUW" firstAttribute="top" secondItem="Wdx-9B-a4d" secondAttribute="bottom" constant="58" id="fnu-jx-z6G"/>
                 <constraint firstItem="R03-ZP-7XZ" firstAttribute="top" secondItem="TFN-Wz-bX3" secondAttribute="bottom" constant="15" id="gIC-WJ-brH"/>
                 <constraint firstItem="TFN-Wz-bX3" firstAttribute="trailing" secondItem="Zxe-mq-8kf" secondAttribute="trailing" id="hRr-tB-jvk"/>
                 <constraint firstItem="mvO-9m-eJI" firstAttribute="top" secondItem="R03-ZP-7XZ" secondAttribute="bottom" constant="10" id="iO6-45-Ahr"/>

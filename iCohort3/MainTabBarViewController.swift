@@ -17,13 +17,15 @@ class MainTabBarViewController: UITabBarController {
                                           image: UIImage(systemName: "house.fill"),
                                           tag: 0)
 
-//        // Calendar
-//        let calendar = CalendarViewController(nibName: "CalendarViewController", bundle: nil)
-//        let calNav = UINavigationController(rootViewController: calendar)
-//        calNav.tabBarItem = UITabBarItem(title: "Calendar",
-//                                         image: UIImage(systemName: "calendar"),
-//                                         tag: 1)
-
+        // 📅 Calendar
+        let calendarSB = UIStoryboard(name: "SCalendar", bundle: nil)
+               let calendarVC = calendarSB.instantiateViewController(withIdentifier: "SCalendarVC") as! SCalendarViewController
+               let calNav = UINavigationController(rootViewController: calendarVC)
+               calNav.tabBarItem = UITabBarItem(
+                   title: "Calendar",
+                   image: UIImage(systemName: "calendar"),
+                   tag: 1
+               )
         // Announcements
                 let announcements = AnnouncementsViewController(nibName: "AnnouncementViewController", bundle: nil)
                 let annNav = UINavigationController(rootViewController: announcements)
@@ -31,7 +33,7 @@ class MainTabBarViewController: UITabBarController {
                                                  image: UIImage(systemName: "megaphone.fill"),
                                                  tag: 1)
 
-                viewControllers = [homeNav, annNav]
+                viewControllers = [homeNav,calNav,annNav]
                 selectedIndex = 0
             }
 
