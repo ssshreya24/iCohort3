@@ -164,7 +164,14 @@ class SDashboardViewController: UIViewController {
                     vc.modalPresentationStyle = .fullScreen
                     self.present(vc, animated: true)
                 }
+            else if selectedStatus == "In Progress" {
+                    let vc = InProgressViewController(nibName: "InProgressViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
+            
         }
+        
         
 
     }
