@@ -169,6 +169,11 @@ class SDashboardViewController: UIViewController {
                     vc.modalPresentationStyle = .fullScreen
                     self.present(vc, animated: true)
                 }
+            else if selectedStatus == "Prepared" {
+                    let vc = PreparedViewController(nibName: "PreparedViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
             
         }
         
