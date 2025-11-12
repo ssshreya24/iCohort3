@@ -151,6 +151,16 @@ class SDashboardViewController: UIViewController {
                 let padding: CGFloat = 8.0
                 return UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
             }
+        func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+            let selectedStatus = statuses[indexPath.item].title
+
+            if selectedStatus == "Not started" {
+                let vc = NotStartedViewController(nibName: "NotStartedViewController", bundle: nil)
+                vc.modalPresentationStyle = .fullScreen
+                self.present(vc, animated: true)
+            }
+        }
+
     }
 
     // MARK: - Drag and Drop Reordering
@@ -187,6 +197,7 @@ class SDashboardViewController: UIViewController {
             }
         }
     }
+
 
     
     
