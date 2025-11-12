@@ -174,6 +174,11 @@ class SDashboardViewController: UIViewController {
                     vc.modalPresentationStyle = .fullScreen
                     self.present(vc, animated: true)
                 }
+            else if selectedStatus == "Completed" {
+                    let vc = CompletedViewController(nibName: "CompletedViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
             
         }
         
