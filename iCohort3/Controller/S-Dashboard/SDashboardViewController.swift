@@ -159,7 +159,13 @@ class SDashboardViewController: UIViewController {
                 vc.modalPresentationStyle = .fullScreen
                 self.present(vc, animated: true)
             }
+            else if selectedStatus == "For Review" {
+                    let vc = ForReviewViewController(nibName: "ForReviewViewController", bundle: nil)
+                    vc.modalPresentationStyle = .fullScreen
+                    self.present(vc, animated: true)
+                }
         }
+        
 
     }
 
