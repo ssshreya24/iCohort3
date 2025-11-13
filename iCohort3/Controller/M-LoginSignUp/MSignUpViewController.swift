@@ -1,13 +1,14 @@
 //
-//  SignUpViewController.swift
+//  MSignUpViewController.swift
 //  iCohort3
 //
-//  Created by Shreya on 07/11/25.
+//  Created by user@51 on 13/11/25.
 //
 
 import UIKit
 
-class SignUpViewController: UIViewController {
+class MSignUpViewController: UIViewController {
+
     @IBOutlet weak var fullNameContainer: UIView!
     @IBOutlet weak var emailContainer: UIView!
     @IBOutlet weak var regContainer: UIView!
@@ -32,7 +33,7 @@ class SignUpViewController: UIViewController {
     func setupPlaceholders() {
         fullNameField.placeholder = "Enter your full name"
         emailField.placeholder = "Enter your email address"
-        regField.placeholder = "Enter your registration number"
+        regField.placeholder = "Enter your faculty number"
         passwordField.placeholder = "Enter your password"
         confirmField.placeholder = "Confirm your password"
     }
@@ -87,31 +88,11 @@ class SignUpViewController: UIViewController {
                 dismiss(animated: true, completion: nil)
             }
     }
+    
     @IBAction func signUpTapped(_ sender: UIButton) {
-        view.endEditing(true) 
-        
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-           if let loginVC = storyboard.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController {
-               let transition = CATransition()
-               transition.duration = 0.35
-               transition.type = .push
-               transition.subtype = .fromLeft
-               transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-               navigationController?.view.layer.add(transition, forKey: kCATransition)
-               navigationController?.pushViewController(loginVC, animated: false)
-           }
+        view.endEditing(true)
+
+        navigationController?.popViewController(animated: false)
     }
+
 }
-
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
-

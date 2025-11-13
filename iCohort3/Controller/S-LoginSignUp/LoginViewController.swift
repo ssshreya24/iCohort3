@@ -71,11 +71,13 @@ class LoginViewController: UIViewController {
             print("Already at the root screen.")
         }
     }
+    
     @IBAction func confirmButtonTapped(_ sender: UIButton) {
         let loginVC = LoginViewController(nibName: "LoginViewController", bundle: nil)
         loginVC.modalPresentationStyle = .fullScreen
         present(loginVC, animated: true, completion: nil)
     }
+    
     func handleLoginSuccess() {
         let tab = MainTabBarViewController()
 
@@ -143,21 +145,6 @@ class LoginViewController: UIViewController {
        
         }
 
-        
-        
-        
-        
-        
-        
-        /*
-         // MARK: - Navigation
-         
-         // In a storyboard-based application, you will often want to do a little preparation before navigation
-         override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-         // Get the new view controller using segue.destination.
-         // Pass the selected object to the new view controller.
-         }
-         */
         
     }
 
