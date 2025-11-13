@@ -24,17 +24,17 @@
                                 <rect key="frame" x="0.0" y="0.0" width="70" height="70"/>
                                 <subviews>
                                     <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="ZPX-3E-FEr">
-                                        <rect key="frame" x="-111" y="-24" width="292" height="138"/>
+                                        <rect key="frame" x="0.0" y="0.0" width="70" height="70"/>
                                     </imageView>
                                 </subviews>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                 <constraints>
-                                    <constraint firstAttribute="bottom" secondItem="ZPX-3E-FEr" secondAttribute="bottom" constant="-44" id="J18-AX-Uh7"/>
+                                    <constraint firstAttribute="bottom" secondItem="ZPX-3E-FEr" secondAttribute="bottom" id="J18-AX-Uh7"/>
                                     <constraint firstAttribute="height" constant="70" id="PZK-pH-3f0"/>
-                                    <constraint firstItem="ZPX-3E-FEr" firstAttribute="top" secondItem="XVf-jr-AAc" secondAttribute="top" constant="-24" id="Wju-ME-KJQ"/>
+                                    <constraint firstItem="ZPX-3E-FEr" firstAttribute="top" secondItem="XVf-jr-AAc" secondAttribute="top" id="Wju-ME-KJQ"/>
                                     <constraint firstAttribute="width" constant="70" id="gJt-vX-L3k"/>
-                                    <constraint firstItem="ZPX-3E-FEr" firstAttribute="leading" secondItem="XVf-jr-AAc" secondAttribute="leading" constant="-111" id="hMj-dr-5iX"/>
-                                    <constraint firstAttribute="trailing" secondItem="ZPX-3E-FEr" secondAttribute="trailing" constant="-111" id="htQ-JE-yv2"/>
+                                    <constraint firstItem="ZPX-3E-FEr" firstAttribute="leading" secondItem="XVf-jr-AAc" secondAttribute="leading" id="hMj-dr-5iX"/>
+                                    <constraint firstAttribute="trailing" secondItem="ZPX-3E-FEr" secondAttribute="trailing" id="htQ-JE-yv2"/>
                                 </constraints>
                             </view>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Team 1" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="RPh-36-1ld">

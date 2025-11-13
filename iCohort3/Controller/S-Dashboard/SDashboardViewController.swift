@@ -87,9 +87,24 @@ class SDashboardViewController: UIViewController {
     }
     
     @IBAction func profileTapped(_ sender: Any) {
-        let vc = StudentProfileViewController(nibName: "StudentProfileViewController", bundle: nil)
-        vc.modalPresentationStyle = .fullScreen
+        let vc = SProfileViewController(nibName: "SProfileViewController", bundle: nil)
+        vc.modalPresentationStyle = .pageSheet
         vc.modalTransitionStyle = .coverVertical
+
+        if let sheet = vc.sheetPresentationController {
+            let topGap: CGFloat = 0
+
+            sheet.detents = [
+                .custom(identifier: .init("almostFull")) { context in
+                    context.maximumDetentValue - topGap
+                }
+            ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+
         present(vc, animated: true)
     }
 }

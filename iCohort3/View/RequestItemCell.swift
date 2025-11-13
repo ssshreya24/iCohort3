@@ -22,6 +22,7 @@ class RequestItemCell: UICollectionViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         setupUI()
+        avatarView.tintColor = .systemGray2
     }
 
     override func layoutSubviews() {
@@ -52,7 +53,7 @@ class RequestItemCell: UICollectionViewCell {
         subtitleLabel.text = "Ready to send a request"
         avatarView.image = avatar ?? UIImage(systemName: "person.circle")
         actionButton.isHidden = false
-        actionButton.setTitle("Send Request", for: .normal)
+        actionButton.setTitle("Send", for: .normal)
         onAction = onSend
     }
 
@@ -62,6 +63,7 @@ class RequestItemCell: UICollectionViewCell {
         subtitleLabel.text = "Members: \(members.joined(separator: ", "))"
         avatarView.image = UIImage(systemName: "person.circle")
         actionButton.isHidden = true
+        avatarView.backgroundColor = .systemGray2
     }
 
     // MARK: - Actions

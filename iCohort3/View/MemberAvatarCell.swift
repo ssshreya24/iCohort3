@@ -8,6 +8,8 @@
 import UIKit
 
 class MemberAvatarCell: UICollectionViewCell {
+    
+    @IBOutlet weak var avatarContainerView: UIView!
 
         @IBOutlet weak var avatarImageView: UIImageView!
         @IBOutlet weak var addButton: UIButton!
@@ -16,15 +18,37 @@ class MemberAvatarCell: UICollectionViewCell {
 
         override func awakeFromNib() {
             super.awakeFromNib()
-            avatarImageView.contentMode = .scaleAspectFill
-            avatarImageView.clipsToBounds = true
-            addButton.setImage(UIImage(systemName: "plus.circle.fill"), for: .normal)
-            addButton.tintColor = .systemBlue
+            
+
+                    backgroundColor = .clear
+                    contentView.backgroundColor = .clear
+
+                    // container background (card)
+            avatarContainerView.backgroundColor = .appBackground
+                    avatarContainerView.layer.masksToBounds = true
+
+                    avatarImageView.contentMode = .scaleAspectFit
+                    avatarImageView.clipsToBounds = true
+            avatarImageView.tintColor = .darkGray
+
+            addButton.backgroundColor = .darkGray
+                addButton.layer.cornerRadius = addButton.frame.height / 2
+                addButton.clipsToBounds = true
+            let config = UIImage.SymbolConfiguration(pointSize: 10, weight: .bold)  // smaller icon
+            addButton.setImage(UIImage(systemName: "plus", withConfiguration: config), for: .normal)
+
+                addButton.tintColor = .white
+            addButton.layer.borderColor = UIColor.white.cgColor
+                addButton.layer.borderWidth = 2
         }
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            avatarImageView.layer.cornerRadius = avatarImageView.bounds.width / 2
+
+                    // Make the whole view a circle
+                    let d = min(avatarContainerView.bounds.width, avatarContainerView.bounds.height)
+                    avatarContainerView.layer.cornerRadius = d / 2
+
         }
 
         func configure(slot: TeamViewController.MemberSlot, onAdd: @escaping () -> Void) {
@@ -37,7 +61,7 @@ class MemberAvatarCell: UICollectionViewCell {
 
             case .empty:
                 avatarImageView.image = UIImage(systemName: "person.crop.circle")
-                addButton.isHidden = true
+                addButton.isHidden = false
 
             case .addSlot:
                 avatarImageView.image = UIImage(systemName: "person.crop.circle")
@@ -49,5 +73,7 @@ class MemberAvatarCell: UICollectionViewCell {
             onAdd?()
         }
     }
-
+extension UIColor {
+    static let appBackground = UIColor(red: 239/255, green: 239/255, blue: 245/255, alpha: 1)
+}
 

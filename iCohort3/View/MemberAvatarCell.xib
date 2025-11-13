@@ -3,6 +3,7 @@
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <capability name="Image references" minToolsVersion="12.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -27,44 +28,49 @@
                                     <constraint firstAttribute="width" constant="64" id="ZRL-zq-x7x"/>
                                 </constraints>
                             </imageView>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="9hl-XL-vWD">
-                                <rect key="frame" x="14" y="14" width="24" height="24"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="24" id="7Ib-Fg-GiX"/>
-                                    <constraint firstAttribute="height" constant="24" id="8IR-AV-JXy"/>
-                                </constraints>
-                                <state key="normal" title="Button"/>
-                                <buttonConfiguration key="configuration" style="gray" title="Button"/>
-                                <connections>
-                                    <action selector="addButtonTapped:" destination="gTV-IL-0wX" eventType="touchUpInside" id="EZS-fr-SOt"/>
-                                </connections>
-                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
-                            <constraint firstAttribute="bottom" secondItem="9hl-XL-vWD" secondAttribute="bottom" constant="-4" id="7mO-Vf-avJ"/>
                             <constraint firstItem="BD0-90-GrW" firstAttribute="centerY" secondItem="com-YS-nVt" secondAttribute="centerY" id="G96-e1-LWW"/>
                             <constraint firstItem="BD0-90-GrW" firstAttribute="centerX" secondItem="com-YS-nVt" secondAttribute="centerX" id="W1V-X8-p08"/>
-                            <constraint firstAttribute="trailing" secondItem="9hl-XL-vWD" secondAttribute="trailing" constant="-4" id="saX-hd-0BY"/>
                         </constraints>
                     </view>
+                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="9hl-XL-vWD">
+                        <rect key="frame" x="12" y="18" width="24" height="24"/>
+                        <constraints>
+                            <constraint firstAttribute="width" constant="24" id="7Ib-Fg-GiX"/>
+                            <constraint firstAttribute="height" constant="24" id="8IR-AV-JXy"/>
+                        </constraints>
+                        <state key="normal" title="Button"/>
+                        <buttonConfiguration key="configuration" style="gray" imagePlacement="leading">
+                            <imageReference key="image" image="plus" catalog="system" symbolScale="medium"/>
+                            <color key="baseForegroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </buttonConfiguration>
+                        <connections>
+                            <action selector="addButtonTapped:" destination="gTV-IL-0wX" eventType="touchUpInside" id="EZS-fr-SOt"/>
+                        </connections>
+                    </button>
                 </subviews>
             </view>
             <viewLayoutGuide key="safeArea" id="ZTg-uK-7eu"/>
             <constraints>
+                <constraint firstItem="9hl-XL-vWD" firstAttribute="trailing" secondItem="com-YS-nVt" secondAttribute="trailing" constant="-6" id="08J-5H-dCW"/>
                 <constraint firstAttribute="trailing" secondItem="com-YS-nVt" secondAttribute="trailing" constant="8" id="Naw-MZ-Xbn"/>
+                <constraint firstItem="9hl-XL-vWD" firstAttribute="bottom" secondItem="com-YS-nVt" secondAttribute="bottom" id="WRP-z0-qKu"/>
                 <constraint firstItem="com-YS-nVt" firstAttribute="top" secondItem="gTV-IL-0wX" secondAttribute="top" constant="8" id="e6l-NY-pW1"/>
                 <constraint firstItem="com-YS-nVt" firstAttribute="leading" secondItem="gTV-IL-0wX" secondAttribute="leading" constant="8" id="f4m-ah-mgg"/>
                 <constraint firstAttribute="bottom" secondItem="com-YS-nVt" secondAttribute="bottom" constant="8" id="piH-9C-aSS"/>
             </constraints>
             <connections>
                 <outlet property="addButton" destination="9hl-XL-vWD" id="Oxw-eH-70E"/>
+                <outlet property="avatarContainerView" destination="com-YS-nVt" id="fS5-Hw-Hdc"/>
                 <outlet property="avatarImageView" destination="BD0-90-GrW" id="WJN-Jj-R0f"/>
             </connections>
             <point key="canvasLocation" x="139" y="118"/>
         </collectionViewCell>
     </objects>
     <resources>
+        <image name="plus" catalog="system" width="128" height="113"/>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
