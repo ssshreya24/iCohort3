@@ -10,8 +10,8 @@ class MentorMainTabBarViewController: UITabBarController {
 
     private func setupTabs() {
         // Home (Student Dashboard)
-        let dashSB = UIStoryboard(name: "SDashboard", bundle: nil)
-        let homeVC = dashSB.instantiateViewController(withIdentifier: "SDashboardVC") as! SDashboardViewController
+        let dashSB = UIStoryboard(name: "MDashboard", bundle: nil)
+        let homeVC = dashSB.instantiateViewController(withIdentifier: "MDashboardVC") as! MDashboardViewController
         let homeNav = UINavigationController(rootViewController: homeVC)
         homeNav.tabBarItem = UITabBarItem(title: "Home",
                                           image: UIImage(systemName: "house.fill"),
