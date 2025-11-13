@@ -182,11 +182,15 @@
                         </view>
                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="6Sj-Oq-dDO">
                             <rect key="frame" x="60" y="395" width="273" height="50"/>
+                            <color key="backgroundColor" name="Button Color"/>
                             <constraints>
                                 <constraint firstAttribute="height" constant="50" id="ar0-Zj-IzE"/>
                             </constraints>
                             <state key="normal" title="Button"/>
-                            <buttonConfiguration key="configuration" style="filled" title="Submit for review"/>
+                            <buttonConfiguration key="configuration" style="filled" title="Submit for review">
+                                <color key="baseForegroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <color key="baseBackgroundColor" name="Button Color"/>
+                            </buttonConfiguration>
                             <connections>
                                 <action selector="submitButtonTapped:" destination="-1" eventType="touchUpInside" id="JwO-hf-5Y1"/>
                             </connections>
@@ -227,6 +231,9 @@
     <resources>
         <image name="calendar" catalog="system" width="128" height="107"/>
         <image name="paperclip" catalog="system" width="121" height="128"/>
+        <namedColor name="Button Color">
+            <color red="0.46666666666666667" green="0.61176470588235299" blue="0.70196078431372544" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
         <namedColor name="bg">
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

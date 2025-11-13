@@ -34,6 +34,9 @@ class TaskDetailViewController: UIViewController {
     
     // MARK: - Height Constraint for dynamic sizing
     @IBOutlet weak var attachmentContainerHeightConstraint: NSLayoutConstraint!
+    
+    // MARK: - Submission State
+    private var isSubmitted = false
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -59,28 +62,21 @@ class TaskDetailViewController: UIViewController {
         navigationController?.navigationBar.isHidden = false
     }
 
-    // MARK: - Custom Back Button Setup
     private func setupBackButton() {
         let backButton = UIButton(type: .system)
         backButton.translatesAutoresizingMaskIntoConstraints = false
         
-        // Circular background
         backButton.backgroundColor = UIColor(white: 1.0, alpha: 0.8)
-        backButton.layer.cornerRadius = 22 // Half of height (44)
+        backButton.layer.cornerRadius = 22
         
-        // Back arrow symbol (SF Symbol)
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
         let arrowImage = UIImage(systemName: "chevron.left", withConfiguration: config)
         backButton.setImage(arrowImage, for: .normal)
-        backButton.tintColor = UIColor.black
+        backButton.tintColor = .black
         
-        // Add target action
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
-        
-        // Add to view
         view.addSubview(backButton)
         
-        // Constraints
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -88,10 +84,10 @@ class TaskDetailViewController: UIViewController {
             backButton.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
+
     @objc private func backButtonTapped() {
         self.dismiss(animated: true, completion: nil)
     }
-
     // MARK: - UI SETUP
     private func setupUI() {
 
@@ -207,9 +203,18 @@ class TaskDetailViewController: UIViewController {
         lbl.textColor = .darkGray
         lbl.numberOfLines = 1
         
+        // Delete button (only show if not submitted)
+        let deleteButton = UIButton(type: .system)
+        deleteButton.translatesAutoresizingMaskIntoConstraints = false
+        deleteButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        deleteButton.tintColor = .systemRed
+        deleteButton.isHidden = isSubmitted
+        deleteButton.addTarget(self, action: #selector(deleteAttachment(_:)), for: .touchUpInside)
+        
         // Add subviews
         containerView.addSubview(iconImageView)
         containerView.addSubview(lbl)
+        containerView.addSubview(deleteButton)
         
         // Constraints
         NSLayoutConstraint.activate([
@@ -221,14 +226,32 @@ class TaskDetailViewController: UIViewController {
             iconImageView.heightAnchor.constraint(equalToConstant: 28),
             
             lbl.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 16),
-            lbl.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-            lbl.centerYAnchor.constraint(equalTo: containerView.centerYAnchor)
+            lbl.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
+            lbl.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            
+            deleteButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            deleteButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            deleteButton.widthAnchor.constraint(equalToConstant: 24),
+            deleteButton.heightAnchor.constraint(equalToConstant: 24)
         ])
         
         attachmentsStackView.addArrangedSubview(containerView)
         
         // Update the container height after adding
         updateAttachmentContainerHeight()
+    }
+    
+    // MARK: - Delete Attachment
+    @objc private func deleteAttachment(_ sender: UIButton) {
+        guard let containerView = sender.superview else { return }
+        
+        // Animate removal
+        UIView.animate(withDuration: 0.3, animations: {
+            containerView.alpha = 0
+        }) { _ in
+            containerView.removeFromSuperview()
+            self.updateAttachmentContainerHeight()
+        }
     }
     
     // MARK: - Update Attachment Container Height
@@ -292,6 +315,12 @@ class TaskDetailViewController: UIViewController {
 
     // MARK: - Actions
     @IBAction func attachmentButtonTapped(_ sender: UIButton) {
+        // Don't allow adding attachments if already submitted
+        guard !isSubmitted else {
+            showAlert(title: "Already Submitted", message: "You cannot add attachments after submission. Please use 'Redo Submission' to modify.")
+            return
+        }
+        
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
         // Gallery action with icon
@@ -325,11 +354,89 @@ class TaskDetailViewController: UIViewController {
     }
 
     @IBAction func submitButtonTapped(_ sender: UIButton) {
-        UIView.animate(withDuration: 0.25) {
-            sender.alpha = 0
-        } completion: { _ in
-            sender.isHidden = true
+        if isSubmitted {
+            // Redo submission
+            let alert = UIAlertController(
+                title: "Redo Submission",
+                message: "Are you sure you want to redo your submission? This will allow you to modify and resubmit.",
+                preferredStyle: .alert
+            )
+            
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            alert.addAction(UIAlertAction(title: "Redo", style: .destructive) { _ in
+                self.redoSubmission()
+            })
+            
+            present(alert, animated: true)
+        } else {
+            // First time submission
+            submitTask()
         }
+    }
+    
+    // MARK: - Submit Task
+    private func submitTask() {
+        isSubmitted = true
+        
+        // Update button appearance
+        submitButton.setTitle("Redo Submission", for: .normal)
+        submitButton.backgroundColor = .systemOrange
+        
+        // Disable attachment button
+        attachmentIconButton.isEnabled = false
+        attachmentIconButton.alpha = 0.5
+        
+        // Hide delete buttons on all attachments
+        attachmentsStackView.arrangedSubviews.forEach { containerView in
+            containerView.subviews.forEach { subview in
+                if let deleteButton = subview as? UIButton,
+                   deleteButton.currentImage == UIImage(systemName: "xmark.circle.fill") {
+                    UIView.animate(withDuration: 0.3) {
+                        deleteButton.alpha = 0
+                    } completion: { _ in
+                        deleteButton.isHidden = true
+                    }
+                }
+            }
+        }
+        
+        // Show success message
+        showAlert(title: "Success", message: "Your task has been submitted for review!")
+    }
+    
+    // MARK: - Redo Submission
+    private func redoSubmission() {
+        isSubmitted = false
+        
+        // Update button appearance
+        submitButton.setTitle("Submit for review", for: .normal)
+        submitButton.backgroundColor = .systemBlue
+        
+        // Enable attachment button
+        attachmentIconButton.isEnabled = true
+        attachmentIconButton.alpha = 1.0
+        
+        // Show delete buttons on all attachments
+        attachmentsStackView.arrangedSubviews.forEach { containerView in
+            containerView.subviews.forEach { subview in
+                if let deleteButton = subview as? UIButton,
+                   deleteButton.image(for: .normal) == UIImage(systemName: "xmark.circle.fill") {
+                    deleteButton.isHidden = false
+                    UIView.animate(withDuration: 0.3) {
+                        deleteButton.alpha = 1.0
+                    }
+                }
+            }
+        }
+        
+        showAlert(title: "Ready to Edit", message: "You can now modify your attachments and resubmit.")
+    }
+    
+    // MARK: - Helper: Show Alert
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }
 
