@@ -16,7 +16,7 @@ class SCalendarViewController: UIViewController {
     @IBOutlet weak var emptyStateLabel: UILabel!
     @IBOutlet weak var calendarHeightConstraint: NSLayoutConstraint!
     
-    // ✅ Add chevron button outlet (connect this in storyboard)
+    // Add chevron button outlet (connect this in storyboard)
     private var chevronButton: UIButton!
     
     // MARK: - Properties
@@ -44,6 +44,8 @@ class SCalendarViewController: UIViewController {
         emptyStateLabel.text = "No activities yet"
         
         calendarView.layer.cornerRadius = 20
+        
+
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             guard let self = self else { return }
@@ -140,6 +142,7 @@ extension SCalendarViewController {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toggleCalendar))
         monthLabel.isUserInteractionEnabled = true
         monthLabel.addGestureRecognizer(tapGesture)
+        tapGesture.view?.tintColor = .black
     }
     
     @objc private func toggleCalendar() {
