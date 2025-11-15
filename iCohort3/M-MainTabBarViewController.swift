@@ -18,8 +18,8 @@ class MentorMainTabBarViewController: UITabBarController {
                                           tag: 0)
 
         // 📅 Calendar
-        let calendarSB = UIStoryboard(name: "SCalendar", bundle: nil)
-               let calendarVC = calendarSB.instantiateViewController(withIdentifier: "SCalendarVC") as! SCalendarViewController
+        let calendarSB = UIStoryboard(name: "MCalendar", bundle: nil)
+               let calendarVC = calendarSB.instantiateViewController(withIdentifier: "MCalendarVC") as! MCalendarViewController
                let calNav = UINavigationController(rootViewController: calendarVC)
                calNav.tabBarItem = UITabBarItem(
                    title: "Calendar",
@@ -27,9 +27,9 @@ class MentorMainTabBarViewController: UITabBarController {
                    tag: 1
                )
         // Announcements
-                let announcements = AnnouncementsViewController(nibName: "AnnouncementViewController", bundle: nil)
+                let announcements = MentorAnnouncementsViewController(nibName: "MentorAnnouncementsViewController", bundle: nil)
                 let annNav = UINavigationController(rootViewController: announcements)
-                annNav.tabBarItem = UITabBarItem(title: "Updates",
+                annNav.tabBarItem = UITabBarItem(title: "Announcements",
                                                  image: UIImage(systemName: "megaphone.fill"),
                                                  tag: 1)
 

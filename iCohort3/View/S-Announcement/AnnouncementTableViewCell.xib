@@ -83,7 +83,7 @@
                 <outlet property="tagLabel" destination="xN9-S1-UcT" id="Bhm-0B-Ofr"/>
                 <outlet property="titleLabel" destination="5eL-DN-KRn" id="Rgj-W0-RDn"/>
             </connections>
-            <point key="canvasLocation" x="138.93129770992365" y="189.43661971830986"/>
+            <point key="canvasLocation" x="178.62595419847327" y="112.67605633802818"/>
         </tableViewCell>
     </objects>
     <resources>
