@@ -19,21 +19,21 @@
                     <stackView opaque="NO" contentMode="scaleToFill" distribution="fillEqually" spacing="12" translatesAutoresizingMaskIntoConstraints="NO" id="Ecj-VF-QC3">
                         <rect key="frame" x="8" y="8" width="34" height="34"/>
                         <subviews>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="mBB-9t-dGi">
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="kIe-Bl-kku">
                                 <rect key="frame" x="0.0" y="0.0" width="11" height="34"/>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="34" id="Ul9-iH-na5"/>
-                                </constraints>
+                                <color key="tintColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <state key="normal" title="Button"/>
-                                <buttonConfiguration key="configuration" style="tinted" title="Create Team"/>
+                                <buttonConfiguration key="configuration" style="plain" title="Create Team">
+                                    <fontDescription key="titleFontDescription" type="system" weight="semibold" pointSize="17"/>
+                                </buttonConfiguration>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="XRe-Pb-c0i">
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="euI-aT-VwQ">
                                 <rect key="frame" x="23" y="0.0" width="11" height="34"/>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="34" id="FPi-yZ-fGQ"/>
-                                </constraints>
+                                <color key="tintColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <state key="normal" title="Button"/>
-                                <buttonConfiguration key="configuration" style="tinted" title="Join Team"/>
+                                <buttonConfiguration key="configuration" style="plain" title="Join Team">
+                                    <fontDescription key="titleFontDescription" type="system" weight="semibold" pointSize="17"/>
+                                </buttonConfiguration>
                             </button>
                         </subviews>
                     </stackView>
@@ -47,8 +47,8 @@
                 <constraint firstAttribute="bottom" secondItem="Ecj-VF-QC3" secondAttribute="bottom" constant="8" id="tRs-Jp-VH5"/>
             </constraints>
             <connections>
-                <outlet property="createButton" destination="mBB-9t-dGi" id="jwO-Q9-3yX"/>
-                <outlet property="joinButton" destination="XRe-Pb-c0i" id="naf-wd-dOk"/>
+                <outlet property="createButton" destination="kIe-Bl-kku" id="wy6-IN-Af9"/>
+                <outlet property="joinButton" destination="euI-aT-VwQ" id="HhX-st-B9n"/>
             </connections>
             <point key="canvasLocation" x="-153" y="-7"/>
         </collectionViewCell>
