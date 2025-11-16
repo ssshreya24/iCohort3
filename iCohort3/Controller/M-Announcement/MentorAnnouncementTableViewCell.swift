@@ -2,8 +2,6 @@
 //  MentorAnnouncementTableViewCell.swift
 //  iCohort3
 //
-//  Created by user@51 on 16/11/25.
-//
 
 import UIKit
 
@@ -62,7 +60,6 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
         
         // Position image to the left of text
         attacthmentButton.semanticContentAttribute = .forceLeftToRight
-
     }
 
     func configure(with a: Announcement) {
@@ -73,7 +70,10 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
             tagLabel.isHidden = false
             tagLabel.text = " \(t) "
 
-            if t.lowercased().contains("event") {
+            // Use stored color if available, otherwise use default logic
+            if let storedColor = a.tagColor {
+                tagLabel.backgroundColor = storedColor
+            } else if t.lowercased().contains("event") {
                 tagLabel.backgroundColor = UIColor(red: 0.18, green: 0.78, blue: 0.42, alpha: 1)
             } else {
                 tagLabel.backgroundColor = UIColor(red: 0.95, green: 0.74, blue: 0.18, alpha: 1)
@@ -82,10 +82,8 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
             tagLabel.isHidden = true
         }
 
-        // 🔥 UPDATED DATE FORMAT
         let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM • h:mm a"   // Example: 23 Nov • 3:45 PM
-
+        formatter.dateFormat = "d MMM • h:mm a"
         metaLabel.text = "\(formatter.string(from: a.createdAt)) • BY \(a.author.uppercased())"
         
         // Handle attachments
@@ -93,7 +91,6 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
     }
     
     private func configureAttachments(for announcement: Announcement) {
-        // Get attachments from announcement
         attachments = announcement.attachments ?? []
         
         if attachments.isEmpty {
@@ -112,17 +109,16 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
     }
     
     @objc private func infoButtonTapped() {
-        // Find the view controller to present the alert
         guard let viewController = findViewController() else { return }
         
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         
-        // Info action
-        let infoAction = UIAlertAction(title: "Info", style: .default) { [weak self] _ in
+        // Edit action (changed from Info)
+        let editAction = UIAlertAction(title: "Edit", style: .default) { [weak self] _ in
             self?.onInfoTapped?()
         }
-        if let infoImage = UIImage(systemName: "info.circle") {
-            infoAction.setValue(infoImage, forKey: "image")
+        if let editImage = UIImage(systemName: "pencil") {
+            editAction.setValue(editImage, forKey: "image")
         }
         
         // Delete action
@@ -136,7 +132,7 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
         // Cancel action
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
         
-        alert.addAction(infoAction)
+        alert.addAction(editAction)
         alert.addAction(deleteAction)
         alert.addAction(cancelAction)
         

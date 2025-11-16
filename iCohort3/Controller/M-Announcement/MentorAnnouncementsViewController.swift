@@ -13,7 +13,6 @@ class MentorAnnouncementsViewController: UIViewController {
     @IBOutlet weak var searchButton: UIButton!
     @IBOutlet weak var placeholderLabel: UILabel!
     @IBOutlet weak var tableView: UITableView!
-
     @IBOutlet weak var addTaskButton: UIButton!
     
     private var announcements: [Announcement] = [] {
@@ -37,14 +36,12 @@ class MentorAnnouncementsViewController: UIViewController {
 
         announcements = []
         
-        
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.addSample() }
 
         navigationController?.isNavigationBarHidden = true
         extendedLayoutIncludesOpaqueBars = true
         edgesForExtendedLayout = [.top, .bottom]
     }
-    
     
     private func openAddTaskScreen() {
         let vc = AddTaskViewController(nibName: "AddTaskViewController", bundle: nil)
@@ -54,12 +51,11 @@ class MentorAnnouncementsViewController: UIViewController {
             sheet.detents = [.medium(), .large()]
             sheet.preferredCornerRadius = 24
             sheet.prefersScrollingExpandsWhenScrolledToEdge = true
-            sheet.prefersGrabberVisible = true   // top grabber bar
+            sheet.prefersGrabberVisible = true
         }
 
         present(vc, animated: true)
     }
-
 
     private func setupViews() {
         searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
@@ -70,7 +66,6 @@ class MentorAnnouncementsViewController: UIViewController {
         tableView.dataSource = self
         tableView.delegate = self
         
-        // Correct XIB name + reuse identifier
         let nib = UINib(nibName: "MentorAnnouncementTableViewCell", bundle: nil)
         tableView.register(nib, forCellReuseIdentifier: "MentorAnnouncementCell")
 
@@ -80,7 +75,6 @@ class MentorAnnouncementsViewController: UIViewController {
 
     // MARK: Search UI
     private func setupSearchUI() {
-
         searchContainer = UIView()
         searchField = UITextField()
 
@@ -128,11 +122,9 @@ class MentorAnnouncementsViewController: UIViewController {
         ])
     }
     
-    
     @IBAction func addTaskButtonTapped(_ sender: Any) {
         openAddTaskScreen()
     }
-
 
     // MARK: Actions
     @IBAction func searchButtonTapped(_ sender: UIButton) {
@@ -204,17 +196,41 @@ class MentorAnnouncementsViewController: UIViewController {
         if !empty { tableView.reloadData() }
     }
     
-    // MARK: Info & Delete Actions
-    private func showAnnouncementInfo(at index: Int) {
+    // MARK: Edit & Delete Actions
+    private func editAnnouncement(at index: Int) {
         let announcement = filteredAnnouncements.isEmpty ? announcements[index] : filteredAnnouncements[index]
         
-        let alert = UIAlertController(
-            title: announcement.title,
-            message: "\(announcement.body)\n\nAuthor: \(announcement.author)\nCreated: \(formatDate(announcement.createdAt))",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        let vc = EditAnnouncementViewController(nibName: "AddTaskViewController", bundle: nil)
+        vc.announcementToEdit = announcement
+        vc.modalPresentationStyle = .pageSheet
+        
+        // Callback to update the announcement
+        vc.onSave = { [weak self] updatedAnnouncement in
+            guard let self = self else { return }
+            
+            // Find and update in main array
+            if let mainIndex = self.announcements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
+                self.announcements[mainIndex] = updatedAnnouncement
+            }
+            
+            // Update filtered array if needed
+            if !self.filteredAnnouncements.isEmpty {
+                if let filteredIndex = self.filteredAnnouncements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
+                    self.filteredAnnouncements[filteredIndex] = updatedAnnouncement
+                }
+            }
+            
+            self.tableView.reloadData()
+        }
+
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.preferredCornerRadius = 24
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            sheet.prefersGrabberVisible = true
+        }
+
+        present(vc, animated: true)
     }
     
     private func deleteAnnouncement(at index: Int) {
@@ -259,13 +275,8 @@ class MentorAnnouncementsViewController: UIViewController {
 
     // MARK: Sample Data
     func addSample() {
-        // Sample image (add to Assets.xcassets or use system image)
         let sampleImage = UIImage(named: "sample_attachment") ?? UIImage(systemName: "photo.fill")!
-        
-        // Sample PDF URL (you can replace with actual PDF in your bundle)
         let pdfURL = Bundle.main.url(forResource: "sample_document", withExtension: "pdf") ?? URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf")!
-        
-        // Sample link
         let linkURL = URL(string: "https://www.apple.com/education/")!
         
         announcements.insert(
@@ -285,7 +296,6 @@ class MentorAnnouncementsViewController: UIViewController {
             at: 0
         )
         
-        // Add another sample with different attachments
         announcements.insert(
             Announcement(
                 id: UUID(),
@@ -324,9 +334,9 @@ extension MentorAnnouncementsViewController: UITableViewDataSource, UITableViewD
         cell.configure(with: obj)
         cell.selectionStyle = .none
         
-        // Handle info button tap
+        // Handle edit button tap (renamed from info)
         cell.onInfoTapped = { [weak self] in
-            self?.showAnnouncementInfo(at: indexPath.row)
+            self?.editAnnouncement(at: indexPath.row)
         }
         
         // Handle delete button tap
@@ -340,6 +350,113 @@ extension MentorAnnouncementsViewController: UITableViewDataSource, UITableViewD
         }
         
         return cell
+    }
+}
+
+// MARK: - Edit Announcement View Controller
+class EditAnnouncementViewController: AddTaskViewController {
+    
+    var announcementToEdit: Announcement?
+    var onSave: ((Announcement) -> Void)?
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        // Pre-fill the form with existing announcement data
+        if let announcement = announcementToEdit {
+            titleTextField.text = announcement.title
+            descriptionTextField.text = announcement.body
+            categoryName.text = announcement.tag
+            categoryLabel.text = announcement.tag ?? "Label"
+            
+            // Pre-load attachments
+            if let attachments = announcement.attachments {
+                for attachment in attachments {
+                    switch attachment {
+                    case .image(let image):
+                        attachedImages.append(image)
+                        addAttachmentLabel("Image_\(Date().timeIntervalSince1970).jpg", type: .image)
+                        
+                    case .pdf(let name, let url):
+                        attachedDocumentURLs.append(url)
+                        addAttachmentLabel(name, type: .document)
+                        
+                    case .link(let name, let url):
+                        attachedLinks.append(url.absoluteString)
+                        let displayName = name.count > 40 ? String(name.prefix(37)) + "..." : name
+                        addAttachmentLabel(displayName, type: .link)
+                    }
+                }
+            }
+        }
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // Pre-select color after view appears (when buttons are ready)
+        if let announcement = announcementToEdit {
+            if let storedColor = announcement.tagColor {
+                selectColorButton(for: storedColor)
+            } else if let tag = announcement.tag {
+                // Fallback to default colors based on tag type
+                if tag.lowercased().contains("event") {
+                    selectColorButton(for: UIColor.systemGreen)
+                } else {
+                    selectColorButton(for: UIColor.systemYellow)
+                }
+            }
+        }
+    }
+    
+    override func doneButtonTapped(_ sender: Any) {
+        guard let title = titleTextField.text, !title.isEmpty else {
+            showAlert(message: "Please enter a title.")
+            return
+        }
+        
+        guard let announcement = announcementToEdit else {
+            self.dismiss(animated: true)
+            return
+        }
+        
+        // Create attachments array
+        var updatedAttachments: [AttachmentType] = []
+        
+        // Add images
+        for image in attachedImages {
+            updatedAttachments.append(.image(image))
+        }
+        
+        // Add documents
+        for (index, url) in attachedDocumentURLs.enumerated() {
+            let name = "Document_\(index + 1).pdf"
+            updatedAttachments.append(.pdf(name, url))
+        }
+        
+        // Add links
+        for linkString in attachedLinks {
+            if let url = URL(string: linkString) {
+                updatedAttachments.append(.link(linkString, url))
+            }
+        }
+        
+        // Create updated announcement with the selected color
+        let updatedAnnouncement = Announcement(
+            id: announcement.id,
+            title: title,
+            body: descriptionTextField.text ?? "",
+            tag: categoryName.text?.isEmpty == false ? categoryName.text : nil,
+            tagColor: selectedColor,  // Save the selected color
+            createdAt: announcement.createdAt,
+            author: announcement.author,
+            attachments: updatedAttachments.isEmpty ? nil : updatedAttachments
+        )
+        
+        // Call the save callback
+        onSave?(updatedAnnouncement)
+        
+        self.dismiss(animated: true)
     }
 }
 
@@ -674,3 +791,7 @@ class PDFViewController: UIViewController {
         dismiss(animated: true)
     }
 }
+
+
+
+

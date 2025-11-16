@@ -29,21 +29,22 @@ class AddTaskViewController: UIViewController {
     @IBOutlet weak var closeButton: UIButton!
     @IBOutlet weak var doneButton: UIButton!
     
-    // NEW: Attachment outlets and properties
+    // CHANGED: Made these internal instead of private so subclasses can access
     @IBOutlet weak var attachmentsStackView: UIStackView!
     @IBOutlet weak var attachmentContainerHeightConstraint: NSLayoutConstraint!
     
-    private var attachedImages: [UIImage] = []
-    private var attachedDocumentURLs: [URL] = []
-    private var attachedLinks: [String] = []
+    internal var attachedImages: [UIImage] = []
+    internal var attachedDocumentURLs: [URL] = []
+    internal var attachedLinks: [String] = []
     
-    enum AttachmentType {
+    // Internal enum for UI purposes only
+    internal enum AttachmentDisplayType {
         case image
         case document
         case link
     }
     
-    private var selectedColor: UIColor = .systemYellow
+    internal var selectedColor: UIColor = .systemYellow
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -55,6 +56,7 @@ class AddTaskViewController: UIViewController {
         categoryView.layer.cornerRadius = 20
         colorChangeView.layer.cornerRadius = 20
         addAttachmentView.layer.cornerRadius = 20
+        colorOptionsView.layer.cornerRadius = 20
         
         categoryName.layer.cornerRadius = 20
         
@@ -108,6 +110,32 @@ class AddTaskViewController: UIViewController {
         categoryLabel.textColor = selectedColor.isLight ? .black : .white
     }
     
+    // MARK: - Public helper method to select color button
+    func selectColorButton(for color: UIColor) {
+        // Find and trigger the corresponding button
+        var targetButton: UIButton?
+        
+        if color == UIColor.systemRed {
+            targetButton = redColorView
+        } else if color == UIColor.orange {
+            targetButton = orangeColorView
+        } else if color == UIColor.systemYellow {
+            targetButton = yellowColor
+        } else if color == UIColor.systemGreen {
+            targetButton = greenColor
+        } else if color == UIColor.systemBlue {
+            targetButton = blueColor
+        } else if color == UIColor.systemTeal {
+            targetButton = tealColor
+        }
+        
+        if let button = targetButton {
+            selectedColor = color
+            applySelectedColor()
+            updateColorSelectionIndicators(selected: button)
+        }
+    }
+    
     private func updateColorSelectionIndicators(selected: UIButton) {
         let allButtons = [redColorView, orangeColorView, yellowColor, greenColor, blueColor, tealColor]
         for btn in allButtons {
@@ -115,7 +143,7 @@ class AddTaskViewController: UIViewController {
         }
     }
     
-    private func showAlert(message: String) {
+    internal func showAlert(message: String) {
         let alert = UIAlertController(title: "Alert", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
@@ -268,7 +296,8 @@ class AddTaskViewController: UIViewController {
     }
     
     // MARK: - Helper: Add attachments dynamically
-    func addAttachmentLabel(_ name: String, type: AttachmentType = .document) {
+    // CHANGED: Made internal so subclass can call it
+    internal func addAttachmentLabel(_ name: String, type: AttachmentDisplayType = .document) {
         // Create container for each attachment
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
