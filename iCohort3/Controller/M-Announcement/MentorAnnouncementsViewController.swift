@@ -14,6 +14,8 @@ class MentorAnnouncementsViewController: UIViewController {
     @IBOutlet weak var placeholderLabel: UILabel!
     @IBOutlet weak var tableView: UITableView!
 
+    @IBOutlet weak var addTaskButton: UIButton!
+    
     private var announcements: [Announcement] = [] {
         didSet { updateUI() }
     }
@@ -34,12 +36,30 @@ class MentorAnnouncementsViewController: UIViewController {
         setupSearchUI()
 
         announcements = []
+        
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.addSample() }
 
         navigationController?.isNavigationBarHidden = true
         extendedLayoutIncludesOpaqueBars = true
         edgesForExtendedLayout = [.top, .bottom]
     }
+    
+    
+    private func openAddTaskScreen() {
+        let vc = AddTaskViewController(nibName: "AddTaskViewController", bundle: nil)
+        vc.modalPresentationStyle = .pageSheet
+
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.preferredCornerRadius = 24
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            sheet.prefersGrabberVisible = true   // top grabber bar
+        }
+
+        present(vc, animated: true)
+    }
+
 
     private func setupViews() {
         searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
@@ -107,6 +127,12 @@ class MentorAnnouncementsViewController: UIViewController {
             searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor)
         ])
     }
+    
+    
+    @IBAction func addTaskButtonTapped(_ sender: Any) {
+        openAddTaskScreen()
+    }
+
 
     // MARK: Actions
     @IBAction func searchButtonTapped(_ sender: UIButton) {
@@ -335,10 +361,13 @@ class AttachmentViewController: UIViewController {
     
     private func setupCloseButton() {
         closeButton = UIButton(type: .system)
-        closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        closeButton.backgroundColor = .white
+        closeButton.layer.cornerRadius = 20
         closeButton.tintColor = .label
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        view.backgroundColor = .systemBackground
         view.addSubview(closeButton)
         
         let titleLabel = UILabel()

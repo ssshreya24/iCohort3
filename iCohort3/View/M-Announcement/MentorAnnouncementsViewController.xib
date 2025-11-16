@@ -11,6 +11,7 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="MentorAnnouncementsViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
+                <outlet property="addTaskButton" destination="wm0-cF-cgF" id="TNr-pW-59n"/>
                 <outlet property="placeholderLabel" destination="eRb-wt-VZF" id="vr7-ce-ZMK"/>
                 <outlet property="searchButton" destination="Mek-18-MYk" id="dfa-sA-cYe"/>
                 <outlet property="tableView" destination="g0P-0m-SkW" id="IPP-OI-Ney"/>
@@ -74,6 +75,9 @@
                         </backgroundConfiguration>
                         <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     </buttonConfiguration>
+                    <connections>
+                        <action selector="addTaskButtonTapped:" destination="-1" eventType="touchUpInside" id="az6-sa-IMe"/>
+                    </connections>
                 </button>
             </subviews>
             <viewLayoutGuide key="safeArea" id="YWz-30-LNN"/>
