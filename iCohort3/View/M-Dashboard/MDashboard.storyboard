@@ -41,11 +41,11 @@
                                         </constraints>
                                     </view>
                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="zch-Rx-kex">
-                                        <rect key="frame" x="293" y="27" width="30" height="36"/>
+                                        <rect key="frame" x="286" y="21" width="30" height="48"/>
                                         <constraints>
                                             <constraint firstAttribute="width" constant="30" id="dKD-kV-6HX"/>
                                         </constraints>
-                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="30"/>
+                                        <fontDescription key="fontDescription" type="boldSystem" pointSize="40"/>
                                         <nil key="textColor"/>
                                         <nil key="highlightedColor"/>
                                     </label>
@@ -59,7 +59,7 @@
                                     <constraint firstItem="zch-Rx-kex" firstAttribute="centerY" secondItem="7B2-uf-pnh" secondAttribute="centerY" id="Ibg-0m-GHh"/>
                                     <constraint firstItem="zSW-af-EZr" firstAttribute="leading" secondItem="7B2-uf-pnh" secondAttribute="leading" constant="20" id="Led-b1-QOG"/>
                                     <constraint firstItem="zSW-af-EZr" firstAttribute="top" secondItem="7B2-uf-pnh" secondAttribute="top" constant="20" id="TJf-Yt-gxn"/>
-                                    <constraint firstAttribute="trailing" secondItem="zch-Rx-kex" secondAttribute="trailing" constant="30" id="bQV-PG-uG5"/>
+                                    <constraint firstAttribute="trailing" secondItem="zch-Rx-kex" secondAttribute="trailing" constant="37" id="bQV-PG-uG5"/>
                                     <constraint firstAttribute="height" constant="90" id="mlR-Vn-B22"/>
                                     <constraint firstItem="3Ie-3T-S8Q" firstAttribute="centerY" secondItem="7B2-uf-pnh" secondAttribute="centerY" id="xgu-WV-fIr"/>
                                 </constraints>

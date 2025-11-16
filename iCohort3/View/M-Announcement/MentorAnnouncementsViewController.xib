@@ -55,12 +55,26 @@
                     <color key="sectionIndexBackgroundColor" name="bg"/>
                     <color key="sectionIndexTrackingBackgroundColor" name="bg"/>
                 </tableView>
-                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Announcements" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="L9h-dh-Tg6">
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Announcement" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="L9h-dh-Tg6">
                     <rect key="frame" x="18" y="80" width="311" height="40"/>
                     <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="34"/>
                     <nil key="textColor"/>
                     <nil key="highlightedColor"/>
                 </label>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="wm0-cF-cgF">
+                    <rect key="frame" x="277" y="78" width="44" height="44"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="44" id="fyl-92-ger"/>
+                        <constraint firstAttribute="width" constant="44" id="poJ-qZ-0Ud"/>
+                    </constraints>
+                    <state key="normal" title="Button"/>
+                    <buttonConfiguration key="configuration" style="plain" image="plus" catalog="system" cornerStyle="capsule">
+                        <backgroundConfiguration key="background">
+                            <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        </backgroundConfiguration>
+                        <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </buttonConfiguration>
+                </button>
             </subviews>
             <viewLayoutGuide key="safeArea" id="YWz-30-LNN"/>
             <color key="backgroundColor" name="bg"/>
@@ -74,12 +88,15 @@
                 <constraint firstItem="Mek-18-MYk" firstAttribute="top" secondItem="o08-Em-Ord" secondAttribute="top" constant="78" id="OFb-JA-3HP"/>
                 <constraint firstItem="YWz-30-LNN" firstAttribute="trailing" secondItem="eRb-wt-VZF" secondAttribute="trailing" constant="20" id="Qro-rq-RO6"/>
                 <constraint firstItem="g0P-0m-SkW" firstAttribute="top" secondItem="L9h-dh-Tg6" secondAttribute="bottom" constant="24" id="SyU-6N-8Rc"/>
+                <constraint firstItem="Mek-18-MYk" firstAttribute="leading" secondItem="wm0-cF-cgF" secondAttribute="trailing" constant="8" id="W1V-d4-wDF"/>
                 <constraint firstItem="YWz-30-LNN" firstAttribute="trailing" secondItem="Mek-18-MYk" secondAttribute="trailing" constant="20" id="Xwz-6j-vKS"/>
                 <constraint firstItem="Mek-18-MYk" firstAttribute="centerY" secondItem="L9h-dh-Tg6" secondAttribute="centerY" id="ebn-Wq-LlC"/>
                 <constraint firstItem="L9h-dh-Tg6" firstAttribute="leading" secondItem="YWz-30-LNN" secondAttribute="leading" constant="18" id="gw0-SE-he0"/>
                 <constraint firstItem="g0P-0m-SkW" firstAttribute="leading" secondItem="YWz-30-LNN" secondAttribute="leading" id="i3I-ac-Ekv"/>
+                <constraint firstItem="wm0-cF-cgF" firstAttribute="top" secondItem="o08-Em-Ord" secondAttribute="top" constant="78" id="pTw-bH-Q9T"/>
                 <constraint firstItem="YWz-30-LNN" firstAttribute="trailing" secondItem="g0P-0m-SkW" secondAttribute="trailing" id="rG2-pz-TeW"/>
                 <constraint firstItem="eRb-wt-VZF" firstAttribute="top" secondItem="L9h-dh-Tg6" secondAttribute="bottom" constant="24" id="wCx-SZ-nOU"/>
+                <constraint firstItem="wm0-cF-cgF" firstAttribute="centerY" secondItem="Mek-18-MYk" secondAttribute="centerY" id="xaa-EW-YbD"/>
                 <constraint firstItem="Mek-18-MYk" firstAttribute="top" secondItem="YWz-30-LNN" secondAttribute="top" constant="-40" id="xyf-7h-uBr"/>
             </constraints>
             <point key="canvasLocation" x="619" y="158"/>
@@ -87,6 +104,7 @@
     </objects>
     <resources>
         <image name="magnifyingglass" catalog="system" width="128" height="117"/>
+        <image name="plus" catalog="system" width="128" height="113"/>
         <namedColor name="bg">
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

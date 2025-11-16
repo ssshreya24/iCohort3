@@ -29,7 +29,7 @@ class MentorMainTabBarViewController: UITabBarController {
         // Announcements
                 let announcements = MentorAnnouncementsViewController(nibName: "MentorAnnouncementsViewController", bundle: nil)
                 let annNav = UINavigationController(rootViewController: announcements)
-                annNav.tabBarItem = UITabBarItem(title: "Announcements",
+                annNav.tabBarItem = UITabBarItem(title: "Announcement",
                                                  image: UIImage(systemName: "megaphone.fill"),
                                                  tag: 1)
 

@@ -5,11 +5,6 @@
 //  Created by user@51 on 16/11/25.
 //
 
-//
-//  MentorAnnouncementCell.swift
-//  iCohort3
-//
-
 import UIKit
 
 class MentorAnnouncementTableViewCell: UITableViewCell {
@@ -20,6 +15,14 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
     @IBOutlet weak var tagLabel: UILabel!
     @IBOutlet weak var metaLabel: UILabel!
     @IBOutlet weak var infoButton: UIButton!
+    @IBOutlet weak var attacthmentButton: UIButton!
+    
+    // Closure to handle actions from the cell
+    var onInfoTapped: (() -> Void)?
+    var onDeleteTapped: (() -> Void)?
+    var onAttachmentTapped: (([AttachmentType]) -> Void)?
+    
+    private var attachments: [AttachmentType] = []
     
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -38,6 +41,28 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
         tagLabel.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
         tagLabel.textColor = .white
         tagLabel.textAlignment = .center
+        
+        // Setup info button action
+        infoButton.addTarget(self, action: #selector(infoButtonTapped), for: .touchUpInside)
+        
+        // Setup attachment button
+        attacthmentButton.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
+        setupAttachmentButton()
+    }
+    
+    private func setupAttachmentButton() {
+        attacthmentButton.setTitleColor(.systemBlue, for: .normal)
+        attacthmentButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        
+        // Set the paperclip icon
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        let paperclipImage = UIImage(systemName: "paperclip", withConfiguration: config)
+        attacthmentButton.setImage(paperclipImage, for: .normal)
+        attacthmentButton.tintColor = .systemBlue
+        
+        // Position image to the left of text
+        attacthmentButton.semanticContentAttribute = .forceLeftToRight
+
     }
 
     func configure(with a: Announcement) {
@@ -57,10 +82,82 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
             tagLabel.isHidden = true
         }
 
+        // 🔥 UPDATED DATE FORMAT
         let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
+        formatter.dateFormat = "d MMM • h:mm a"   // Example: 23 Nov • 3:45 PM
 
         metaLabel.text = "\(formatter.string(from: a.createdAt)) • BY \(a.author.uppercased())"
+        
+        // Handle attachments
+        configureAttachments(for: a)
+    }
+    
+    private func configureAttachments(for announcement: Announcement) {
+        // Get attachments from announcement
+        attachments = announcement.attachments ?? []
+        
+        if attachments.isEmpty {
+            attacthmentButton.isHidden = true
+        } else {
+            attacthmentButton.isHidden = false
+            let count = attachments.count
+            let title = count == 1 ? "1 attachment" : "\(count) attachments"
+            attacthmentButton.setTitle(title, for: .normal)
+        }
+    }
+    
+    @objc private func attachmentButtonTapped() {
+        guard !attachments.isEmpty else { return }
+        onAttachmentTapped?(attachments)
+    }
+    
+    @objc private func infoButtonTapped() {
+        // Find the view controller to present the alert
+        guard let viewController = findViewController() else { return }
+        
+        let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        
+        // Info action
+        let infoAction = UIAlertAction(title: "Info", style: .default) { [weak self] _ in
+            self?.onInfoTapped?()
+        }
+        if let infoImage = UIImage(systemName: "info.circle") {
+            infoAction.setValue(infoImage, forKey: "image")
+        }
+        
+        // Delete action
+        let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            self?.onDeleteTapped?()
+        }
+        if let deleteImage = UIImage(systemName: "trash") {
+            deleteAction.setValue(deleteImage, forKey: "image")
+        }
+        
+        // Cancel action
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        
+        alert.addAction(infoAction)
+        alert.addAction(deleteAction)
+        alert.addAction(cancelAction)
+        
+        // For iPad support
+        if let popoverController = alert.popoverPresentationController {
+            popoverController.sourceView = infoButton
+            popoverController.sourceRect = infoButton.bounds
+        }
+        
+        viewController.present(alert, animated: true)
+    }
+    
+    // Helper to find the view controller
+    private func findViewController() -> UIViewController? {
+        var responder: UIResponder? = self
+        while responder != nil {
+            if let viewController = responder as? UIViewController {
+                return viewController
+            }
+            responder = responder?.next
+        }
+        return nil
     }
 }

@@ -48,14 +48,24 @@
                                 <color key="textColor" white="0.66666666666666663" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <nil key="highlightedColor"/>
                             </label>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="GXe-Ci-y51">
+                                <rect key="frame" x="65.333333333333329" y="76.666666666666671" width="54.666666666666671" height="22"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="22" id="xAk-ZE-EQZ"/>
+                                </constraints>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="plain" image="rectangle.and.paperclip" catalog="system"/>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
                             <constraint firstItem="8US-3w-fAY" firstAttribute="top" secondItem="5eL-DN-KRn" secondAttribute="bottom" constant="8" id="0gB-RV-BPh"/>
                             <constraint firstItem="5eL-DN-KRn" firstAttribute="leading" secondItem="pN4-ZA-8bN" secondAttribute="leading" constant="12" id="22r-xr-j9k"/>
                             <constraint firstItem="iM5-M7-79L" firstAttribute="centerY" secondItem="xN9-S1-UcT" secondAttribute="centerY" constant="31.833333333333329" id="2rz-wt-l0A"/>
+                            <constraint firstItem="GXe-Ci-y51" firstAttribute="leading" secondItem="xN9-S1-UcT" secondAttribute="trailing" constant="12" id="9pq-TV-ghN"/>
                             <constraint firstItem="iM5-M7-79L" firstAttribute="leading" secondItem="pN4-ZA-8bN" secondAttribute="leading" constant="12" id="FRj-5O-il6"/>
                             <constraint firstItem="8US-3w-fAY" firstAttribute="leading" secondItem="pN4-ZA-8bN" secondAttribute="leading" constant="12" id="Jm2-0Q-fyw"/>
+                            <constraint firstItem="GXe-Ci-y51" firstAttribute="centerY" secondItem="xN9-S1-UcT" secondAttribute="centerY" id="TNC-1w-FsD"/>
                             <constraint firstItem="xN9-S1-UcT" firstAttribute="leading" secondItem="pN4-ZA-8bN" secondAttribute="leading" constant="12" id="TYn-9g-ikT"/>
                             <constraint firstItem="5eL-DN-KRn" firstAttribute="top" secondItem="pN4-ZA-8bN" secondAttribute="top" constant="12" id="W5i-q3-KkY"/>
                             <constraint firstAttribute="trailing" secondItem="iM5-M7-79L" secondAttribute="trailing" constant="12" id="Zre-5o-Djg"/>
@@ -77,6 +87,7 @@
             <viewLayoutGuide key="safeArea" id="njF-e1-oar"/>
             <color key="backgroundColor" name="Color"/>
             <connections>
+                <outlet property="attachmentButton" destination="GXe-Ci-y51" id="egJ-xs-ZEo"/>
                 <outlet property="bodyLabel" destination="8US-3w-fAY" id="AFZ-bU-Pau"/>
                 <outlet property="containerView" destination="pN4-ZA-8bN" id="CQ0-9y-1m4"/>
                 <outlet property="metaLabel" destination="iM5-M7-79L" id="9rA-v0-GEa"/>
@@ -87,6 +98,7 @@
         </tableViewCell>
     </objects>
     <resources>
+        <image name="rectangle.and.paperclip" catalog="system" width="128" height="106"/>
         <namedColor name="Color">
             <color red="0.75686274509803919" green="0.75294117647058822" blue="0.75686274509803919" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

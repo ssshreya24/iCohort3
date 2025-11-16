@@ -4,6 +4,7 @@
 //
 
 import UIKit
+internal import UniformTypeIdentifiers
 
 class TaskDetailViewController: UIViewController {
 
@@ -323,9 +324,18 @@ class TaskDetailViewController: UIViewController {
         
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
+        // Camera action with icon
+        let cameraAction = UIAlertAction(title: "Camera", style: .default, handler: { _ in
+            self.openCamera()
+        })
+        if let cameraIcon = UIImage(systemName: "camera.fill")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
+            cameraAction.setValue(cameraIcon, forKey: "image")
+        }
+        alert.addAction(cameraAction)
+
         // Gallery action with icon
-        let galleryAction = UIAlertAction(title: "Gallery", style: .default, handler: { _ in
-            self.addAttachmentLabel("Photo_\(Date().timeIntervalSince1970).jpeg")
+        let galleryAction = UIAlertAction(title: "Photo Library", style: .default, handler: { _ in
+            self.openPhotoLibrary()
         })
         if let galleryIcon = UIImage(systemName: "photo.fill")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
             galleryAction.setValue(galleryIcon, forKey: "image")
@@ -334,7 +344,7 @@ class TaskDetailViewController: UIViewController {
 
         // Documents action with icon
         let documentsAction = UIAlertAction(title: "Documents", style: .default, handler: { _ in
-            self.addAttachmentLabel("Document_\(Date().timeIntervalSince1970).pdf")
+            self.openDocumentPicker()
         })
         if let docIcon = UIImage(systemName: "doc.fill")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
             documentsAction.setValue(docIcon, forKey: "image")
@@ -351,6 +361,40 @@ class TaskDetailViewController: UIViewController {
         }
 
         present(alert, animated: true)
+    }
+    
+    // MARK: - Open Camera
+    private func openCamera() {
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            let picker = UIImagePickerController()
+            picker.sourceType = .camera
+            picker.delegate = self
+            picker.allowsEditing = false
+            present(picker, animated: true)
+        } else {
+            showAlert(title: "Camera Not Available", message: "Camera is not available on this device.")
+        }
+    }
+    
+    // MARK: - Open Photo Library
+    private func openPhotoLibrary() {
+        if UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
+            let picker = UIImagePickerController()
+            picker.sourceType = .photoLibrary
+            picker.delegate = self
+            picker.allowsEditing = false
+            present(picker, animated: true)
+        } else {
+            showAlert(title: "Photo Library Not Available", message: "Photo library is not available on this device.")
+        }
+    }
+    
+    // MARK: - Open Document Picker
+    private func openDocumentPicker() {
+        let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf, .text, .data])
+        documentPicker.delegate = self
+        documentPicker.allowsMultipleSelection = false
+        present(documentPicker, animated: true)
     }
 
     @IBAction func submitButtonTapped(_ sender: UIButton) {
@@ -437,6 +481,50 @@ class TaskDetailViewController: UIViewController {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+}
+
+// MARK: - UIImagePickerControllerDelegate & UINavigationControllerDelegate
+extension TaskDetailViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        picker.dismiss(animated: true)
+        
+        // Get the image
+        if info[.originalImage] is UIImage {
+            // Generate filename based on source
+            let fileName: String
+            if picker.sourceType == .camera {
+                fileName = "Camera_\(Date().timeIntervalSince1970).jpeg"
+            } else {
+                fileName = "Photo_\(Date().timeIntervalSince1970).jpeg"
+            }
+            
+            // Add the attachment
+            addAttachmentLabel(fileName)
+        }
+    }
+    
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
+    }
+}
+
+// MARK: - UIDocumentPickerDelegate
+extension TaskDetailViewController: UIDocumentPickerDelegate {
+    
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        
+        // Get the filename
+        let fileName = url.lastPathComponent
+        
+        // Add the attachment
+        addAttachmentLabel(fileName)
+    }
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        controller.dismiss(animated: true)
     }
 }
 

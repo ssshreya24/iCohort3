@@ -4,6 +4,8 @@
 //
 
 import UIKit
+import SafariServices
+import PDFKit
 
 class MentorAnnouncementsViewController: UIViewController {
 
@@ -175,17 +177,101 @@ class MentorAnnouncementsViewController: UIViewController {
 
         if !empty { tableView.reloadData() }
     }
+    
+    // MARK: Info & Delete Actions
+    private func showAnnouncementInfo(at index: Int) {
+        let announcement = filteredAnnouncements.isEmpty ? announcements[index] : filteredAnnouncements[index]
+        
+        let alert = UIAlertController(
+            title: announcement.title,
+            message: "\(announcement.body)\n\nAuthor: \(announcement.author)\nCreated: \(formatDate(announcement.createdAt))",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    private func deleteAnnouncement(at index: Int) {
+        let alert = UIAlertController(
+            title: "Delete Announcement",
+            message: "Are you sure you want to delete this announcement?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self = self else { return }
+            
+            if self.filteredAnnouncements.isEmpty {
+                let announcementToDelete = self.announcements[index]
+                self.announcements.removeAll { $0.id == announcementToDelete.id }
+            } else {
+                let announcementToDelete = self.filteredAnnouncements[index]
+                self.announcements.removeAll { $0.id == announcementToDelete.id }
+                self.filteredAnnouncements.remove(at: index)
+            }
+            
+            self.tableView.reloadData()
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    private func showAttachments(_ attachments: [AttachmentType]) {
+        let vc = AttachmentViewController()
+        vc.attachments = attachments
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
 
     // MARK: Sample Data
     func addSample() {
+        // Sample image (add to Assets.xcassets or use system image)
+        let sampleImage = UIImage(named: "sample_attachment") ?? UIImage(systemName: "photo.fill")!
+        
+        // Sample PDF URL (you can replace with actual PDF in your bundle)
+        let pdfURL = Bundle.main.url(forResource: "sample_document", withExtension: "pdf") ?? URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf")!
+        
+        // Sample link
+        let linkURL = URL(string: "https://www.apple.com/education/")!
+        
         announcements.insert(
             Announcement(
                 id: UUID(),
                 title: "Mentor Sync Session",
-                body: "Weekly sync meeting for all mentors tomorrow.",
+                body: "Weekly sync meeting for all mentors tomorrow. Please review the attached materials.",
                 tag: "Meeting",
                 createdAt: Date(),
-                author: "Program Lead"
+                author: "Program Lead",
+                attachments: [
+                    .image(sampleImage),
+                    .pdf("Meeting Agenda.pdf", pdfURL),
+                    .link("Apple Education", linkURL)
+                ]
+            ),
+            at: 0
+        )
+        
+        // Add another sample with different attachments
+        announcements.insert(
+            Announcement(
+                id: UUID(),
+                title: "New Training Resources",
+                body: "Check out these new training materials for mentors.",
+                tag: "Event",
+                createdAt: Date().addingTimeInterval(-3600),
+                author: "Training Team",
+                attachments: [
+                    .link("Training Portal", URL(string: "https://developer.apple.com")!),
+                    .image(UIImage(systemName: "book.fill")!)
+                ]
             ),
             at: 0
         )
@@ -211,6 +297,351 @@ extension MentorAnnouncementsViewController: UITableViewDataSource, UITableViewD
         let obj = filteredAnnouncements.isEmpty ? announcements[indexPath.row] : filteredAnnouncements[indexPath.row]
         cell.configure(with: obj)
         cell.selectionStyle = .none
+        
+        // Handle info button tap
+        cell.onInfoTapped = { [weak self] in
+            self?.showAnnouncementInfo(at: indexPath.row)
+        }
+        
+        // Handle delete button tap
+        cell.onDeleteTapped = { [weak self] in
+            self?.deleteAnnouncement(at: indexPath.row)
+        }
+        
+        // Handle attachment button tap
+        cell.onAttachmentTapped = { [weak self] attachments in
+            self?.showAttachments(attachments)
+        }
+        
         return cell
+    }
+}
+
+// MARK: - Attachment Viewer
+class AttachmentViewController: UIViewController {
+    
+    var attachments: [AttachmentType] = []
+    
+    private var tableView: UITableView!
+    private var closeButton: UIButton!
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        
+        setupCloseButton()
+        setupTableView()
+    }
+    
+    private func setupCloseButton() {
+        closeButton = UIButton(type: .system)
+        closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        closeButton.tintColor = .label
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        view.addSubview(closeButton)
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "Attachments"
+        titleLabel.font = UIFont.systemFont(ofSize: 24, weight: .bold)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(titleLabel)
+        
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            
+            closeButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            closeButton.widthAnchor.constraint(equalToConstant: 44),
+            closeButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+    
+    private func setupTableView() {
+        tableView = UITableView(frame: .zero, style: .insetGrouped)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.register(AttachmentTableViewCell.self, forCellReuseIdentifier: "AttachmentCell")
+        view.addSubview(tableView)
+        
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 70),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    @objc private func closeTapped() {
+        dismiss(animated: true)
+    }
+    
+    private func openAttachment(_ attachment: AttachmentType) {
+        switch attachment {
+        case .image(let image):
+            let imageVC = ImageViewController()
+            imageVC.image = image
+            imageVC.modalPresentationStyle = .fullScreen
+            present(imageVC, animated: true)
+            
+        case .pdf(_, let url):
+            let pdfVC = PDFViewController()
+            pdfVC.pdfURL = url
+            pdfVC.modalPresentationStyle = .fullScreen
+            present(pdfVC, animated: true)
+            
+        case .link(_, let url):
+            let safariVC = SFSafariViewController(url: url)
+            present(safariVC, animated: true)
+        }
+    }
+}
+
+// MARK: - AttachmentViewController Table Delegate
+extension AttachmentViewController: UITableViewDelegate, UITableViewDataSource {
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return attachments.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "AttachmentCell", for: indexPath) as! AttachmentTableViewCell
+        cell.configure(with: attachments[indexPath.row])
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        openAttachment(attachments[indexPath.row])
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 70
+    }
+}
+
+// MARK: - Attachment Table Cell
+class AttachmentTableViewCell: UITableViewCell {
+    
+    private let iconView = UIImageView()
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+    private let chevronView = UIImageView()
+    
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        setupViews()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func setupViews() {
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.contentMode = .scaleAspectFit
+        iconView.tintColor = .systemBlue
+        contentView.addSubview(iconView)
+        
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        contentView.addSubview(titleLabel)
+        
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        subtitleLabel.font = UIFont.systemFont(ofSize: 14)
+        subtitleLabel.textColor = .secondaryLabel
+        contentView.addSubview(subtitleLabel)
+        
+        chevronView.translatesAutoresizingMaskIntoConstraints = false
+        chevronView.image = UIImage(systemName: "chevron.right")
+        chevronView.tintColor = .tertiaryLabel
+        contentView.addSubview(chevronView)
+        
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            iconView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 40),
+            iconView.heightAnchor.constraint(equalToConstant: 40),
+            
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 12),
+            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(equalTo: chevronView.leadingAnchor, constant: -8),
+            
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            subtitleLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            
+            chevronView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            chevronView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            chevronView.widthAnchor.constraint(equalToConstant: 20),
+            chevronView.heightAnchor.constraint(equalToConstant: 20)
+        ])
+    }
+    
+    func configure(with attachment: AttachmentType) {
+        switch attachment {
+        case .image(let image):
+            iconView.image = image
+            iconView.contentMode = .scaleAspectFill
+            iconView.layer.cornerRadius = 8
+            iconView.clipsToBounds = true
+            titleLabel.text = "Image"
+            subtitleLabel.text = "Tap to view"
+            
+        case .pdf(let title, _):
+            iconView.image = UIImage(systemName: "doc.fill")
+            iconView.contentMode = .scaleAspectFit
+            iconView.layer.cornerRadius = 0
+            iconView.clipsToBounds = false
+            titleLabel.text = title
+            subtitleLabel.text = "PDF Document"
+            
+        case .link(let title, let url):
+            iconView.image = UIImage(systemName: "link")
+            iconView.contentMode = .scaleAspectFit
+            iconView.layer.cornerRadius = 0
+            iconView.clipsToBounds = false
+            titleLabel.text = title
+            subtitleLabel.text = url.host ?? url.absoluteString
+        }
+    }
+}
+
+// MARK: - Image Viewer
+class ImageViewController: UIViewController, UIScrollViewDelegate {
+    
+    var image: UIImage?
+    private var scrollView: UIScrollView!
+    private var imageView: UIImageView!
+    private var closeButton: UIButton!
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        
+        setupScrollView()
+        setupImageView()
+        setupCloseButton()
+    }
+    
+    private func setupScrollView() {
+        scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.delegate = self
+        scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 4.0
+        view.addSubview(scrollView)
+        
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    private func setupImageView() {
+        imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(imageView)
+        
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            imageView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            imageView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            imageView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            imageView.heightAnchor.constraint(equalTo: scrollView.heightAnchor)
+        ])
+    }
+    
+    private func setupCloseButton() {
+        closeButton = UIButton(type: .system)
+        closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        closeButton.tintColor = .white
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        view.addSubview(closeButton)
+        
+        NSLayoutConstraint.activate([
+            closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            closeButton.widthAnchor.constraint(equalToConstant: 44),
+            closeButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+    
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        return imageView
+    }
+    
+    @objc private func closeTapped() {
+        dismiss(animated: true)
+    }
+}
+
+// MARK: - PDF Viewer
+class PDFViewController: UIViewController {
+    
+    var pdfURL: URL?
+    private var pdfView: PDFView!
+    private var closeButton: UIButton!
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+        
+        setupPDFView()
+        setupCloseButton()
+        loadPDF()
+    }
+    
+    private func setupPDFView() {
+        pdfView = PDFView()
+        pdfView.translatesAutoresizingMaskIntoConstraints = false
+        pdfView.autoScales = true
+        pdfView.displayMode = .singlePageContinuous
+        pdfView.displayDirection = .vertical
+        view.addSubview(pdfView)
+        
+        NSLayoutConstraint.activate([
+            pdfView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            pdfView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            pdfView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            pdfView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
+    private func setupCloseButton() {
+        closeButton = UIButton(type: .system)
+        closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        closeButton.tintColor = .label
+        closeButton.backgroundColor = .systemBackground
+        closeButton.layer.cornerRadius = 22
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        view.addSubview(closeButton)
+        
+        NSLayoutConstraint.activate([
+            closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            closeButton.widthAnchor.constraint(equalToConstant: 44),
+            closeButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+    
+    private func loadPDF() {
+        guard let url = pdfURL else { return }
+        
+        if let document = PDFDocument(url: url) {
+            pdfView.document = document
+        }
+    }
+    
+    @objc private func closeTapped() {
+        dismiss(animated: true)
     }
 }
