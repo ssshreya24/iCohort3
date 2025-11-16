@@ -7,6 +7,7 @@
 
 import UIKit
 
+
 class TeamSummaryCell: UICollectionViewCell {
     
     @IBOutlet weak var circleView: UIView!

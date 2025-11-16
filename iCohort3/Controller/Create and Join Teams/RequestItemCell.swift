@@ -58,13 +58,38 @@ class RequestItemCell: UICollectionViewCell {
     }
 
     /// For “Requests Received” section — hide button, show team info
-    func configureForReceived(name: String, teamNumber: String, members: [String]) {
-        nameLabel.text = "\(name) (Team \(teamNumber))"
-        subtitleLabel.text = "Members: \(members.joined(separator: ", "))"
-        avatarView.image = UIImage(systemName: "person.circle")
-        actionButton.isHidden = true
+    func configureForReceived(name: String, avatar: UIImage?, onSend: @escaping () -> Void) {
+        nameLabel.text = name
+        subtitleLabel.text = "2h ago"
+        avatarView.image = avatar ?? UIImage(systemName: "person.circle")
+        actionButton.setTitle("Accept", for: .normal)
+        actionButton.isHidden = false
         avatarView.backgroundColor = .systemGray2
     }
+    // Inside RequestItemCell.swift
+
+
+    func configureForJoin(adminName: String,
+                          avatar: UIImage?,
+                          teamNumber: String,
+                          members: [String],
+                          onJoin: @escaping () -> Void) {
+        // First line: "Ananya (Team 3)"
+        nameLabel.text = "\(adminName) (Team \(teamNumber))"
+
+        // Second line: "Rahul, Meera, Karthik"
+        subtitleLabel.text = members.joined(separator: ", ")
+
+        avatarView.image = avatar ?? UIImage(systemName: "person.circle")
+        avatarView.backgroundColor = .systemGray2
+
+        actionButton.setTitle("Join", for: .normal)
+        actionButton.isHidden = false
+
+        onAction = onJoin
+    }
+
+    
 
     // MARK: - Actions
     @IBAction func actionButtonTapped(_ sender: UIButton) {

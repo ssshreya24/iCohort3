@@ -82,25 +82,43 @@ class SProfileViewController: UIViewController {
 
         @IBAction func myTeamTapped(_ sender: Any) {
             print("My Team tapped")
-            let vc = TeamViewController(nibName: "TeamViewController", bundle: nil)
-                vc.modalPresentationStyle = .pageSheet
-                vc.modalTransitionStyle = .coverVertical
+                let sheet = UIAlertController(
+                    title: "My Team",
+                    message: "Choose an option",
+                    preferredStyle: .actionSheet
+                )
 
-                if let sheet = vc.sheetPresentationController {
-                    let topGap: CGFloat = 0
+                // Option 1 – Create Team
+                sheet.addAction(UIAlertAction(title: "Create Team", style: .default) { [weak self] _ in
+                    self?.presentTeamVC(startMode: .create)
+                })
 
-                    sheet.detents = [
-                        .custom(identifier: .init("almostFull")) { context in
-                            context.maximumDetentValue - topGap
-                        }
-                    ]
-                    sheet.prefersGrabberVisible = true
-                    sheet.preferredCornerRadius = 24
-                    sheet.largestUndimmedDetentIdentifier = .init("almostFull")
-                    sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+                // Option 2 – Join Team
+                sheet.addAction(UIAlertAction(title: "Join Team", style: .default) { [weak self] _ in
+                    self?.presentJoinTeamsVC()
+                })
+
+                // Cancel
+                sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+
+                // For iPad / large screens (to avoid crash)
+                if let popover = sheet.popoverPresentationController {
+                    if let view = sender as? UIView {
+                        popover.sourceView = view
+                        popover.sourceRect = view.bounds
+                    } else {
+                        popover.sourceView = self.view
+                        popover.sourceRect = CGRect(
+                            x: self.view.bounds.midX,
+                            y: self.view.bounds.midY,
+                            width: 0,
+                            height: 0
+                        )
+                    }
+                    popover.permittedArrowDirections = .up
                 }
 
-                present(vc, animated: true)
+                present(sheet, animated: true)
         }
 
         @IBAction func notificationChanged(_ sender: UISwitch) {
@@ -123,6 +141,52 @@ class SProfileViewController: UIViewController {
             let on = UserDefaults.standard.bool(forKey: "profile_notifications_enabled")
             notificationSwitch.setOn(on, animated: false)
         }
+    private func presentTeamVC(startMode: TeamStartMode) {
+        let vc = TeamViewController(nibName: "TeamViewController", bundle: nil)
+        vc.startMode = startMode
+
+        vc.modalPresentationStyle = .pageSheet
+        vc.modalTransitionStyle = .coverVertical
+
+        if let sheet = vc.sheetPresentationController {
+            let topGap: CGFloat = 0
+            sheet.detents = [
+                .custom(identifier: .init("almostFull")) { context in
+                    context.maximumDetentValue - topGap
+                }
+            ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+
+        present(vc, animated: true)
+    }
+    private func presentJoinTeamsVC() {
+        let vc = JoinTeamsViewController(nibName: "JoinTeamsViewController", bundle: nil)
+ 
+
+        vc.modalPresentationStyle = .pageSheet
+        vc.modalTransitionStyle = .coverVertical
+
+        if let sheet = vc.sheetPresentationController {
+            let topGap: CGFloat = 0
+            sheet.detents = [
+                .custom(identifier: .init("almostFull")) { context in
+                    context.maximumDetentValue - topGap
+                }
+            ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+
+        present(vc, animated: true)
+    }
+
+
 
         
     }

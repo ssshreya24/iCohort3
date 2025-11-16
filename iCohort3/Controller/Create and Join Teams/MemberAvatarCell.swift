@@ -61,11 +61,11 @@ class MemberAvatarCell: UICollectionViewCell {
 
             case .empty:
                 avatarImageView.image = UIImage(systemName: "person.crop.circle")
-                addButton.isHidden = false
+                addButton.isHidden = true
 
             case .addSlot:
                 avatarImageView.image = UIImage(systemName: "person.crop.circle")
-                addButton.isHidden = false
+                addButton.isHidden = true
             }
         }
 

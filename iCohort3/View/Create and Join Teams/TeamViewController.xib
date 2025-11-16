@@ -11,6 +11,7 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="TeamViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
                 <outlet property="collectionView" destination="Gwu-nH-XcB" id="R9c-gb-gMb"/>
+                <outlet property="titleLabel" destination="WSn-Gu-d8S" id="bvg-Ah-arc"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
         </placeholder>
@@ -19,8 +20,26 @@
             <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Gds-pf-03p">
+                    <rect key="frame" x="31" y="142" width="44" height="44"/>
+                    <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="calibratedRGB"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="44" id="3tN-ta-Y1A"/>
+                        <constraint firstAttribute="width" constant="44" id="zpd-mb-PtA"/>
+                    </constraints>
+                    <state key="normal" title="Button"/>
+                    <buttonConfiguration key="configuration" style="plain" image="xmark" catalog="system" title="" cornerStyle="capsule">
+                        <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </buttonConfiguration>
+                </button>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Create Team" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="WSn-Gu-d8S">
+                    <rect key="frame" x="139.66666666666666" y="152" width="113.66666666666666" height="24"/>
+                    <fontDescription key="fontDescription" type="system" weight="medium" pointSize="20"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
                 <collectionView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" dataMode="none" translatesAutoresizingMaskIntoConstraints="NO" id="Gwu-nH-XcB">
-                    <rect key="frame" x="0.0" y="118" width="393" height="666"/>
+                    <rect key="frame" x="0.0" y="192" width="393" height="592"/>
                     <color key="backgroundColor" name="bg"/>
                     <collectionViewFlowLayout key="collectionViewLayout" minimumLineSpacing="10" minimumInteritemSpacing="10" id="iVz-lI-ULX">
                         <size key="itemSize" width="128" height="128"/>
@@ -37,15 +56,20 @@
             <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
             <color key="backgroundColor" name="bg"/>
             <constraints>
+                <constraint firstItem="WSn-Gu-d8S" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" constant="34" id="0FH-DH-EGr"/>
+                <constraint firstItem="Gwu-nH-XcB" firstAttribute="top" secondItem="WSn-Gu-d8S" secondAttribute="top" constant="40" id="1jh-9J-oyi"/>
+                <constraint firstItem="Gds-pf-03p" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" constant="31" id="F9L-SS-fSC"/>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="bottom" secondItem="Gwu-nH-XcB" secondAttribute="bottom" id="GXz-Nl-Ctl"/>
-                <constraint firstItem="Gwu-nH-XcB" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="Wwp-vI-rMk"/>
+                <constraint firstItem="WSn-Gu-d8S" firstAttribute="centerX" secondItem="Gwu-nH-XcB" secondAttribute="centerX" id="QdR-XU-Ua3"/>
                 <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="Gwu-nH-XcB" secondAttribute="trailing" id="tyl-hg-3ye"/>
                 <constraint firstItem="Gwu-nH-XcB" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="yUz-si-l3e"/>
+                <constraint firstItem="Gds-pf-03p" firstAttribute="centerY" secondItem="WSn-Gu-d8S" secondAttribute="centerY" id="zfo-kA-bLD"/>
             </constraints>
             <point key="canvasLocation" x="138" y="118"/>
         </view>
     </objects>
     <resources>
+        <image name="xmark" catalog="system" width="128" height="113"/>
         <namedColor name="bg">
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

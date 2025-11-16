@@ -19,8 +19,8 @@
                     <segmentedControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="top" segmentControlStyle="plain" selectedSegmentIndex="0" translatesAutoresizingMaskIntoConstraints="NO" id="hnx-Yi-W7k">
                         <rect key="frame" x="8" y="8" width="34" height="35"/>
                         <segments>
-                            <segment title="First"/>
-                            <segment title="Second"/>
+                            <segment title="Send Requests"/>
+                            <segment title="Received Requests"/>
                         </segments>
                     </segmentedControl>
                 </subviews>

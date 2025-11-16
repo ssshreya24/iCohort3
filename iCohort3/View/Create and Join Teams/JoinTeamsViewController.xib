@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="JoinTeamsViewController" customModule="iCohort3" customModuleProvider="target">
+            <connections>
+                <outlet property="closeButton" destination="hbe-DZ-Qe1" id="Bki-m4-bJf"/>
+                <outlet property="collectionView" destination="gR8-9i-r1b" id="JXa-ZJ-Ehz"/>
+                <outlet property="titleLabel" destination="Dbm-kT-MbZ" id="r5Q-xt-zZU"/>
+                <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view clearsContextBeforeDrawing="NO" contentMode="scaleToFill" id="i5M-Pr-FkT">
+            <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="hbe-DZ-Qe1">
+                    <rect key="frame" x="31" y="142" width="44" height="44"/>
+                    <color key="backgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="calibratedRGB"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="44" id="KCz-TL-Bm7"/>
+                        <constraint firstAttribute="width" constant="44" id="pnG-4b-VRZ"/>
+                    </constraints>
+                    <state key="normal" title="Button"/>
+                    <buttonConfiguration key="configuration" style="plain" image="xmark" catalog="system" title="" cornerStyle="capsule">
+                        <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </buttonConfiguration>
+                    <connections>
+                        <action selector="closeTapped:" destination="-1" eventType="touchUpInside" id="MHs-YC-G8z"/>
+                    </connections>
+                </button>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Create Team" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Dbm-kT-MbZ">
+                    <rect key="frame" x="130.66666666666666" y="152" width="113.66666666666666" height="24"/>
+                    <fontDescription key="fontDescription" type="system" weight="medium" pointSize="20"/>
+                    <nil key="textColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <collectionView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" dataMode="none" translatesAutoresizingMaskIntoConstraints="NO" id="gR8-9i-r1b">
+                    <rect key="frame" x="0.0" y="192" width="375" height="441"/>
+                    <color key="backgroundColor" name="bg"/>
+                    <collectionViewFlowLayout key="collectionViewLayout" minimumLineSpacing="10" minimumInteritemSpacing="10" id="P1H-4y-iru">
+                        <size key="itemSize" width="128" height="128"/>
+                        <size key="headerReferenceSize" width="0.0" height="0.0"/>
+                        <size key="footerReferenceSize" width="0.0" height="0.0"/>
+                        <inset key="sectionInset" minX="0.0" minY="0.0" maxX="0.0" maxY="0.0"/>
+                    </collectionViewFlowLayout>
+                </collectionView>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
+            <color key="backgroundColor" name="bg"/>
+            <constraints>
+                <constraint firstItem="Dbm-kT-MbZ" firstAttribute="centerX" secondItem="fnl-2z-Ty3" secondAttribute="centerX" id="8Z9-uh-kEC"/>
+                <constraint firstItem="fnl-2z-Ty3" firstAttribute="trailing" secondItem="gR8-9i-r1b" secondAttribute="trailing" id="Fo7-0V-os6"/>
+                <constraint firstItem="Dbm-kT-MbZ" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" constant="34" id="KIZ-bR-OdC"/>
+                <constraint firstItem="hbe-DZ-Qe1" firstAttribute="centerY" secondItem="Dbm-kT-MbZ" secondAttribute="centerY" id="dqy-bN-bUd"/>
+                <constraint firstItem="fnl-2z-Ty3" firstAttribute="bottom" secondItem="gR8-9i-r1b" secondAttribute="bottom" id="iHm-Yv-uG2"/>
+                <constraint firstItem="hbe-DZ-Qe1" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" constant="31" id="iQy-qd-4jm"/>
+                <constraint firstItem="gR8-9i-r1b" firstAttribute="top" secondItem="Dbm-kT-MbZ" secondAttribute="top" constant="40" id="jzJ-WK-c15"/>
+                <constraint firstItem="gR8-9i-r1b" firstAttribute="leading" secondItem="fnl-2z-Ty3" secondAttribute="leading" id="k5b-Cp-G5S"/>
+            </constraints>
+            <point key="canvasLocation" x="139" y="154"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="xmark" catalog="system" width="128" height="113"/>
+        <namedColor name="bg">
+            <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+    </resources>
+</document>
