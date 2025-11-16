@@ -13,6 +13,9 @@
             <connections>
                 <outlet property="addAttachmentButton" destination="ycf-GT-0nJ" id="bU4-wZ-Wqz"/>
                 <outlet property="addAttachmentView" destination="wDM-Ca-RD0" id="cVU-bh-GDn"/>
+                <outlet property="attachmentContainerHeightConstraint" destination="3He-D9-fg4" id="BHM-Gm-9KS"/>
+                <outlet property="attachmentLabelHeight" destination="3He-D9-fg4" id="8F7-rg-wvb"/>
+                <outlet property="attachmentsStackView" destination="abG-wV-ssc" id="Iff-FK-xY7"/>
                 <outlet property="blueColor" destination="Iot-JB-BJY" id="TS8-on-JlC"/>
                 <outlet property="categoryLabel" destination="5WK-Cz-aZ5" id="9dW-H4-3cA"/>
                 <outlet property="categoryName" destination="Oci-dD-icw" id="id7-Jp-wEM"/>
@@ -156,7 +159,7 @@
                                                 <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="5WK-Cz-aZ5">
                                                     <rect key="frame" x="109.99999999999999" y="13.666666666666684" width="41.333333333333329" height="20.333333333333329"/>
                                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                                    <nil key="textColor"/>
+                                                    <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                     <nil key="highlightedColor"/>
                                                 </label>
                                             </subviews>
@@ -279,22 +282,35 @@
                                     </constraints>
                                 </view>
                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="wDM-Ca-RD0">
-                                    <rect key="frame" x="16" y="480" width="361" height="70"/>
+                                    <rect key="frame" x="16" y="480" width="361" height="180"/>
                                     <subviews>
                                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="leading" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="ycf-GT-0nJ">
-                                            <rect key="frame" x="16" y="17.333333333333368" width="329" height="35.666666666666657"/>
+                                            <rect key="frame" x="16" y="8" width="329" height="35.666666666666664"/>
                                             <state key="normal" title="Button"/>
                                             <buttonConfiguration key="configuration" style="plain" title="Add Attachment...">
                                                 <fontDescription key="titleFontDescription" type="system" pointSize="18"/>
                                                 <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                             </buttonConfiguration>
+                                            <connections>
+                                                <action selector="addAttachmentButtonTapped:" destination="-1" eventType="touchUpInside" id="L7d-54-ebg"/>
+                                            </connections>
                                         </button>
+                                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="abG-wV-ssc">
+                                            <rect key="frame" x="16" y="52" width="329" height="120"/>
+                                            <constraints>
+                                                <constraint firstAttribute="height" constant="120" id="aDN-7u-Ays"/>
+                                            </constraints>
+                                        </stackView>
                                     </subviews>
                                     <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                     <constraints>
-                                        <constraint firstAttribute="height" constant="70" id="3He-D9-fg4"/>
+                                        <constraint firstAttribute="height" constant="180" id="3He-D9-fg4"/>
+                                        <constraint firstItem="abG-wV-ssc" firstAttribute="leading" secondItem="wDM-Ca-RD0" secondAttribute="leading" constant="16" id="54n-Yx-ZV0"/>
                                         <constraint firstAttribute="trailing" secondItem="ycf-GT-0nJ" secondAttribute="trailing" constant="16" id="FkX-TP-tVN"/>
-                                        <constraint firstItem="ycf-GT-0nJ" firstAttribute="centerY" secondItem="wDM-Ca-RD0" secondAttribute="centerY" id="Jqa-yc-Xdh"/>
+                                        <constraint firstAttribute="bottom" secondItem="abG-wV-ssc" secondAttribute="bottom" constant="8" id="OXz-k1-4Hr"/>
+                                        <constraint firstItem="abG-wV-ssc" firstAttribute="top" secondItem="wDM-Ca-RD0" secondAttribute="top" constant="52" id="QKS-Uh-2Di"/>
+                                        <constraint firstAttribute="trailing" secondItem="abG-wV-ssc" secondAttribute="trailing" constant="16" id="kac-gc-teW"/>
+                                        <constraint firstItem="ycf-GT-0nJ" firstAttribute="top" secondItem="wDM-Ca-RD0" secondAttribute="top" constant="8" id="l0i-FJ-qaz"/>
                                         <constraint firstItem="ycf-GT-0nJ" firstAttribute="leading" secondItem="wDM-Ca-RD0" secondAttribute="leading" constant="16" id="mTD-ne-rlb"/>
                                     </constraints>
                                 </view>
