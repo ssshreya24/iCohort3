@@ -99,6 +99,8 @@ extension SCalendarViewController {
         calendarView.translatesAutoresizingMaskIntoConstraints = false
         calendarView.layoutMargins = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         calendarView.wantsDateDecorations = true
+        
+        calendarView.tintColor = .black
     }
     
     private func setupTableView() {

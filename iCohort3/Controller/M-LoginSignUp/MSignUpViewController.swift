@@ -11,13 +11,19 @@ class MSignUpViewController: UIViewController {
 
     @IBOutlet weak var fullNameContainer: UIView!
     @IBOutlet weak var emailContainer: UIView!
-    @IBOutlet weak var regContainer: UIView!
+
+    @IBOutlet weak var employeeField: UITextField!
+    @IBOutlet weak var employeeView: UIView!
+    @IBOutlet weak var designationField: UITextField!
+    @IBOutlet weak var designationView: UIView!
     @IBOutlet weak var passwordContainer: UIView!
     @IBOutlet weak var confirmContainer: UIView!
     @IBOutlet weak var signUpButton: UIButton!
     @IBOutlet weak var fullNameField: UITextField!
     @IBOutlet weak var emailField: UITextField!
-    @IBOutlet weak var regField: UITextField!
+
+    @IBOutlet weak var departmentField: UITextField!
+    @IBOutlet weak var departmentView: UIView!
     @IBOutlet weak var passwordField: UITextField!
     @IBOutlet weak var confirmField: UITextField!
 
@@ -26,19 +32,12 @@ class MSignUpViewController: UIViewController {
         super.viewDidLoad()
         setupBackButton()
         roundViews()
-        setupPlaceholders()
         
         // Do any additional setup after loading the view.
     }
-    func setupPlaceholders() {
-        fullNameField.placeholder = "Enter your full name"
-        emailField.placeholder = "Enter your email address"
-        regField.placeholder = "Enter your faculty number"
-        passwordField.placeholder = "Enter your password"
-        confirmField.placeholder = "Confirm your password"
-    }
+    
     func roundViews() {
-        let containers = [fullNameContainer, emailContainer, regContainer, passwordContainer, confirmContainer]
+        let containers = [fullNameContainer, emailContainer, designationView,employeeView,departmentView, passwordContainer, confirmContainer]
         
         for view in containers {
             view?.layer.cornerRadius = 20

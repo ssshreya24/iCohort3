@@ -50,7 +50,6 @@ class MCalendarViewController: UIViewController {
         emptyStateLabel.text = "No mentor activities yet"
         
         calendarView.layer.cornerRadius = 20
-        
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             guard let self = self else { return }
 
@@ -141,6 +140,8 @@ extension MCalendarViewController {
         calendarView.translatesAutoresizingMaskIntoConstraints = false
         calendarView.layoutMargins = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         calendarView.wantsDateDecorations = true
+        
+        calendarView.tintColor = .black
     }
     
     private func setupTableView() {
