@@ -1,13 +1,13 @@
 //
-//  SCalendarViewController.swift
+//  MCalendarViewController.swift
 //  iCohort3
 //
-//  Created by user@51 on 11/11/25.
+//  Created by user@51 on 15/11/25.
 //
 
 import UIKit
 
-class SCalendarViewController: UIViewController {
+class MCalendarViewController: UIViewController {
 
     // MARK: - Outlets (from Storyboard)
     @IBOutlet weak var monthLabel: UILabel!
@@ -16,7 +16,11 @@ class SCalendarViewController: UIViewController {
     @IBOutlet weak var emptyStateLabel: UILabel!
     @IBOutlet weak var calendarHeightConstraint: NSLayoutConstraint!
     
-    // Add chevron button outlet (connect this in storyboard)
+    @IBOutlet weak var editButton: UIButton!
+    
+    @IBOutlet weak var addActivityButton: UIButton!
+    
+    
     private var chevronButton: UIButton!
     
     // MARK: - Properties
@@ -27,6 +31,7 @@ class SCalendarViewController: UIViewController {
     private var displayedActivities: [Activity] = []
     
     private var isCalendarExpanded = true
+    private var isEditingMode = false
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -36,17 +41,15 @@ class SCalendarViewController: UIViewController {
         setupTableView()
         setupChevronButton()
         setupMonthLabelTapGesture()
+        setupEditButton()
         updateMonthLabel()
         
         updateActivitiesList(for: selectedDate)
         
         emptyStateLabel.isHidden = false
-        emptyStateLabel.text = "No activities yet"
+        emptyStateLabel.text = "No mentor activities yet"
         
         calendarView.layer.cornerRadius = 20
-        
-
-        
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             guard let self = self else { return }
 
@@ -65,27 +68,65 @@ class SCalendarViewController: UIViewController {
         }
     }
     
+    
+    @IBAction func addActivityButtonTapped(_ sender: Any) {
+        let vc = AddActivityViewController(nibName: "AddActivityViewController", bundle: nil)
+        vc.modalPresentationStyle = .pageSheet
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(vc, animated: true)
+    }
+    
+
+
     func updateActivitiesList(for date: Date) {
         displayedActivities = activities[date] ?? []
+        
+        // Always ensure table view editing mode matches our flag
+        if tableView.isEditing != isEditingMode {
+            tableView.setEditing(isEditingMode, animated: false)
+        }
+        
         tableView.reloadData()
         
         emptyStateLabel.isHidden = !displayedActivities.isEmpty
+        
+        // Hide edit button if no activities
+        editButton.isHidden = displayedActivities.isEmpty
+        
+        // Update addActivityButton position when editButton visibility changes
+        updateAddActivityButtonPosition()
     }
     
     private func reloadCalendarDecorations() {
-        var dateComponents: [DateComponents] = []
+        // Get the visible date range from the calendar
+        let calendar = Calendar.current
+        let visibleDateComponents = calendarView.visibleDateComponents
         
-        for date in activities.keys {
-            let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
-            dateComponents.append(components)
+        guard let yearMonth = visibleDateComponents.month,
+              let year = visibleDateComponents.year else {
+            return
         }
         
-        calendarView.reloadDecorations(forDateComponents: dateComponents, animated: true)
+        // Create date components for all days in the visible month
+        var allDaysInMonth: [DateComponents] = []
+        if let date = calendar.date(from: visibleDateComponents),
+           let range = calendar.range(of: .day, in: .month, for: date) {
+            for day in range {
+                let components = DateComponents(year: year, month: yearMonth, day: day)
+                allDaysInMonth.append(components)
+            }
+        }
+        
+        // Reload all visible dates to ensure decorations are updated correctly
+        calendarView.reloadDecorations(forDateComponents: allDaysInMonth, animated: true)
     }
 }
 
 // MARK: - Setup Methods
-extension SCalendarViewController {
+extension MCalendarViewController {
     
     private func setupCalendar() {
         calendarView.delegate = self
@@ -109,26 +150,43 @@ extension SCalendarViewController {
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.showsVerticalScrollIndicator = false
-        
-        let nib = UINib(nibName: "ActivityTableViewCell", bundle: nil)
-        tableView.register(nib, forCellReuseIdentifier: "ActivityCell")
+        tableView.allowsSelection = false
+
+        let nib = UINib(nibName: "MactivityTableViewCell", bundle: nil)
+        tableView.register(nib, forCellReuseIdentifier: "MactivityCell")
     }
     
-    // ✅ NEW: Setup chevron button programmatically
+    private func setupEditButton() {
+        editButton.setTitle("Edit", for: .normal)
+        editButton.setTitle("Done", for: .selected)
+        editButton.addTarget(self, action: #selector(editButtonTapped), for: .touchUpInside)
+        editButton.isHidden = true // Hidden initially until activities are loaded
+        
+        // Update addActivityButton trailing constraint based on editButton visibility
+        updateAddActivityButtonPosition()
+    }
+    
+    @objc private func editButtonTapped() {
+        toggleEditingMode()
+    }
+    
+    private func toggleEditingMode() {
+        isEditingMode.toggle()
+        editButton.isSelected = isEditingMode
+        tableView.setEditing(isEditingMode, animated: true)
+    }
+    
     private func setupChevronButton() {
         chevronButton = UIButton(type: .system)
         
-        // Configure button appearance
         let chevronConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         let chevronImage = UIImage(systemName: "chevron.up", withConfiguration: chevronConfig)
         chevronButton.setImage(chevronImage, for: .normal)
         chevronButton.tintColor = .label
         
-        // Add to view
         view.addSubview(chevronButton)
         chevronButton.translatesAutoresizingMaskIntoConstraints = false
         
-        // Position it next to the month label
         NSLayoutConstraint.activate([
             chevronButton.centerYAnchor.constraint(equalTo: monthLabel.centerYAnchor),
             chevronButton.leadingAnchor.constraint(equalTo: monthLabel.trailingAnchor, constant: 8),
@@ -136,7 +194,6 @@ extension SCalendarViewController {
             chevronButton.heightAnchor.constraint(equalToConstant: 30)
         ])
         
-        // Add tap action
         chevronButton.addTarget(self, action: #selector(toggleCalendar), for: .touchUpInside)
     }
     
@@ -150,26 +207,22 @@ extension SCalendarViewController {
     @objc private func toggleCalendar() {
         isCalendarExpanded.toggle()
         
-        // ✅ Update chevron icon
         let chevronConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         let chevronImage = UIImage(systemName: isCalendarExpanded ? "chevron.up" : "chevron.down",
                                    withConfiguration: chevronConfig)
         
         UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
-            // Disable interactions during animation
+            
             self.monthLabel.isUserInteractionEnabled = false
             self.chevronButton.isUserInteractionEnabled = false
             
-            // Rotate chevron
             self.chevronButton.setImage(chevronImage, for: .normal)
             
-            // Animate height & opacity
             self.calendarHeightConstraint.constant = self.isCalendarExpanded ? 420 : 0
             self.calendarView.alpha = self.isCalendarExpanded ? 1.0 : 0.0
             self.view.layoutIfNeeded()
             
         } completion: { _ in
-            // Re-enable interactions after animation
             self.monthLabel.isUserInteractionEnabled = true
             self.chevronButton.isUserInteractionEnabled = true
             
@@ -185,10 +238,24 @@ extension SCalendarViewController {
         formatter.dateFormat = "d MMMM"
         monthLabel.text = formatter.string(from: currentDate)
     }
+    
+    private func updateAddActivityButtonPosition() {
+        // Animate the position change smoothly
+        UIView.animate(withDuration: 0.3) {
+            if self.editButton.isHidden {
+                // Move addActivityButton to the trailing edge when Edit button is hidden
+                self.addActivityButton.transform = CGAffineTransform.identity
+            } else {
+                // Shift addActivityButton left to make space for Edit button
+                // Adjust the value based on your layout (editButton width + spacing)
+                self.addActivityButton.transform = CGAffineTransform(translationX: -80, y: 0)
+            }
+        }
+    }
 }
 
-// MARK: - Sample Data
-extension SCalendarViewController {
+// MARK: - Mentor Sample Data
+extension MCalendarViewController {
     
     private func setupSampleData() {
         let today = Calendar.current.startOfDay(for: Date())
@@ -196,29 +263,37 @@ extension SCalendarViewController {
         let dayAfter = Calendar.current.date(byAdding: .day, value: 2, to: today)!
         
         activities[today] = [
-            Activity(title: "UI/UX Workshop", time: "10:00 AM"),
-            Activity(title: "Team Sync-Up", time: "3:00 PM")
+            Activity(title: "Review Student Reports", time: "9:00 AM"),
+            Activity(title: "Mentor Sync Meeting", time: "2:00 PM")
         ]
         
         activities[tomorrow] = [
-            Activity(title: "Project Review", time: "11:30 AM"),
-            Activity(title: "Client Meeting", time: "2:00 PM")
+            Activity(title: "1:1 Session with Student A", time: "11:00 AM"),
+            Activity(title: "Team Guidance Session", time: "4:30 PM")
         ]
         
         activities[dayAfter] = [
-            Activity(title: "Research Session", time: "5:00 PM")
+            Activity(title: "Weekly Planning", time: "6:00 PM")
         ]
     }
 }
 
 // MARK: - Calendar Delegate Methods
-extension SCalendarViewController: UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
+extension MCalendarViewController: UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
     
     func dateSelection(_ selection: UICalendarSelectionSingleDate, didSelectDate dateComponents: DateComponents?) {
         guard let dateComponents = dateComponents,
               let date = Calendar.current.date(from: dateComponents) else { return }
         
         selectedDate = Calendar.current.startOfDay(for: date)
+        
+        // ALWAYS exit editing mode when switching dates
+        if isEditingMode {
+            isEditingMode = false
+            editButton.isSelected = false
+            tableView.setEditing(false, animated: false)
+        }
+        
         updateActivitiesList(for: selectedDate)
         
         let formatter = DateFormatter()
@@ -240,14 +315,15 @@ extension SCalendarViewController: UICalendarViewDelegate, UICalendarSelectionSi
 }
 
 // MARK: - Table View Data Source & Delegate
-extension SCalendarViewController: UITableViewDataSource, UITableViewDelegate {
+extension MCalendarViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return displayedActivities.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ActivityCell", for: indexPath) as! ActivityTableViewCell
+        let cell = tableView.dequeueReusableCell(withIdentifier: "MactivityCell", for: indexPath) as! MactivityTableViewCell
+        
         let activity = displayedActivities[indexPath.row]
         cell.configure(with: activity.title, time: activity.time)
         return cell
@@ -255,5 +331,44 @@ extension SCalendarViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 70
+    }
+    
+    // MARK: - Editing Support
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            // Remove from displayed activities
+            displayedActivities.remove(at: indexPath.row)
+            
+            // Update the activities dictionary
+            if displayedActivities.isEmpty {
+                activities.removeValue(forKey: selectedDate)
+                
+                // Exit editing mode automatically when no activities remain
+                // IMPORTANT: Must call setEditing BEFORE any UI updates
+                tableView.setEditing(false, animated: true)
+                isEditingMode = false
+                editButton.isSelected = false
+            } else {
+                activities[selectedDate] = displayedActivities
+            }
+            
+            // Delete the row with animation
+            tableView.deleteRows(at: [indexPath], with: .fade)
+            
+            // Reload calendar decorations BEFORE updating activities list
+            // This ensures the dot is removed from the calendar
+            reloadCalendarDecorations()
+            
+            // Update UI (this will hide edit button if no activities remain)
+            updateActivitiesList(for: selectedDate)
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        return .delete
     }
 }

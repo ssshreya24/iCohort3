@@ -47,6 +47,28 @@ class InProgressViewController: UIViewController {
             self.loadTasks()
         }
     }
+    
+    private func openTaskDetail(for task: [String: String]) {
+
+        // Load the XIB
+        let vc = TaskDetailViewController(nibName: "TaskDetailViewController", bundle: nil)
+
+        // SAMPLE DATA (change as needed)
+        let model = Task(
+            title: task["title"] ?? "",
+            dueDate: "25 Sep 2025",
+            assigneeName: "Shreya",
+            assigneeImage: nil,
+            attachmentNames: ["UIFlow.pdf", "Design.png"]
+        )
+
+        // Set before presenting (safe way)
+        vc.task = model
+
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
+    }
+
 
     private func setupBackButton() {
         let backButton = UIButton(type: .system)
@@ -133,16 +155,10 @@ extension InProgressViewController: UICollectionViewDataSource, UICollectionView
 
     @objc private func submitTask(_ sender: UIButton) {
         let index = sender.tag
-        let alert = UIAlertController(title: "Submit the task?", message: nil, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Submit", style: .destructive, handler: { _ in
-            self.tasks.remove(at: index)
-            self.collectionView.reloadData()
-            
-            if self.tasks.isEmpty {
-                self.emptyLabel.isHidden = false
-            }
-        }))
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(alert, animated: true)
+        let selectedTask = tasks[index]
+
+        // Directly open the upload screen
+        openTaskDetail(for: selectedTask)
     }
+
 }

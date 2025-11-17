@@ -1,22 +1,29 @@
 //
-//  SignUpViewController.swift
+//  MSignUpViewController.swift
 //  iCohort3
 //
-//  Created by Shreya on 07/11/25.
+//  Created by user@51 on 13/11/25.
 //
 
 import UIKit
 
-class SignUpViewController: UIViewController {
+class MSignUpViewController: UIViewController {
+
     @IBOutlet weak var fullNameContainer: UIView!
     @IBOutlet weak var emailContainer: UIView!
-    @IBOutlet weak var regContainer: UIView!
+
+    @IBOutlet weak var employeeField: UITextField!
+    @IBOutlet weak var employeeView: UIView!
+    @IBOutlet weak var designationField: UITextField!
+    @IBOutlet weak var designationView: UIView!
     @IBOutlet weak var passwordContainer: UIView!
     @IBOutlet weak var confirmContainer: UIView!
     @IBOutlet weak var signUpButton: UIButton!
     @IBOutlet weak var fullNameField: UITextField!
     @IBOutlet weak var emailField: UITextField!
-    @IBOutlet weak var regField: UITextField!
+
+    @IBOutlet weak var departmentField: UITextField!
+    @IBOutlet weak var departmentView: UIView!
     @IBOutlet weak var passwordField: UITextField!
     @IBOutlet weak var confirmField: UITextField!
 
@@ -25,19 +32,12 @@ class SignUpViewController: UIViewController {
         super.viewDidLoad()
         setupBackButton()
         roundViews()
-        setupPlaceholders()
         
         // Do any additional setup after loading the view.
     }
-    func setupPlaceholders() {
-        fullNameField.placeholder = "Enter your full name"
-        emailField.placeholder = "Enter your email address"
-        regField.placeholder = "Enter your registration number"
-        passwordField.placeholder = "Enter your password"
-        confirmField.placeholder = "Confirm your password"
-    }
+    
     func roundViews() {
-        let containers = [fullNameContainer, emailContainer, regContainer, passwordContainer, confirmContainer]
+        let containers = [fullNameContainer, emailContainer, designationView,employeeView,departmentView, passwordContainer, confirmContainer]
         
         for view in containers {
             view?.layer.cornerRadius = 20
@@ -87,31 +87,11 @@ class SignUpViewController: UIViewController {
                 dismiss(animated: true, completion: nil)
             }
     }
+    
     @IBAction func signUpTapped(_ sender: UIButton) {
-        view.endEditing(true) 
-        
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-           if let loginVC = storyboard.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController {
-               let transition = CATransition()
-               transition.duration = 0.35
-               transition.type = .push
-               transition.subtype = .fromLeft
-               transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-               navigationController?.view.layer.add(transition, forKey: kCATransition)
-               navigationController?.pushViewController(loginVC, animated: false)
-           }
+        view.endEditing(true)
+
+        navigationController?.popViewController(animated: false)
     }
+
 }
-
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
-    }
-    */
-
-

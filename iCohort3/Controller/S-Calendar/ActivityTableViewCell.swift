@@ -22,7 +22,6 @@ class ActivityTableViewCell: UITableViewCell {
         containerView.layer.cornerRadius = 16
         timeLabel.layer.cornerRadius = 8
         timeLabel.clipsToBounds = true
-        timeLabel.backgroundColor = UIColor.systemGray5
         timeLabel.textAlignment = .center
     }
 

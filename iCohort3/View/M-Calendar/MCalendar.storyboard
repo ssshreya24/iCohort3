@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--Calendar View Controller-->
+        <scene sceneID="s0d-6b-0kx">
+            <objects>
+                <viewController storyboardIdentifier="MCalendarVC" id="Y6W-OH-hqX" customClass="MCalendarViewController" customModule="iCohort3" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="gwq-66-YeW">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="V0j-A5-3sR" customClass="UICalendarView">
+                                <rect key="frame" x="16" y="148.66666666666663" width="361" height="420"/>
+                                <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="420" id="y1Z-AK-OUV"/>
+                                </constraints>
+                            </view>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="OVJ-7f-HNN">
+                                <rect key="frame" x="175.66666666666666" y="648.66666666666663" width="42" height="21"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="-1" estimatedSectionHeaderHeight="-1" sectionFooterHeight="-1" estimatedSectionFooterHeight="-1" translatesAutoresizingMaskIntoConstraints="NO" id="pbG-1Q-ixJ">
+                                <rect key="frame" x="16" y="618.66666666666663" width="361" height="165.33333333333337"/>
+                                <color key="backgroundColor" name="bg"/>
+                                <color key="separatorColor" name="bg"/>
+                            </tableView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Activities" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="UCy-N1-sIe">
+                                <rect key="frame" x="16" y="584" width="78" height="22"/>
+                                <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="18"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Mar-r6-YlQ">
+                                <rect key="frame" x="16" y="98" width="71.666666666666671" height="34.666666666666657"/>
+                                <fontDescription key="fontDescription" type="boldSystem" pointSize="28"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="gmf-cc-Mar">
+                                <rect key="frame" x="307" y="93.333333333333329" width="70" height="43.999999999999986"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="44" id="OVe-lW-8fj"/>
+                                    <constraint firstAttribute="width" constant="70" id="YSh-8v-waG"/>
+                                </constraints>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="plain" title="Edit" cornerStyle="capsule">
+                                    <backgroundConfiguration key="background">
+                                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    </backgroundConfiguration>
+                                    <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </buttonConfiguration>
+                            </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="OEi-B3-8DJ" userLabel="Add Activity Button">
+                                <rect key="frame" x="333" y="93.333333333333329" width="44" height="43.999999999999986"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="44" id="Lu3-Ob-hRG"/>
+                                    <constraint firstAttribute="width" constant="44" id="yKP-eJ-jc7"/>
+                                </constraints>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="plain" image="plus" catalog="system" cornerStyle="capsule">
+                                    <backgroundConfiguration key="background">
+                                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    </backgroundConfiguration>
+                                    <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                </buttonConfiguration>
+                                <connections>
+                                    <action selector="addActivityButtonTapped:" destination="Y6W-OH-hqX" eventType="touchUpInside" id="TYA-j3-rTm"/>
+                                </connections>
+                            </button>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="BdC-JC-QxJ"/>
+                        <color key="backgroundColor" name="bg"/>
+                        <constraints>
+                            <constraint firstItem="OVJ-7f-HNN" firstAttribute="centerX" secondItem="gwq-66-YeW" secondAttribute="centerX" id="58u-X7-iKO"/>
+                            <constraint firstItem="UCy-N1-sIe" firstAttribute="top" secondItem="V0j-A5-3sR" secondAttribute="bottom" constant="15.333333333333371" id="AZA-zd-cuo"/>
+                            <constraint firstItem="OEi-B3-8DJ" firstAttribute="centerY" secondItem="Mar-r6-YlQ" secondAttribute="centerY" id="Bso-V7-2aL"/>
+                            <constraint firstItem="OVJ-7f-HNN" firstAttribute="top" secondItem="V0j-A5-3sR" secondAttribute="bottom" constant="80" id="Iuq-NA-2tc"/>
+                            <constraint firstItem="UCy-N1-sIe" firstAttribute="leading" secondItem="BdC-JC-QxJ" secondAttribute="leading" constant="16" id="KJo-L5-Bfw"/>
+                            <constraint firstItem="gmf-cc-Mar" firstAttribute="centerY" secondItem="Mar-r6-YlQ" secondAttribute="centerY" id="QO3-ti-u3Z"/>
+                            <constraint firstItem="BdC-JC-QxJ" firstAttribute="trailing" secondItem="V0j-A5-3sR" secondAttribute="trailing" constant="16" id="S2s-8i-E7z"/>
+                            <constraint firstItem="BdC-JC-QxJ" firstAttribute="trailing" secondItem="OEi-B3-8DJ" secondAttribute="trailing" constant="16" id="VHA-PI-TAC"/>
+                            <constraint firstItem="Mar-r6-YlQ" firstAttribute="leading" secondItem="BdC-JC-QxJ" secondAttribute="leading" constant="16" id="a6e-4N-zCt"/>
+                            <constraint firstAttribute="trailing" secondItem="gmf-cc-Mar" secondAttribute="trailing" constant="16" id="ccA-SI-Flx"/>
+                            <constraint firstItem="V0j-A5-3sR" firstAttribute="leading" secondItem="BdC-JC-QxJ" secondAttribute="leading" constant="16" id="dmJ-Vz-vVT"/>
+                            <constraint firstItem="BdC-JC-QxJ" firstAttribute="bottom" secondItem="pbG-1Q-ixJ" secondAttribute="bottom" id="l98-cU-OcM"/>
+                            <constraint firstItem="V0j-A5-3sR" firstAttribute="top" secondItem="Mar-r6-YlQ" secondAttribute="bottom" constant="16" id="nyM-fb-9hA"/>
+                            <constraint firstItem="pbG-1Q-ixJ" firstAttribute="leading" secondItem="BdC-JC-QxJ" secondAttribute="leading" constant="16" id="ocq-W2-2qs"/>
+                            <constraint firstItem="pbG-1Q-ixJ" firstAttribute="top" secondItem="V0j-A5-3sR" secondAttribute="bottom" constant="50" id="ppn-uO-HdJ"/>
+                            <constraint firstItem="BdC-JC-QxJ" firstAttribute="top" secondItem="Mar-r6-YlQ" secondAttribute="top" constant="20" id="weq-Wz-XgX"/>
+                            <constraint firstItem="BdC-JC-QxJ" firstAttribute="trailing" secondItem="pbG-1Q-ixJ" secondAttribute="trailing" constant="16" id="xmB-Tx-A74"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="addActivityButton" destination="OEi-B3-8DJ" id="jmb-ow-2DW"/>
+                        <outlet property="calendarHeightConstraint" destination="y1Z-AK-OUV" id="BtM-Vg-TNy"/>
+                        <outlet property="calendarView" destination="V0j-A5-3sR" id="7hb-ky-iJl"/>
+                        <outlet property="editButton" destination="gmf-cc-Mar" id="Nm5-aO-2aa"/>
+                        <outlet property="emptyStateLabel" destination="OVJ-7f-HNN" id="9eB-c1-oNc"/>
+                        <outlet property="monthLabel" destination="Mar-r6-YlQ" id="bYE-y9-0ni"/>
+                        <outlet property="tableView" destination="pbG-1Q-ixJ" id="L9p-ed-31O"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="Ief-a0-LHa" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="139" y="131"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="plus" catalog="system" width="128" height="113"/>
+        <namedColor name="bg">
+            <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

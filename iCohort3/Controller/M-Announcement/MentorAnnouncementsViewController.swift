@@ -1,5 +1,5 @@
 //
-//  AnnouncementsViewController.swift
+//  MentorAnnouncementsViewController.swift
 //  iCohort3
 //
 
@@ -7,13 +7,14 @@ import UIKit
 import SafariServices
 import PDFKit
 
-class AnnouncementsViewController: UIViewController {
+class MentorAnnouncementsViewController: UIViewController {
 
     @IBOutlet weak var titleLabel: UILabel!
     @IBOutlet weak var searchButton: UIButton!
     @IBOutlet weak var placeholderLabel: UILabel!
     @IBOutlet weak var tableView: UITableView!
-
+    @IBOutlet weak var addTaskButton: UIButton!
+    
     private var announcements: [Announcement] = [] {
         didSet { updateUI() }
     }
@@ -34,11 +35,26 @@ class AnnouncementsViewController: UIViewController {
         setupSearchUI()
 
         announcements = []
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.addSample() }
 
         navigationController?.isNavigationBarHidden = true
         extendedLayoutIncludesOpaqueBars = true
         edgesForExtendedLayout = [.top, .bottom]
+    }
+    
+    private func openAddTaskScreen() {
+        let vc = AddTaskViewController(nibName: "AddTaskViewController", bundle: nil)
+        vc.modalPresentationStyle = .pageSheet
+
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.preferredCornerRadius = 24
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            sheet.prefersGrabberVisible = true
+        }
+
+        present(vc, animated: true)
     }
 
     private func setupViews() {
@@ -50,9 +66,8 @@ class AnnouncementsViewController: UIViewController {
         tableView.dataSource = self
         tableView.delegate = self
         
-        // Correct XIB name + reuse identifier
-        let nib = UINib(nibName: "AnnouncementTableViewCell", bundle: nil)
-        tableView.register(nib, forCellReuseIdentifier: "AnnouncementCell")
+        let nib = UINib(nibName: "MentorAnnouncementTableViewCell", bundle: nil)
+        tableView.register(nib, forCellReuseIdentifier: "MentorAnnouncementCell")
 
         tableView.rowHeight = UITableView.automaticDimension
         tableView.tableFooterView = UIView()
@@ -60,7 +75,6 @@ class AnnouncementsViewController: UIViewController {
 
     // MARK: Search UI
     private func setupSearchUI() {
-
         searchContainer = UIView()
         searchField = UITextField()
 
@@ -106,6 +120,10 @@ class AnnouncementsViewController: UIViewController {
             searchField.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
             searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor)
         ])
+    }
+    
+    @IBAction func addTaskButtonTapped(_ sender: Any) {
+        openAddTaskScreen()
     }
 
     // MARK: Actions
@@ -178,23 +196,87 @@ class AnnouncementsViewController: UIViewController {
         if !empty { tableView.reloadData() }
     }
     
-    // MARK: Attachment Viewing
+    // MARK: Edit & Delete Actions
+    private func editAnnouncement(at index: Int) {
+        let announcement = filteredAnnouncements.isEmpty ? announcements[index] : filteredAnnouncements[index]
+        
+        let vc = EditAnnouncementViewController(nibName: "AddTaskViewController", bundle: nil)
+        vc.announcementToEdit = announcement
+        vc.modalPresentationStyle = .pageSheet
+        
+        // Callback to update the announcement
+        vc.onSave = { [weak self] updatedAnnouncement in
+            guard let self = self else { return }
+            
+            // Find and update in main array
+            if let mainIndex = self.announcements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
+                self.announcements[mainIndex] = updatedAnnouncement
+            }
+            
+            // Update filtered array if needed
+            if !self.filteredAnnouncements.isEmpty {
+                if let filteredIndex = self.filteredAnnouncements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
+                    self.filteredAnnouncements[filteredIndex] = updatedAnnouncement
+                }
+            }
+            
+            self.tableView.reloadData()
+        }
+
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.preferredCornerRadius = 24
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            sheet.prefersGrabberVisible = true
+        }
+
+        present(vc, animated: true)
+    }
+    
+    private func deleteAnnouncement(at index: Int) {
+        let alert = UIAlertController(
+            title: "Delete Announcement",
+            message: "Are you sure you want to delete this announcement?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self = self else { return }
+            
+            if self.filteredAnnouncements.isEmpty {
+                let announcementToDelete = self.announcements[index]
+                self.announcements.removeAll { $0.id == announcementToDelete.id }
+            } else {
+                let announcementToDelete = self.filteredAnnouncements[index]
+                self.announcements.removeAll { $0.id == announcementToDelete.id }
+                self.filteredAnnouncements.remove(at: index)
+            }
+            
+            self.tableView.reloadData()
+        })
+        
+        present(alert, animated: true)
+    }
+    
     private func showAttachments(_ attachments: [AttachmentType]) {
-        let vc = StudentAttachmentViewController()
+        let vc = AttachmentViewController()
         vc.attachments = attachments
         vc.modalPresentationStyle = .fullScreen
         present(vc, animated: true)
     }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
 
     // MARK: Sample Data
     func addSample() {
-        // Sample image (add to Assets.xcassets or use system image)
         let sampleImage = UIImage(named: "sample_attachment") ?? UIImage(systemName: "photo.fill")!
-        
-        // Sample PDF URL (you can replace with actual PDF in your bundle)
         let pdfURL = Bundle.main.url(forResource: "sample_document", withExtension: "pdf") ?? URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf")!
-        
-        // Sample link
         let linkURL = URL(string: "https://www.apple.com/education/")!
         
         announcements.insert(
@@ -214,7 +296,6 @@ class AnnouncementsViewController: UIViewController {
             at: 0
         )
         
-        // Add another sample with different attachments
         announcements.insert(
             Announcement(
                 id: UUID(),
@@ -234,7 +315,7 @@ class AnnouncementsViewController: UIViewController {
 }
 
 // MARK: - Table Data Source
-extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegate {
+extension MentorAnnouncementsViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return filteredAnnouncements.isEmpty ? announcements.count : filteredAnnouncements.count
@@ -243,16 +324,25 @@ extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegat
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         guard let cell = tableView.dequeueReusableCell(
-            withIdentifier: "AnnouncementCell",
+            withIdentifier: "MentorAnnouncementCell",
             for: indexPath
-        ) as? AnnouncementCell else {
+        ) as? MentorAnnouncementTableViewCell else {
             return UITableViewCell()
         }
 
         let obj = filteredAnnouncements.isEmpty ? announcements[indexPath.row] : filteredAnnouncements[indexPath.row]
         cell.configure(with: obj)
         cell.selectionStyle = .none
-        cell.customTagColor = UIColor(red: 0.1, green: 0.6, blue: 0.9, alpha: 1) // your chosen color
+        
+        // Handle edit button tap (renamed from info)
+        cell.onInfoTapped = { [weak self] in
+            self?.editAnnouncement(at: indexPath.row)
+        }
+        
+        // Handle delete button tap
+        cell.onDeleteTapped = { [weak self] in
+            self?.deleteAnnouncement(at: indexPath.row)
+        }
         
         // Handle attachment button tap
         cell.onAttachmentTapped = { [weak self] attachments in
@@ -263,8 +353,115 @@ extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegat
     }
 }
 
+// MARK: - Edit Announcement View Controller
+class EditAnnouncementViewController: AddTaskViewController {
+    
+    var announcementToEdit: Announcement?
+    var onSave: ((Announcement) -> Void)?
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        // Pre-fill the form with existing announcement data
+        if let announcement = announcementToEdit {
+            titleTextField.text = announcement.title
+            descriptionTextField.text = announcement.body
+            categoryName.text = announcement.tag
+            categoryLabel.text = announcement.tag ?? "Label"
+            
+            // Pre-load attachments
+            if let attachments = announcement.attachments {
+                for attachment in attachments {
+                    switch attachment {
+                    case .image(let image):
+                        attachedImages.append(image)
+                        addAttachmentLabel("Image_\(Date().timeIntervalSince1970).jpg", type: .image)
+                        
+                    case .pdf(let name, let url):
+                        attachedDocumentURLs.append(url)
+                        addAttachmentLabel(name, type: .document)
+                        
+                    case .link(let name, let url):
+                        attachedLinks.append(url.absoluteString)
+                        let displayName = name.count > 40 ? String(name.prefix(37)) + "..." : name
+                        addAttachmentLabel(displayName, type: .link)
+                    }
+                }
+            }
+        }
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // Pre-select color after view appears (when buttons are ready)
+        if let announcement = announcementToEdit {
+            if let storedColor = announcement.tagColor {
+                selectColorButton(for: storedColor)
+            } else if let tag = announcement.tag {
+                // Fallback to default colors based on tag type
+                if tag.lowercased().contains("event") {
+                    selectColorButton(for: UIColor.systemGreen)
+                } else {
+                    selectColorButton(for: UIColor.systemYellow)
+                }
+            }
+        }
+    }
+    
+    override func doneButtonTapped(_ sender: Any) {
+        guard let title = titleTextField.text, !title.isEmpty else {
+            showAlert(message: "Please enter a title.")
+            return
+        }
+        
+        guard let announcement = announcementToEdit else {
+            self.dismiss(animated: true)
+            return
+        }
+        
+        // Create attachments array
+        var updatedAttachments: [AttachmentType] = []
+        
+        // Add images
+        for image in attachedImages {
+            updatedAttachments.append(.image(image))
+        }
+        
+        // Add documents
+        for (index, url) in attachedDocumentURLs.enumerated() {
+            let name = "Document_\(index + 1).pdf"
+            updatedAttachments.append(.pdf(name, url))
+        }
+        
+        // Add links
+        for linkString in attachedLinks {
+            if let url = URL(string: linkString) {
+                updatedAttachments.append(.link(linkString, url))
+            }
+        }
+        
+        // Create updated announcement with the selected color
+        let updatedAnnouncement = Announcement(
+            id: announcement.id,
+            title: title,
+            body: descriptionTextField.text ?? "",
+            tag: categoryName.text?.isEmpty == false ? categoryName.text : nil,
+            tagColor: selectedColor,  // Save the selected color
+            createdAt: announcement.createdAt,
+            author: announcement.author,
+            attachments: updatedAttachments.isEmpty ? nil : updatedAttachments
+        )
+        
+        // Call the save callback
+        onSave?(updatedAnnouncement)
+        
+        self.dismiss(animated: true)
+    }
+}
+
 // MARK: - Attachment Viewer
-class StudentAttachmentViewController: UIViewController {
+class AttachmentViewController: UIViewController {
     
     var attachments: [AttachmentType] = []
     
@@ -281,10 +478,13 @@ class StudentAttachmentViewController: UIViewController {
     
     private func setupCloseButton() {
         closeButton = UIButton(type: .system)
-        closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        closeButton.backgroundColor = .white
+        closeButton.layer.cornerRadius = 20
         closeButton.tintColor = .label
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        view.backgroundColor = .systemBackground
         view.addSubview(closeButton)
         
         let titleLabel = UILabel()
@@ -309,7 +509,7 @@ class StudentAttachmentViewController: UIViewController {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
         tableView.dataSource = self
-        tableView.register(StudentAttachmentTableViewCell.self, forCellReuseIdentifier: "AttachmentCell")
+        tableView.register(AttachmentTableViewCell.self, forCellReuseIdentifier: "AttachmentCell")
         view.addSubview(tableView)
         
         NSLayoutConstraint.activate([
@@ -327,13 +527,13 @@ class StudentAttachmentViewController: UIViewController {
     private func openAttachment(_ attachment: AttachmentType) {
         switch attachment {
         case .image(let image):
-            let imageVC = StudentImageViewController()
+            let imageVC = ImageViewController()
             imageVC.image = image
             imageVC.modalPresentationStyle = .fullScreen
             present(imageVC, animated: true)
             
         case .pdf(_, let url):
-            let pdfVC = StudentPDFViewController()
+            let pdfVC = PDFViewController()
             pdfVC.pdfURL = url
             pdfVC.modalPresentationStyle = .fullScreen
             present(pdfVC, animated: true)
@@ -346,14 +546,14 @@ class StudentAttachmentViewController: UIViewController {
 }
 
 // MARK: - AttachmentViewController Table Delegate
-extension StudentAttachmentViewController: UITableViewDelegate, UITableViewDataSource {
+extension AttachmentViewController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return attachments.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "AttachmentCell", for: indexPath) as! StudentAttachmentTableViewCell
+        let cell = tableView.dequeueReusableCell(withIdentifier: "AttachmentCell", for: indexPath) as! AttachmentTableViewCell
         cell.configure(with: attachments[indexPath.row])
         return cell
     }
@@ -369,7 +569,7 @@ extension StudentAttachmentViewController: UITableViewDelegate, UITableViewDataS
 }
 
 // MARK: - Attachment Table Cell
-class StudentAttachmentTableViewCell: UITableViewCell {
+class AttachmentTableViewCell: UITableViewCell {
     
     private let iconView = UIImageView()
     private let titleLabel = UILabel()
@@ -456,7 +656,7 @@ class StudentAttachmentTableViewCell: UITableViewCell {
 }
 
 // MARK: - Image Viewer
-class StudentImageViewController: UIViewController, UIScrollViewDelegate {
+class ImageViewController: UIViewController, UIScrollViewDelegate {
     
     var image: UIImage?
     private var scrollView: UIScrollView!
@@ -530,7 +730,7 @@ class StudentImageViewController: UIViewController, UIScrollViewDelegate {
 }
 
 // MARK: - PDF Viewer
-class StudentPDFViewController: UIViewController {
+class PDFViewController: UIViewController {
     
     var pdfURL: URL?
     private var pdfView: PDFView!
@@ -591,3 +791,7 @@ class StudentPDFViewController: UIViewController {
         dismiss(animated: true)
     }
 }
+
+
+
+
