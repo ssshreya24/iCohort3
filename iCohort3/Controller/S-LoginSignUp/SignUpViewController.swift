@@ -90,16 +90,9 @@ class SignUpViewController: UIViewController {
     @IBAction func signUpTapped(_ sender: UIButton) {
         view.endEditing(true) 
         
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-           if let loginVC = storyboard.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController {
-               let transition = CATransition()
-               transition.duration = 0.35
-               transition.type = .push
-               transition.subtype = .fromLeft
-               transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-               navigationController?.view.layer.add(transition, forKey: kCATransition)
-               navigationController?.pushViewController(loginVC, animated: false)
-           }
+        view.endEditing(true)
+
+        navigationController?.popViewController(animated: false)
     }
 }
 
