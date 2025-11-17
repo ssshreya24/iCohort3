@@ -50,6 +50,28 @@ class MDashboardViewController: UIViewController {
         // Load sample data after 5 seconds
         loadSampleDataWithDelay()
     }
+    @IBAction func profileTapped(_ sender: Any) {
+        let vc = ProfileViewController(nibName: "ProfileViewController", bundle: nil)
+        vc.modalPresentationStyle = .pageSheet
+        vc.modalTransitionStyle = .coverVertical
+
+        if let sheet = vc.sheetPresentationController {
+            let topGap: CGFloat = 0
+
+            sheet.detents = [
+                .custom(identifier: .init("almostFull")) { context in
+                    context.maximumDetentValue - topGap
+                }
+            ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+
+        present(vc, animated: true)
+    }
+
     
     private func applyBackgroundGradient() {
         let g = CAGradientLayer()
@@ -115,6 +137,7 @@ class MDashboardViewController: UIViewController {
     }
     
 }
+
 
 
 extension MDashboardViewController {

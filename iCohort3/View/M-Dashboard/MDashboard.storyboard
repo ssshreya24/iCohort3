@@ -242,6 +242,9 @@
                                     </backgroundConfiguration>
                                     <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 </buttonConfiguration>
+                                <connections>
+                                    <action selector="profileTapped:" destination="Y6W-OH-hqX" eventType="touchUpInside" id="ORE-ad-n1e"/>
+                                </connections>
                             </button>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="vDu-zF-Fre"/>

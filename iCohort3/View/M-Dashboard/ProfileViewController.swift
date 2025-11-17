@@ -1,0 +1,246 @@
+//
+//  ProfileViewController.swift
+//  iCohort3
+//
+//  Created by user@0 on 17/11/25.
+//
+
+import UIKit
+
+class ProfileViewController: UIViewController {
+    // MARK: - Top Bar
+        @IBOutlet weak var backButton: UIButton!
+        @IBOutlet weak var editButton: UIButton!
+        
+        // MARK: - Avatar
+        @IBOutlet weak var avatarImageView: UIImageView!
+        
+        // MARK: - Cards
+        @IBOutlet weak var profileCardView: UIView!    // First Name / Last Name
+        @IBOutlet weak var academicCardView: UIView!   // Department / SRM Mail / Faculty Id
+        @IBOutlet weak var personalCardView: UIView!   // Personal Mail / Contact Number
+        @IBOutlet weak var featuresCardView: UIView!   // Personal Mail switch row
+        
+        // MARK: - Fields
+        @IBOutlet weak var firstNameField: UITextField!
+        @IBOutlet weak var lastNameField: UITextField!
+        
+        @IBOutlet weak var departmentField: UITextField!
+        @IBOutlet weak var srmMailField: UITextField!
+        @IBOutlet weak var facultyIdField: UITextField!
+        
+        @IBOutlet weak var personalMailField: UITextField!
+        @IBOutlet weak var contactNumberField: UITextField!
+        
+        // MARK: - Features
+        @IBOutlet weak var personalMailSwitch: UISwitch!
+        
+        // MARK: - Sign Out
+        @IBOutlet weak var signOutButton: UIButton!
+    
+    
+        
+    // MARK: - State
+       private var isEditingProfile = false
+
+       struct Profile {
+           var firstName: String?
+           var lastName: String?
+           var department: String?
+           var srmMail: String?
+           var facultyId: String?
+           var personalMail: String?
+           var contactNumber: String?
+           var showPersonalMail: Bool
+       }
+
+       private var profile = Profile(
+           firstName: nil,
+           lastName: nil,
+           department: nil,
+           srmMail: nil,
+           facultyId: nil,
+           personalMail: nil,
+           contactNumber: nil,
+           showPersonalMail: true
+       )
+
+       // MARK: - Convenience
+       private var allTextFields: [UITextField?] {
+           [
+               firstNameField,
+               lastNameField,
+               departmentField,
+               srmMailField,
+               facultyIdField,
+               personalMailField,
+               contactNumberField
+           ]
+       }
+
+       // MARK: - Lifecycle
+       override func viewDidLoad() {
+           super.viewDidLoad()
+           setupUI()
+           setupInitialState()
+       }
+
+       override func viewDidLayoutSubviews() {
+           super.viewDidLayoutSubviews()
+           makeAvatarCircular()
+           makeTopButtonsRounded()
+           makeSignOutRounded()
+       }
+
+       // MARK: - Setup / Styling
+
+       private func setupUI() {
+           // Background like your screenshot (#EFEFF5)
+           view.backgroundColor = UIColor(
+               red: 0xEF/255.0,
+               green: 0xEF/255.0,
+               blue: 0xF5/255.0,
+               alpha: 1.0
+           )
+
+           applyCardStyle(to: profileCardView)
+           applyCardStyle(to: academicCardView)
+           applyCardStyle(to: personalCardView)
+           applyCardStyle(to: featuresCardView)
+
+           editButton.setTitle("Edit", for: .normal)
+           personalMailSwitch.isOn = profile.showPersonalMail
+       }
+
+       private func applyCardStyle(to card: UIView?) {
+           guard let card = card else { return }
+           card.layer.cornerRadius = 12
+           card.layer.masksToBounds = true
+           card.layer.borderWidth = 0.5
+           card.layer.borderColor = UIColor.systemGray5.cgColor
+           card.backgroundColor = .white
+       }
+
+       private func makeAvatarCircular() {
+           guard let avatar = avatarImageView else { return }
+           avatar.layer.cornerRadius = avatar.bounds.width / 2
+           avatar.layer.masksToBounds = true
+           
+       }
+
+       private func makeTopButtonsRounded() {
+           [backButton, editButton].forEach { button in
+               guard let button = button else { return }
+               button.layer.cornerRadius = button.bounds.height / 2
+               button.layer.masksToBounds = true
+               button.backgroundColor = .white
+           }
+       }
+
+       private func makeSignOutRounded() {
+           guard let btn = signOutButton else { return }
+           btn.layer.cornerRadius = btn.bounds.height / 2
+           btn.layer.masksToBounds = true
+           btn.backgroundColor = UIColor.systemGray5
+           btn.setTitleColor(.systemRed, for: .normal)
+       }
+
+       private func setupInitialState() {
+           for tf in allTextFields.compactMap({ $0 }) {
+               tf.isEnabled = false
+               tf.placeholder = "Not Set"
+               tf.textColor = .systemBlue
+               tf.text = "Not Set"
+           }
+       }
+
+       // MARK: - Actions
+
+       @IBAction func backButtonTapped(_ sender: UIButton) {
+           if let nav = navigationController {
+               nav.popViewController(animated: true)
+           } else {
+               dismiss(animated: true, completion: nil)
+           }
+       }
+
+       @IBAction func signOutButtonTapped(_ sender: UIButton) {
+           DispatchQueue.main.async {
+               guard let windowScene = UIApplication.shared.connectedScenes
+                       .compactMap({ $0 as? UIWindowScene })
+                       .first(where: { $0.activationState == .foregroundActive }),
+                     let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
+                   print("⚠️ No key window found")
+                   return
+               }
+
+               let sb = UIStoryboard(name: "Main", bundle: nil)
+               guard let loginVC = sb.instantiateViewController(withIdentifier: "MLoginVC") as? MLoginSignUpViewController else {
+                   print("⚠️ Couldn't instantiate MLoginVC")
+                   return
+               }
+
+               let loginNav = UINavigationController(rootViewController: loginVC)
+               loginNav.navigationBar.isTranslucent = false
+
+               let transition = CATransition()
+               transition.duration = 0.35
+               transition.type = .push
+               transition.subtype = .fromBottom
+               transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+               window.layer.add(transition, forKey: kCATransition)
+               window.rootViewController = loginNav
+               window.makeKeyAndVisible()
+           }
+       }
+
+       @IBAction func personalMailSwitchChanged(_ sender: UISwitch) {
+           profile.showPersonalMail = sender.isOn
+           // later you can use this flag to show/hide personal mail elsewhere
+       }
+
+       @IBAction func editButtonTapped(_ sender: UIButton) {
+           isEditingProfile.toggle()
+
+           if isEditingProfile {
+               editButton.setTitle("Save", for: .normal)
+
+               for tf in allTextFields.compactMap({ $0 }) {
+                   tf.isEnabled = true
+                   tf.textColor = .label
+                   if tf.text == "Not Set" {
+                       tf.text = ""
+                   }
+               }
+               firstNameField?.becomeFirstResponder()
+           } else {
+               editButton.setTitle("Edit", for: .normal)
+               saveProfileData()
+
+               for tf in allTextFields.compactMap({ $0 }) {
+                   tf.isEnabled = false
+                   let isEmpty = tf.text?
+                       .trimmingCharacters(in: .whitespacesAndNewlines)
+                       .isEmpty ?? true
+                   tf.textColor = isEmpty ? .systemBlue : .label
+                   if isEmpty {
+                       tf.text = "Not Set"
+                   }
+               }
+           }
+       }
+
+       // MARK: - Save
+
+       private func saveProfileData() {
+           profile.firstName = firstNameField?.text
+           profile.lastName = lastNameField?.text
+           profile.department = departmentField?.text
+           profile.srmMail = srmMailField?.text
+           profile.facultyId = facultyIdField?.text
+           profile.personalMail = personalMailField?.text
+           profile.contactNumber = contactNumberField?.text
+           profile.showPersonalMail = personalMailSwitch.isOn
+       }
+   }
