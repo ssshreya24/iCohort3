@@ -29,19 +29,68 @@ class MentorAnnouncementsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         setupViews()
         setupTableView()
         setupSearchUI()
-
-        announcements = []
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.addSample() }
-
         navigationController?.isNavigationBarHidden = true
         extendedLayoutIncludesOpaqueBars = true
         edgesForExtendedLayout = [.top, .bottom]
+        
+        loadAnnouncementsFromSupabase()
     }
+    override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            loadAnnouncementsFromSupabase()
+        }
+
+    private func loadAnnouncementsFromSupabase() {
+        Task {
+            do {
+                let rows = try await SupabaseManager.shared.fetchMentorAnnouncements()
+                print("Fetched rows:", rows.count)
+
+                // ISO 8601 with / without fractional seconds
+                let fmtFrac = ISO8601DateFormatter()
+                fmtFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let fmtPlain = ISO8601DateFormatter()
+
+                let mapped: [Announcement] = rows.map { row in
+                    let dateString = row.created_at ?? ""
+                    let date =
+                        fmtFrac.date(from: dateString) ??
+                        fmtPlain.date(from: dateString) ??
+                        Date()
+
+                    let color = row.color_hex.flatMap { UIColor.fromHex($0) }
+
+                    return Announcement(
+                        id: UUID(),
+                        title: row.title,
+                        body: row.description ?? "",
+                        tag: row.category,
+                        tagColor: color,
+                        createdAt: date,
+                        author: row.author ?? "Mentor",
+                        attachments: nil
+                    )
+                }
+
+                await MainActor.run {
+                    self.announcements = mapped
+                }
+            } catch {
+                print("❌ Failed to fetch announcements:", error)
+                await MainActor.run {
+                    self.placeholderLabel.text = "Error loading announcements"
+                    self.placeholderLabel.isHidden = false
+                    self.tableView.isHidden = true
+                }
+            }
+        }
+    }
+
     
     private func openAddTaskScreen() {
         let vc = AddTaskViewController(nibName: "AddTaskViewController", bundle: nil)
@@ -791,3 +840,4 @@ class PDFViewController: UIViewController {
         dismiss(animated: true)
     }
 }
+

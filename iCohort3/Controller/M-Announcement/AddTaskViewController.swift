@@ -160,17 +160,53 @@ class AddTaskViewController: UIViewController {
     }
 
     @IBAction func doneButtonTapped(_ sender: Any) {
-        if let title = titleTextField.text, title.isEmpty {
-            showAlert(message: "Please enter a title.")
+        guard let title = titleTextField.text, !title.isEmpty else {
+            showAlert(title: "Missing Title", message: "Please enter a title.")
             return
         }
-        
-        // TODO: save your task here
-        // You can access attachedImages, attachedDocumentURLs, attachedLinks arrays
-        
-        self.dismiss(animated: true)
+
+        let description = descriptionTextField.text
+        let category = categoryName.text
+        let colorHex = selectedColor.toHexString()   // from UIColor+Hex.swift
+        let author = "Program Mentor"                // later: logged-in mentor name
+
+        Task {
+            do {
+                try await SupabaseManager.shared.saveAnnouncementToSupabase(
+                    title: title,
+                    description: description,
+                    category: category,
+                    colorHex: colorHex
+                    
+                )
+
+                await MainActor.run {
+                            self.dismiss(animated: true)
+                        }
+                    } catch {
+                        // 🔍 Log full error to Xcode console
+                        print("Supabase insert error:", error)
+
+                        await MainActor.run {
+                            self.showAlert(
+                                message: "Failed to save announcement.\n\(error.localizedDescription)"
+                            )
+                        }
+                    }
+        }
     }
-    
+
+
+//    private func showAlert(title: String, message: String) {
+//        let alert = UIAlertController(title: title,
+//                                      message: message,
+//                                      preferredStyle: .alert)
+//        alert.addAction(UIAlertAction(title: "OK", style: .default))
+//        present(alert, animated: true)
+//    }
+
+
+
     // MARK: - Attachment Actions
     @IBAction func addAttachmentButtonTapped(_ sender: UIButton) {
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -473,13 +509,63 @@ extension AddTaskViewController: UIDocumentPickerDelegate {
 
 // MARK: - UIColor Extension
 extension UIColor {
-    var isLight: Bool {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        getRed(&red, green:&green, blue:&blue, alpha:&alpha)
-        let brightness = ((red * 299) + (green * 587) + (blue * 114)) / 1000
-        return brightness > 0.75
-    }
+    func toHexString() -> String {
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            var alpha: CGFloat = 0
+            
+            guard self.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+                return "#000000" // fallback if conversion fails
+            }
+            
+            let r = Int(red * 255)
+            let g = Int(green * 255)
+            let b = Int(blue * 255)
+
+            return String(format: "#%02X%02X%02X", r, g, b)
+        }
+
+        var isLight: Bool {
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            var alpha: CGFloat = 0
+            getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+
+            let brightness = (red * 299 + green * 587 + blue * 114) / 1000
+            return brightness > 0.75
+        }
+    /// Create a UIColor from a hex string like "#FFAA00" or "FFAA00" or "FFAA00FF"
+        static func fromHex(_ hex: String) -> UIColor? {
+            var cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+
+            // Remove leading "#" if present
+            if cleaned.hasPrefix("#") {
+                cleaned.removeFirst()
+            }
+
+            // Must be 6 (RGB) or 8 (RGBA) characters
+            guard cleaned.count == 6 || cleaned.count == 8 else { return nil }
+
+            var rgbValue: UInt64 = 0
+            Scanner(string: cleaned).scanHexInt64(&rgbValue)
+
+            let r, g, b, a: CGFloat
+
+            if cleaned.count == 6 {
+                r = CGFloat((rgbValue & 0xFF0000) >> 16) / 255.0
+                g = CGFloat((rgbValue & 0x00FF00) >> 8)  / 255.0
+                b = CGFloat(rgbValue & 0x0000FF) / 255.0
+                a = 1.0
+            } else {
+                r = CGFloat((rgbValue & 0xFF000000) >> 24) / 255.0
+                g = CGFloat((rgbValue & 0x00FF0000) >> 16) / 255.0
+                b = CGFloat((rgbValue & 0x0000FF00) >> 8)  / 255.0
+                a = CGFloat(rgbValue & 0x000000FF) / 255.0
+            }
+
+            return UIColor(red: r, green: g, blue: b, alpha: a)
+        }
 }
+

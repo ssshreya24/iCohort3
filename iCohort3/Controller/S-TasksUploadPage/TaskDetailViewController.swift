@@ -31,7 +31,7 @@ class TaskDetailViewController: UIViewController {
     @IBOutlet weak var submitButton: UIButton!
 
     // MARK: - Task Model
-    var task: Task?
+    var task: DashboardTask?
     
     // MARK: - Height Constraint for dynamic sizing
     @IBOutlet weak var attachmentContainerHeightConstraint: NSLayoutConstraint!
@@ -50,6 +50,8 @@ class TaskDetailViewController: UIViewController {
             configure(with: t)
         }
     }
+ 
+
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -136,7 +138,7 @@ class TaskDetailViewController: UIViewController {
     }
 
     // MARK: - CONFIGURE TASK
-    func configure(with task: Task) {
+    func configure(with task: DashboardTask) {
 
         // Save the task
         self.task = task
@@ -528,11 +530,3 @@ extension TaskDetailViewController: UIDocumentPickerDelegate {
     }
 }
 
-// MARK: - MODEL
-struct Task {
-    let title: String
-    let dueDate: String
-    let assigneeName: String
-    let assigneeImage: UIImage?
-    let attachmentNames: [String]
-}

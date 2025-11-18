@@ -6,6 +6,13 @@
 //
 
 import UIKit
+struct DashboardTask {
+    let title: String
+    let dueDate: String
+    let assigneeName: String
+    let assigneeImage: UIImage?
+    let attachmentNames: [String]
+}
 
 class InProgressViewController: UIViewController {
 
@@ -54,7 +61,7 @@ class InProgressViewController: UIViewController {
         let vc = TaskDetailViewController(nibName: "TaskDetailViewController", bundle: nil)
 
         // SAMPLE DATA (change as needed)
-        let model = Task(
+        let model = DashboardTask (
             title: task["title"] ?? "",
             dueDate: "25 Sep 2025",
             assigneeName: "Shreya",
