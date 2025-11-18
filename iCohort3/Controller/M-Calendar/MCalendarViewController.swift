@@ -1,25 +1,15 @@
-//
-//  MCalendarViewController.swift
-//  iCohort3
-//
-//  Created by user@51 on 15/11/25.
-//
-
 import UIKit
 
 class MCalendarViewController: UIViewController {
 
-    // MARK: - Outlets (from Storyboard)
+    // MARK: - Outlets
     @IBOutlet weak var monthLabel: UILabel!
     @IBOutlet weak var calendarView: UICalendarView!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var emptyStateLabel: UILabel!
     @IBOutlet weak var calendarHeightConstraint: NSLayoutConstraint!
-    
     @IBOutlet weak var editButton: UIButton!
-    
     @IBOutlet weak var addActivityButton: UIButton!
-    
     
     private var chevronButton: UIButton!
     
@@ -27,11 +17,13 @@ class MCalendarViewController: UIViewController {
     private var currentDate = Date()
     private var selectedDate = Calendar.current.startOfDay(for: Date())
     
-    private var activities: [Date: [Activity]] = [:]
-    private var displayedActivities: [Activity] = []
+    private var activities: [Date: [Mactivity]] = [:]
+    private var displayedActivities: [Mactivity] = []
     
     private var isCalendarExpanded = true
     private var isEditingMode = false
+    
+    private var isLoading = false
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -47,30 +39,125 @@ class MCalendarViewController: UIViewController {
         updateActivitiesList(for: selectedDate)
         
         emptyStateLabel.isHidden = false
-        emptyStateLabel.text = "No mentor activities yet"
+        emptyStateLabel.text = "No activities yet"
         
         calendarView.layer.cornerRadius = 20
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-            guard let self = self else { return }
-
-            self.setupSampleData()
-            self.updateActivitiesList(for: self.selectedDate)
-
-            self.reloadCalendarDecorations()
-
-            UIView.transition(with: self.tableView,
-                              duration: 0.3,
-                              options: .transitionCrossDissolve,
-                              animations: {
-                                  self.tableView.reloadData()
-                              },
-                              completion: nil)
+        
+        // Load activities from Supabase
+        loadActivitiesFromSupabase()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Refresh data when returning to this screen
+        loadActivitiesFromSupabase()
+    }
+    
+    // MARK: - Supabase Data Loading
+    
+    private func loadActivitiesFromSupabase() {
+        guard !isLoading else { return }
+        isLoading = true
+        
+        Task {
+            do {
+                let rows = try await SupabaseManager.shared.fetchAllMentorActivities()
+                
+                // Convert rows to activities and group by date
+                var newActivities: [Date: [Mactivity]] = [:]
+                
+                for row in rows {
+                    let activity = Mactivity.from(row)
+                    let dateKey = Calendar.current.startOfDay(for: activity.startDate)
+                    
+                    if newActivities[dateKey] != nil {
+                        newActivities[dateKey]?.append(activity)
+                    } else {
+                        newActivities[dateKey] = [activity]
+                    }
+                }
+                
+                // Update UI on main thread
+                await MainActor.run {
+                    self.activities = newActivities
+                    self.updateActivitiesList(for: self.selectedDate)
+                    self.reloadCalendarDecorations()
+                    self.isLoading = false
+                }
+                
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                    self.showError("Failed to load activities: \(error.localizedDescription)")
+                }
+            }
         }
     }
     
+    private func deleteActivityFromSupabase(_ activity: Mactivity, at indexPath: IndexPath) {
+        guard let activityId = activity.id else {
+            // Local-only activity, just remove from UI
+            removeActivityLocally(at: indexPath)
+            return
+        }
+        
+        Task {
+            do {
+                try await SupabaseManager.shared.deleteMentorActivity(id: activityId)
+                
+                await MainActor.run {
+                    self.removeActivityLocally(at: indexPath)
+                }
+                
+            } catch {
+                await MainActor.run {
+                    self.showError("Failed to delete activity: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func removeActivityLocally(at indexPath: IndexPath) {
+        // Remove from displayed activities
+        displayedActivities.remove(at: indexPath.row)
+        
+        // Update the activities dictionary
+        if displayedActivities.isEmpty {
+            activities.removeValue(forKey: selectedDate)
+            
+            // Exit editing mode automatically when no activities remain
+            tableView.setEditing(false, animated: true)
+            isEditingMode = false
+            editButton.isSelected = false
+        } else {
+            activities[selectedDate] = displayedActivities
+        }
+        
+        // Delete the row with animation
+        tableView.deleteRows(at: [indexPath], with: .fade)
+        
+        // Reload calendar decorations
+        reloadCalendarDecorations()
+        
+        // Update UI
+        updateActivitiesList(for: selectedDate)
+    }
+    
+    private func showError(_ message: String) {
+        let alert = UIAlertController(
+            title: "Error",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    // MARK: - Actions
     
     @IBAction func addActivityButtonTapped(_ sender: Any) {
         let vc = AddActivityViewController(nibName: "AddActivityViewController", bundle: nil)
+        vc.delegate = self
         vc.modalPresentationStyle = .pageSheet
         if let sheet = vc.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
@@ -78,8 +165,6 @@ class MCalendarViewController: UIViewController {
         }
         present(vc, animated: true)
     }
-    
-
 
     func updateActivitiesList(for date: Date) {
         displayedActivities = activities[date] ?? []
@@ -92,16 +177,12 @@ class MCalendarViewController: UIViewController {
         tableView.reloadData()
         
         emptyStateLabel.isHidden = !displayedActivities.isEmpty
-        
-        // Hide edit button if no activities
         editButton.isHidden = displayedActivities.isEmpty
         
-        // Update addActivityButton position when editButton visibility changes
         updateAddActivityButtonPosition()
     }
     
     private func reloadCalendarDecorations() {
-        // Get the visible date range from the calendar
         let calendar = Calendar.current
         let visibleDateComponents = calendarView.visibleDateComponents
         
@@ -110,7 +191,6 @@ class MCalendarViewController: UIViewController {
             return
         }
         
-        // Create date components for all days in the visible month
         var allDaysInMonth: [DateComponents] = []
         if let date = calendar.date(from: visibleDateComponents),
            let range = calendar.range(of: .day, in: .month, for: date) {
@@ -120,7 +200,6 @@ class MCalendarViewController: UIViewController {
             }
         }
         
-        // Reload all visible dates to ensure decorations are updated correctly
         calendarView.reloadDecorations(forDateComponents: allDaysInMonth, animated: true)
     }
 }
@@ -140,7 +219,6 @@ extension MCalendarViewController {
         calendarView.translatesAutoresizingMaskIntoConstraints = false
         calendarView.layoutMargins = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         calendarView.wantsDateDecorations = true
-        
         calendarView.tintColor = .black
     }
     
@@ -160,9 +238,8 @@ extension MCalendarViewController {
         editButton.setTitle("Edit", for: .normal)
         editButton.setTitle("Done", for: .selected)
         editButton.addTarget(self, action: #selector(editButtonTapped), for: .touchUpInside)
-        editButton.isHidden = true // Hidden initially until activities are loaded
+        editButton.isHidden = true
         
-        // Update addActivityButton trailing constraint based on editButton visibility
         updateAddActivityButtonPosition()
     }
     
@@ -212,7 +289,6 @@ extension MCalendarViewController {
                                    withConfiguration: chevronConfig)
         
         UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
-            
             self.monthLabel.isUserInteractionEnabled = false
             self.chevronButton.isUserInteractionEnabled = false
             
@@ -240,41 +316,13 @@ extension MCalendarViewController {
     }
     
     private func updateAddActivityButtonPosition() {
-        // Animate the position change smoothly
         UIView.animate(withDuration: 0.3) {
             if self.editButton.isHidden {
-                // Move addActivityButton to the trailing edge when Edit button is hidden
                 self.addActivityButton.transform = CGAffineTransform.identity
             } else {
-                // Shift addActivityButton left to make space for Edit button
-                // Adjust the value based on your layout (editButton width + spacing)
                 self.addActivityButton.transform = CGAffineTransform(translationX: -80, y: 0)
             }
         }
-    }
-}
-
-// MARK: - Mentor Sample Data
-extension MCalendarViewController {
-    
-    private func setupSampleData() {
-        let today = Calendar.current.startOfDay(for: Date())
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
-        let dayAfter = Calendar.current.date(byAdding: .day, value: 2, to: today)!
-        
-        activities[today] = [
-            Activity(title: "Review Student Reports", time: "9:00 AM"),
-            Activity(title: "Mentor Sync Meeting", time: "2:00 PM")
-        ]
-        
-        activities[tomorrow] = [
-            Activity(title: "1:1 Session with Student A", time: "11:00 AM"),
-            Activity(title: "Team Guidance Session", time: "4:30 PM")
-        ]
-        
-        activities[dayAfter] = [
-            Activity(title: "Weekly Planning", time: "6:00 PM")
-        ]
     }
 }
 
@@ -340,35 +388,20 @@ extension MCalendarViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            // Remove from displayed activities
-            displayedActivities.remove(at: indexPath.row)
-            
-            // Update the activities dictionary
-            if displayedActivities.isEmpty {
-                activities.removeValue(forKey: selectedDate)
-                
-                // Exit editing mode automatically when no activities remain
-                // IMPORTANT: Must call setEditing BEFORE any UI updates
-                tableView.setEditing(false, animated: true)
-                isEditingMode = false
-                editButton.isSelected = false
-            } else {
-                activities[selectedDate] = displayedActivities
-            }
-            
-            // Delete the row with animation
-            tableView.deleteRows(at: [indexPath], with: .fade)
-            
-            // Reload calendar decorations BEFORE updating activities list
-            // This ensures the dot is removed from the calendar
-            reloadCalendarDecorations()
-            
-            // Update UI (this will hide edit button if no activities remain)
-            updateActivitiesList(for: selectedDate)
+            let activity = displayedActivities[indexPath.row]
+            deleteActivityFromSupabase(activity, at: indexPath)
         }
     }
     
     func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
         return .delete
+    }
+}
+
+// MARK: - AddActivityViewController Delegate
+extension MCalendarViewController: AddActivityViewControllerDelegate {
+    func didSaveActivity() {
+        // Reload data from Supabase when a new activity is saved
+        loadActivitiesFromSupabase()
     }
 }

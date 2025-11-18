@@ -18,6 +18,9 @@ class MentorAnnouncementsViewController: UIViewController {
     private var announcements: [Announcement] = [] {
         didSet { updateUI() }
     }
+    
+    // Store database IDs mapped to announcement UUIDs
+    private var announcementDatabaseIDs: [UUID: Int] = [:]
 
     private var filteredAnnouncements: [Announcement] = []
     private var searchContainer: UIView!
@@ -40,10 +43,11 @@ class MentorAnnouncementsViewController: UIViewController {
         
         loadAnnouncementsFromSupabase()
     }
+    
     override func viewDidAppear(_ animated: Bool) {
-            super.viewDidAppear(animated)
-            loadAnnouncementsFromSupabase()
-        }
+        super.viewDidAppear(animated)
+        loadAnnouncementsFromSupabase()
+    }
 
     private func loadAnnouncementsFromSupabase() {
         Task {
@@ -64,9 +68,10 @@ class MentorAnnouncementsViewController: UIViewController {
                         Date()
 
                     let color = row.color_hex.flatMap { UIColor.fromHex($0) }
+                    let uuid = UUID()
 
                     return Announcement(
-                        id: UUID(),
+                        id: uuid,
                         title: row.title,
                         body: row.description ?? "",
                         tag: row.category,
@@ -79,6 +84,10 @@ class MentorAnnouncementsViewController: UIViewController {
 
                 await MainActor.run {
                     self.announcements = mapped
+                    // Map UUIDs to database IDs
+                    for (index, row) in rows.enumerated() {
+                        self.announcementDatabaseIDs[mapped[index].id] = row.id
+                    }
                 }
             } catch {
                 print("❌ Failed to fetch announcements:", error)
@@ -257,19 +266,46 @@ class MentorAnnouncementsViewController: UIViewController {
         vc.onSave = { [weak self] updatedAnnouncement in
             guard let self = self else { return }
             
-            // Find and update in main array
-            if let mainIndex = self.announcements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
-                self.announcements[mainIndex] = updatedAnnouncement
+            // Get the database ID for this announcement
+            guard let dbId = self.announcementDatabaseIDs[updatedAnnouncement.id] else {
+                print("❌ No database ID found for announcement")
+                return
             }
             
-            // Update filtered array if needed
-            if !self.filteredAnnouncements.isEmpty {
-                if let filteredIndex = self.filteredAnnouncements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
-                    self.filteredAnnouncements[filteredIndex] = updatedAnnouncement
+            // Update in Supabase
+            Task {
+                do {
+                    try await SupabaseManager.shared.updateMentorAnnouncement(
+                        id: dbId,
+                        title: updatedAnnouncement.title,
+                        description: updatedAnnouncement.body,
+                        category: updatedAnnouncement.tag,
+                        colorHex: updatedAnnouncement.tagColor?.toHexString()
+                    )
+                    
+                    // Update local data
+                    await MainActor.run {
+                        // Find and update in main array
+                        if let mainIndex = self.announcements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
+                            self.announcements[mainIndex] = updatedAnnouncement
+                        }
+                        
+                        // Update filtered array if needed
+                        if !self.filteredAnnouncements.isEmpty {
+                            if let filteredIndex = self.filteredAnnouncements.firstIndex(where: { $0.id == updatedAnnouncement.id }) {
+                                self.filteredAnnouncements[filteredIndex] = updatedAnnouncement
+                            }
+                        }
+                        
+                        self.tableView.reloadData()
+                    }
+                } catch {
+                    print("❌ Failed to update announcement:", error)
+                    await MainActor.run {
+                        self.showAlert(title: "Error", message: "Failed to update announcement: \(error.localizedDescription)")
+                    }
                 }
             }
-            
-            self.tableView.reloadData()
         }
 
         if let sheet = vc.sheetPresentationController {
@@ -293,16 +329,38 @@ class MentorAnnouncementsViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             guard let self = self else { return }
             
+            let announcementToDelete: Announcement
             if self.filteredAnnouncements.isEmpty {
-                let announcementToDelete = self.announcements[index]
-                self.announcements.removeAll { $0.id == announcementToDelete.id }
+                announcementToDelete = self.announcements[index]
             } else {
-                let announcementToDelete = self.filteredAnnouncements[index]
-                self.announcements.removeAll { $0.id == announcementToDelete.id }
-                self.filteredAnnouncements.remove(at: index)
+                announcementToDelete = self.filteredAnnouncements[index]
             }
             
-            self.tableView.reloadData()
+            // Get the database ID
+            guard let dbId = self.announcementDatabaseIDs[announcementToDelete.id] else {
+                print("❌ No database ID found for announcement")
+                return
+            }
+            
+            // Delete from Supabase
+            Task {
+                do {
+                    try await SupabaseManager.shared.deleteAnnouncement(id: dbId)
+                    
+                    // Update local data
+                    await MainActor.run {
+                        self.announcements.removeAll { $0.id == announcementToDelete.id }
+                        self.filteredAnnouncements.removeAll { $0.id == announcementToDelete.id }
+                        self.announcementDatabaseIDs.removeValue(forKey: announcementToDelete.id)
+                        self.tableView.reloadData()
+                    }
+                } catch {
+                    print("❌ Failed to delete announcement:", error)
+                    await MainActor.run {
+                        self.showAlert(title: "Error", message: "Failed to delete announcement: \(error.localizedDescription)")
+                    }
+                }
+            }
         })
         
         present(alert, animated: true)
@@ -321,45 +379,11 @@ class MentorAnnouncementsViewController: UIViewController {
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
-
-    // MARK: Sample Data
-    func addSample() {
-        let sampleImage = UIImage(named: "sample_attachment") ?? UIImage(systemName: "photo.fill")!
-        let pdfURL = Bundle.main.url(forResource: "sample_document", withExtension: "pdf") ?? URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf")!
-        let linkURL = URL(string: "https://www.apple.com/education/")!
-        
-        announcements.insert(
-            Announcement(
-                id: UUID(),
-                title: "Mentor Sync Session",
-                body: "Weekly sync meeting for all mentors tomorrow. Please review the attached materials.",
-                tag: "Meeting",
-                createdAt: Date(),
-                author: "Program Lead",
-                attachments: [
-                    .image(sampleImage),
-                    .pdf("Meeting Agenda.pdf", pdfURL),
-                    .link("Apple Education", linkURL)
-                ]
-            ),
-            at: 0
-        )
-        
-        announcements.insert(
-            Announcement(
-                id: UUID(),
-                title: "New Training Resources",
-                body: "Check out these new training materials for mentors.",
-                tag: "Event",
-                createdAt: Date().addingTimeInterval(-3600),
-                author: "Training Team",
-                attachments: [
-                    .link("Training Portal", URL(string: "https://developer.apple.com")!),
-                    .image(UIImage(systemName: "book.fill")!)
-                ]
-            ),
-            at: 0
-        )
+    
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }
 
@@ -496,7 +520,7 @@ class EditAnnouncementViewController: AddTaskViewController {
             title: title,
             body: descriptionTextField.text ?? "",
             tag: categoryName.text?.isEmpty == false ? categoryName.text : nil,
-            tagColor: selectedColor,  // Save the selected color
+            tagColor: selectedColor,
             createdAt: announcement.createdAt,
             author: announcement.author,
             attachments: updatedAttachments.isEmpty ? nil : updatedAttachments
@@ -840,4 +864,3 @@ class PDFViewController: UIViewController {
         dismiss(animated: true)
     }
 }
-
