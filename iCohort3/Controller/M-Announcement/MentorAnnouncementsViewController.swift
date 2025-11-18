@@ -791,7 +791,3 @@ class PDFViewController: UIViewController {
         dismiss(animated: true)
     }
 }
-
-
-
-

@@ -67,7 +67,7 @@ class AnnouncementCell: UITableViewCell {
         
         if let t = a.tag {
             tagLabel.isHidden = false
-            tagLabel.text = " \(t) "
+            tagLabel.text = "\(t)    "
             tagLabel.textAlignment = .center
 
             // Apply user custom color if available

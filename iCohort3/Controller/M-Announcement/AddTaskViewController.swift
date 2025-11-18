@@ -400,7 +400,7 @@ class AddTaskViewController: UIViewController {
         
         if numberOfAttachments == 0 {
             // No attachments - use minimum height (title + button area)
-            attachmentContainerHeightConstraint.constant = 80
+            attachmentContainerHeightConstraint.constant = 50
         } else {
             // Calculate height: base height + (attachment height * count) + spacing
             // Base height: 70 (title + button padding)

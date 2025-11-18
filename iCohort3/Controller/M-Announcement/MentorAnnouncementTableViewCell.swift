@@ -68,7 +68,7 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
         
         if let t = a.tag {
             tagLabel.isHidden = false
-            tagLabel.text = " \(t) "
+            tagLabel.text = "\(t)    "
 
             // Use stored color if available, otherwise use default logic
             if let storedColor = a.tagColor {
