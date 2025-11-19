@@ -42,40 +42,33 @@ class TaskSeeAllViewController: UIViewController {
     private func setupBackButton() {
         view.addSubview(backButton)
         backButton.translatesAutoresizingMaskIntoConstraints = false
-        backButton.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        backButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16).isActive = true
-        backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16).isActive = true
 
-        // Circular white background (frosted glass style)
-        let blur = UIBlurEffect(style: .systemUltraThinMaterialLight)
-        let blurView = UIVisualEffectView(effect: blur)
-        blurView.translatesAutoresizingMaskIntoConstraints = false
-        blurView.layer.cornerRadius = 20
-        blurView.clipsToBounds = true
-        blurView.isUserInteractionEnabled = false
-        backButton.addSubview(blurView)
         NSLayoutConstraint.activate([
-            blurView.leadingAnchor.constraint(equalTo: backButton.leadingAnchor),
-            blurView.trailingAnchor.constraint(equalTo: backButton.trailingAnchor),
-            
-            blurView.topAnchor.constraint(equalTo: backButton.topAnchor),
-            blurView.bottomAnchor.constraint(equalTo: backButton.bottomAnchor)
+            backButton.widthAnchor.constraint(equalToConstant: 44),
+            backButton.heightAnchor.constraint(equalToConstant: 44),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16)
         ])
 
-        // Black chevron icon
-        let chevron = UIImageView(image: UIImage(systemName: "chevron.backward")?.withTintColor(.black, renderingMode: .alwaysOriginal))
-        chevron.translatesAutoresizingMaskIntoConstraints = false
-        backButton.addSubview(chevron)
-        NSLayoutConstraint.activate([
-            chevron.centerXAnchor.constraint(equalTo: backButton.centerXAnchor),
-            chevron.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            chevron.widthAnchor.constraint(equalToConstant: 12),
-            chevron.heightAnchor.constraint(equalToConstant: 20)
-        ])
+        // Make the button circular
+        backButton.backgroundColor = .white
+        backButton.layer.cornerRadius = 22
+        backButton.layer.masksToBounds = true
+
+        // Black chevron
+        let chevron = UIImage(
+            systemName: "chevron.backward",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        )?.withTintColor(.black, renderingMode: .alwaysOriginal)
+
+        backButton.setImage(chevron, for: .normal)
+
+        // Center image
+        backButton.imageView?.contentMode = .scaleAspectFit
 
         backButton.addTarget(self, action: #selector(backButtonPressed), for: .touchUpInside)
     }
+
 
     @objc private func backButtonPressed() {
         dismiss(animated: true)

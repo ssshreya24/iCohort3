@@ -9,12 +9,12 @@ class StudentAllTasksViewController: UIViewController {
 
     @IBOutlet weak var verticalCollectionView: UICollectionView!
     @IBOutlet weak var teamTitleLabel: UILabel!
-
+    
+    @IBOutlet weak var backButton: UIButton!
+    @IBOutlet weak var addButton: UIButton!
     @IBAction func backButtonTapped(_ sender: Any) {
-        self.dismiss(animated: true)
-    }
-
-
+            self.dismiss(animated: true)
+        }
     // Add this property to receive team name
     var teamName: String? // ← NEW
 
@@ -29,8 +29,15 @@ class StudentAllTasksViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // BACK BUTTON
+            backButton.layer.cornerRadius = backButton.frame.height / 2
+            backButton.backgroundColor = .white
+            backButton.clipsToBounds = true
 
-        // Background
+            // PLUS BUTTON
+            addButton.layer.cornerRadius = addButton.frame.height / 2
+            addButton.backgroundColor = .white
+            addButton.clipsToBounds = true
         let bg = UIColor(red: 242/255, green: 242/255, blue: 247/255, alpha: 1)
         verticalCollectionView.backgroundColor = bg
         view.backgroundColor = bg
