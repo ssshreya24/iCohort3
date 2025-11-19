@@ -9,6 +9,9 @@ class StudentAllTasksViewController: UIViewController {
 
     @IBOutlet weak var verticalCollectionView: UICollectionView!
 
+    // Add this property to receive team name
+    var teamName: String? // ← NEW
+
     // FINAL LIST OF ALL ROWS
     let items: [TaskSectionWrapper] = [
         .teamProfile,
@@ -41,9 +44,13 @@ class StudentAllTasksViewController: UIViewController {
             UINib(nibName: "TaskSectionCell", bundle: nil),
             forCellWithReuseIdentifier: "TaskSectionCell"
         )
+
+        // Optional: Show team name in navigation or label
+        if let teamName = teamName {
+            self.title = teamName
+        }
     }
 }
-
 
 // MARK: - COLLECTION VIEW
 extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
@@ -64,9 +71,6 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
 
         switch item {
 
-        // -------------------------
-        // 1. TEAM PROFILE ROW
-        // -------------------------
         case .teamProfile:
             let cell = collectionView.dequeueReusableCell(
                 withReuseIdentifier: "TeamProfileRowCell",
@@ -85,10 +89,6 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
 
             return cell
 
-
-        // -------------------------
-        // 2. TASK SECTION ROW
-        // -------------------------
         case .category(let category):
             let cell = collectionView.dequeueReusableCell(
                 withReuseIdentifier: "TaskSectionCell",
@@ -97,11 +97,9 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
 
             cell.configureSection(type: category)
 
-            // ✅ Add closure for See All button
             cell.seeAllTapped = { [weak self] in
                 guard let self = self else { return }
 
-                // Prepare dummy data (same as TaskSectionCell.loadDummyData)
                 var tasks: [TaskModel] = []
                 switch category {
                 case .assigned:
@@ -127,22 +125,16 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
                     ]
                 }
 
-                // Present vertical collection view
                 let seeAllVC = TaskSeeAllViewController(category: category, tasks: tasks)
                 seeAllVC.modalPresentationStyle = .overFullScreen
-                seeAllVC.modalTransitionStyle = .coverVertical // Slide from bottom (default)
+                seeAllVC.modalTransitionStyle = .coverVertical
                 self.present(seeAllVC, animated: true)
             }
 
             return cell
-
         }
     }
 
-
-    // -------------------------
-    // ROW HEIGHTS
-    // -------------------------
     func collectionView(_ collectionView: UICollectionView,
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
@@ -150,13 +142,9 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
         let item = items[indexPath.row]
 
         switch item {
-
         case .teamProfile:
-            // Height of profile row
             return CGSize(width: collectionView.frame.width, height: 110)
-
         case .category(_):
-            // Height of task sections
             return CGSize(width: collectionView.frame.width, height: 240)
         }
     }
