@@ -15,6 +15,16 @@ class SDashboardViewController: UIViewController {
     @IBOutlet weak var taskCard: UIView!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var editButton: UIButton!
+    @IBOutlet weak var tasksDueTodayLabel: UILabel!
+    private let noTasksLabel: UILabel = {
+            let label = UILabel()
+            label.text = "No tasks due today"
+            label.textAlignment = .center
+            label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+            label.textColor = .darkGray
+            label.alpha = 0 // initially hidden
+            return label
+        }()
     
     var isEditingMode = false
     
@@ -33,6 +43,15 @@ class SDashboardViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBackgroundGradient()
+        taskCard.addSubview(noTasksLabel)
+        noTasksLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            noTasksLabel.topAnchor.constraint(equalTo: tasksDueTodayLabel.bottomAnchor, constant: 20),
+            noTasksLabel.centerXAnchor.constraint(equalTo: taskCard.centerXAnchor)
+        ])
+
+
         
         cardView.backgroundColor = .clear
         collectionView.backgroundColor = .clear
@@ -51,6 +70,18 @@ class SDashboardViewController: UIViewController {
         
         tableView.contentInsetAdjustmentBehavior = .never
     }
+    override func viewDidAppear(_ animated: Bool) {
+         super.viewDidAppear(animated)
+         
+         // Animate the label after a delay
+         noTasksLabel.transform = CGAffineTransform(translationX: 0, y: 20) // start slightly below
+         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+             UIView.animate(withDuration: 0.5) {
+                 self.noTasksLabel.alpha = 1
+                 self.noTasksLabel.transform = .identity
+             }
+         }
+     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)

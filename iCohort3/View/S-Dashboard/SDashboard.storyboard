@@ -259,6 +259,7 @@
                         <outlet property="editButton" destination="11x-Xo-cA0" id="zJw-PU-jEj"/>
                         <outlet property="tableView" destination="Olb-95-I2y" id="obl-Rf-vb6"/>
                         <outlet property="taskCard" destination="FFp-f5-vgo" id="wIM-2l-p1K"/>
+                        <outlet property="tasksDueTodayLabel" destination="Jvf-ix-ZXe" id="vD5-iA-bqA"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="Ief-a0-LHa" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
@@ -276,7 +277,7 @@
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemRedColor">
-            <color red="1" green="0.2196078431372549" blue="0.23529411764705882" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="1" green="0.23137254900000001" blue="0.18823529410000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>
