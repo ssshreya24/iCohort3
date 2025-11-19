@@ -1,6 +1,10 @@
 import UIKit
 internal import UniformTypeIdentifiers
 
+protocol AddTaskViewControllerDelegate: AnyObject {
+    func didSaveAnnouncement()
+}
+
 class AddTaskViewController: UIViewController {
 
     @IBOutlet weak var attachmentLabelHeight: NSLayoutConstraint!
@@ -45,6 +49,9 @@ class AddTaskViewController: UIViewController {
     }
     
     internal var selectedColor: UIColor = .systemYellow
+    weak var delegate: AddTaskViewControllerDelegate?
+    
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -161,30 +168,30 @@ class AddTaskViewController: UIViewController {
 
     @IBAction func doneButtonTapped(_ sender: Any) {
         guard let title = titleTextField.text, !title.isEmpty else {
-            showAlert(title: "Missing Title", message: "Please enter a title.")
-            return
-        }
+                    showAlert(title: "Missing Title", message: "Please enter a title.")
+                    return
+                }
 
-        let description = descriptionTextField.text
-        let category = categoryName.text
-        let colorHex = selectedColor.toHexString()   // from UIColor+Hex.swift
-        let author = "Program Mentor"                // later: logged-in mentor name
+                let description = descriptionTextField.text
+                let category = categoryName.text
+                let colorHex = selectedColor.toHexString()
+                let author = "Program Mentor"
 
-        Task {
-            do {
-                try await SupabaseManager.shared.saveAnnouncementToSupabase(
-                    title: title,
-                    description: description,
-                    category: category,
-                    colorHex: colorHex
-                    
-                )
+                Task {
+                    do {
+                        try await SupabaseManager.shared.saveAnnouncementToSupabase(
+                            title: title,
+                            description: description,
+                            category: category,
+                            colorHex: colorHex
+                        )
 
-                await MainActor.run {
+                        await MainActor.run {
+                            // ✅ Call the delegate before dismissing
+                            self.delegate?.didSaveAnnouncement()
                             self.dismiss(animated: true)
                         }
                     } catch {
-                        // 🔍 Log full error to Xcode console
                         print("Supabase insert error:", error)
 
                         await MainActor.run {
@@ -193,8 +200,9 @@ class AddTaskViewController: UIViewController {
                             )
                         }
                     }
-        }
-    }
+                }
+            }
+        
 
 
 //    private func showAlert(title: String, message: String) {

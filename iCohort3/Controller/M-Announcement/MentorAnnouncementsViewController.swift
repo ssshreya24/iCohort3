@@ -6,6 +6,7 @@
 import UIKit
 import SafariServices
 import PDFKit
+import Supabase
 
 class MentorAnnouncementsViewController: UIViewController {
 
@@ -29,6 +30,10 @@ class MentorAnnouncementsViewController: UIViewController {
     private let searchIcon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
     private let closeButton = UIButton(type: .system)
     private var searchContainerTopConstraint: NSLayoutConstraint!
+    
+    // Real-time subscription
+    private var realtimeTask: Task<Void, Never>?
+    private var reloadDebounceTask: Task<Void, Never>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -42,11 +47,89 @@ class MentorAnnouncementsViewController: UIViewController {
         edgesForExtendedLayout = [.top, .bottom]
         
         loadAnnouncementsFromSupabase()
+        subscribeToRealtimeUpdates()
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        print("🔄 View appeared, reloading announcements")
         loadAnnouncementsFromSupabase()
+    }
+    
+    private func debouncedReload() {
+        reloadDebounceTask?.cancel()
+        reloadDebounceTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+            if !Task.isCancelled {
+                loadAnnouncementsFromSupabase()
+            }
+        }
+    }
+
+    
+    deinit {
+            // Cancel the real-time subscription when the view controller is deallocated
+            realtimeTask?.cancel()
+        }
+    
+    private func subscribeToRealtimeUpdates() {
+        realtimeTask = Task {
+            let channel = SupabaseManager.shared.client.channel("mentor_announcements_changes")
+            
+            let changeStream = channel.postgresChange(
+                InsertAction.self,
+                schema: "public",
+                table: "mentor_announcements"
+            )
+            
+            let updateStream = channel.postgresChange(
+                UpdateAction.self,
+                schema: "public",
+                table: "mentor_announcements"
+            )
+            
+            let deleteStream = channel.postgresChange(
+                DeleteAction.self,
+                schema: "public",
+                table: "mentor_announcements"
+            )
+            
+            do {
+                try await channel.subscribeWithError()
+                print("✅ Subscribed to real-time updates")
+                
+                // Listen for all types of changes - moved inside the do block
+                Task {
+                    for await _ in changeStream {
+                        print("📡 INSERT detected")
+                        await MainActor.run {
+                            self.loadAnnouncementsFromSupabase()
+                        }
+                    }
+                }
+                
+                Task {
+                    for await _ in updateStream {
+                        print("📡 UPDATE detected")
+                        await MainActor.run {
+                            self.loadAnnouncementsFromSupabase()
+                        }
+                    }
+                }
+                
+                Task {
+                    for await _ in deleteStream {
+                        print("📡 DELETE detected")
+                        await MainActor.run {
+                            self.loadAnnouncementsFromSupabase()
+                        }
+                    }
+                }
+            } catch {
+                print("❌ Failed to subscribe to real-time updates:", error)
+                return
+            }
+        }
     }
 
     private func loadAnnouncementsFromSupabase() {
@@ -60,6 +143,12 @@ class MentorAnnouncementsViewController: UIViewController {
                 fmtFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 let fmtPlain = ISO8601DateFormatter()
 
+                // Create a temporary mapping to preserve existing UUIDs
+                var existingIDMap: [Int: UUID] = [:]
+                for (uuid, dbId) in announcementDatabaseIDs {
+                    existingIDMap[dbId] = uuid
+                }
+
                 let mapped: [Announcement] = rows.map { row in
                     let dateString = row.created_at ?? ""
                     let date =
@@ -68,7 +157,9 @@ class MentorAnnouncementsViewController: UIViewController {
                         Date()
 
                     let color = row.color_hex.flatMap { UIColor.fromHex($0) }
-                    let uuid = UUID()
+                    
+                    // Reuse existing UUID if available, otherwise create new one
+                    let uuid = existingIDMap[row.id] ?? UUID()
 
                     return Announcement(
                         id: uuid,
@@ -83,11 +174,25 @@ class MentorAnnouncementsViewController: UIViewController {
                 }
 
                 await MainActor.run {
-                    self.announcements = mapped
-                    // Map UUIDs to database IDs
+                    // Clear and rebuild the mapping
+                    self.announcementDatabaseIDs.removeAll()
                     for (index, row) in rows.enumerated() {
                         self.announcementDatabaseIDs[mapped[index].id] = row.id
                     }
+                    
+                    self.announcements = mapped
+                    
+                    // Update filtered results if search is active
+                    if self.searchVisible, let searchText = self.searchField.text?.lowercased(), !searchText.isEmpty {
+                        self.filteredAnnouncements = mapped.filter {
+                            $0.title.lowercased().contains(searchText) ||
+                            $0.body.lowercased().contains(searchText) ||
+                            ($0.tag?.lowercased().contains(searchText) ?? false) ||
+                            $0.author.lowercased().contains(searchText)
+                        }
+                    }
+                    
+                    print("✅ Updated announcements on main thread, count: \(self.announcements.count)")
                 }
             } catch {
                 print("❌ Failed to fetch announcements:", error)
@@ -99,21 +204,25 @@ class MentorAnnouncementsViewController: UIViewController {
             }
         }
     }
-
     
     private func openAddTaskScreen() {
-        let vc = AddTaskViewController(nibName: "AddTaskViewController", bundle: nil)
-        vc.modalPresentationStyle = .pageSheet
+            let vc = AddTaskViewController(nibName: "AddTaskViewController", bundle: nil)
+            
+            // ✅ Set the delegate
+            vc.delegate = self
+            
+            vc.modalPresentationStyle = .pageSheet
 
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.preferredCornerRadius = 24
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
-            sheet.prefersGrabberVisible = true
+            if let sheet = vc.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.preferredCornerRadius = 24
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+                sheet.prefersGrabberVisible = true
+            }
+
+            present(vc, animated: true)
         }
-
-        present(vc, animated: true)
-    }
+        
 
     private func setupViews() {
         searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
@@ -233,6 +342,7 @@ class MentorAnnouncementsViewController: UIViewController {
         guard let txt = field.text?.lowercased(), !txt.isEmpty else {
             filteredAnnouncements.removeAll()
             tableView.reloadData()
+            updateEmptyState() // ✅ Update empty state
             return
         }
 
@@ -243,16 +353,49 @@ class MentorAnnouncementsViewController: UIViewController {
             $0.author.lowercased().contains(txt)
         }
         tableView.reloadData()
+        updateEmptyState() // ✅ Update empty state
     }
 
     private func updateUI() {
         let empty = announcements.isEmpty
-        placeholderLabel.isHidden = !empty
         tableView.isHidden = empty
         searchButton.isHidden = false
 
-        if !empty { tableView.reloadData() }
+        if !empty {
+            tableView.reloadData()
+        }
+        
+        updateEmptyState() // ✅ Update empty state
     }
+    
+    // ✅ NEW METHOD: Smart empty state handling
+    private func updateEmptyState() {
+        let isSearchActive = searchVisible && !(searchField.text?.isEmpty ?? true)
+        
+        if isSearchActive {
+            // Searching mode
+            if filteredAnnouncements.isEmpty {
+                placeholderLabel.text = "No announcements found"
+                placeholderLabel.isHidden = false
+                tableView.isHidden = true
+            } else {
+                placeholderLabel.isHidden = true
+                tableView.isHidden = false
+            }
+        } else {
+            // Normal mode (not searching)
+            if announcements.isEmpty {
+                placeholderLabel.text = "No announcements yet"
+                placeholderLabel.isHidden = false
+                tableView.isHidden = true
+            } else {
+                placeholderLabel.isHidden = true
+                tableView.isHidden = false
+            }
+        }
+    }
+    
+
     
     // MARK: Edit & Delete Actions
     private func editAnnouncement(at index: Int) {
@@ -862,5 +1005,13 @@ class PDFViewController: UIViewController {
     
     @objc private func closeTapped() {
         dismiss(animated: true)
+    }
+}
+
+extension MentorAnnouncementsViewController: AddTaskViewControllerDelegate {
+    func didSaveAnnouncement() {
+        // Reload data from Supabase when a new announcement is saved
+        print("🔄 Delegate called - reloading announcements...")
+        loadAnnouncementsFromSupabase()
     }
 }
