@@ -10,14 +10,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+
         guard let windowScene = (scene as? UIWindowScene) else { return }
 
-        window = UIWindow(windowScene: windowScene)
-        // Load the initial view controller from Main.storyboard
-        window?.rootViewController = UIStoryboard(name: "Main", bundle: nil).instantiateInitialViewController()
-        window?.makeKeyAndVisible()
-    }
+        let window = UIWindow(windowScene: windowScene)
 
+        // Load the Main.storyboard
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+
+        // Load the initial view controller from Main.storyboard
+        let initialVC = storyboard.instantiateInitialViewController()!
+
+        window.rootViewController = initialVC
+        window.makeKeyAndVisible()
+
+        self.window = window
+    }
 
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.

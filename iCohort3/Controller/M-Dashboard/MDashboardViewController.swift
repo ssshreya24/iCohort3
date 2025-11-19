@@ -344,6 +344,23 @@ extension MDashboardViewController: UICollectionViewDataSource {
 
 extension MDashboardViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if indexPath.section == 0 && !ongoingTeams.isEmpty {
+
+                   let selectedTeam = ongoingTeams[indexPath.item].name
+                   print("Selected Team:", selectedTeam)
+
+                   // Load StudentAllTasks VC
+                   let vc = StudentAllTasksViewController(nibName: "StudentAllTasksViewController", bundle: nil)
+
+                   // Pass team name
+                   vc.teamName = selectedTeam
+
+                   // Present it
+                   vc.modalPresentationStyle = .fullScreen
+                   self.present(vc, animated: true)
+
+                   return
+               }
         if indexPath.section == 1 && !reviewTasks.isEmpty {
             print("Open task:", reviewTasks[indexPath.item].taskTitle)
         }
