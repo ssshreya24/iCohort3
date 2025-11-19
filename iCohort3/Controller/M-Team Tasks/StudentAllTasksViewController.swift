@@ -8,6 +8,10 @@ enum TaskSectionWrapper {
 class StudentAllTasksViewController: UIViewController {
 
     @IBOutlet weak var verticalCollectionView: UICollectionView!
+    @IBAction func backButtonTapped(_ sender: Any) {
+        self.dismiss(animated: true)
+    }
+
 
     // Add this property to receive team name
     var teamName: String? // ← NEW

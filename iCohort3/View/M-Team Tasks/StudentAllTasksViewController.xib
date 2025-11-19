@@ -38,15 +38,18 @@
                     <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <state key="normal" title="Button"/>
                     <buttonConfiguration key="configuration" style="filled" image="chevron.left" catalog="system" title=""/>
+                    <connections>
+                        <action selector="backButtonTapped:" destination="-1" eventType="touchUpInside" id="ZgF-Iv-qMg"/>
+                    </connections>
                 </button>
-                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="All Tasks" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="sIE-Xd-miy">
-                    <rect key="frame" x="175" y="143.66666666666666" width="69.666666666666686" height="21"/>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Team" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="sIE-Xd-miy">
+                    <rect key="frame" x="175" y="143.66666666666666" width="43.333333333333343" height="21"/>
                     <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="17"/>
                     <nil key="textColor"/>
                     <nil key="highlightedColor"/>
                 </label>
                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="kxU-CG-6ip">
-                    <rect key="frame" x="319.66666666666669" y="134" width="40" height="40"/>
+                    <rect key="frame" x="293.33333333333331" y="134" width="40" height="40"/>
                     <constraints>
                         <constraint firstAttribute="height" constant="40" id="4Tc-jq-XrV"/>
                         <constraint firstAttribute="width" constant="40" id="SmS-F4-E1p"/>
