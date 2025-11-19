@@ -9,24 +9,24 @@ import UIKit
 
 class SCalendarViewController: UIViewController {
 
-    // MARK: - Outlets (from Storyboard)
+    // MARK: - Outlets
     @IBOutlet weak var monthLabel: UILabel!
     @IBOutlet weak var calendarView: UICalendarView!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var emptyStateLabel: UILabel!
     @IBOutlet weak var calendarHeightConstraint: NSLayoutConstraint!
     
-    // Add chevron button outlet (connect this in storyboard)
     private var chevronButton: UIButton!
     
     // MARK: - Properties
     private var currentDate = Date()
     private var selectedDate = Calendar.current.startOfDay(for: Date())
     
-    private var activities: [Date: [Activity]] = [:]
-    private var displayedActivities: [Activity] = []
+    private var activities: [Date: [Mactivity]] = [:]
+    private var displayedActivities: [Mactivity] = []
     
     private var isCalendarExpanded = true
+    private var isLoading = false
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -45,24 +45,72 @@ class SCalendarViewController: UIViewController {
         
         calendarView.layer.cornerRadius = 20
         
-
+        // Load activities from Supabase
+        loadActivitiesFromSupabase()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Refresh data when returning to this screen
+        loadActivitiesFromSupabase()
+    }
+    
+    // MARK: - Supabase Data Loading
+    
+    private func loadActivitiesFromSupabase() {
+        guard !isLoading else { return }
+        isLoading = true
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-            guard let self = self else { return }
-
-            self.setupSampleData()
-            self.updateActivitiesList(for: self.selectedDate)
-
-            self.reloadCalendarDecorations()
-
-            UIView.transition(with: self.tableView,
-                              duration: 0.3,
-                              options: .transitionCrossDissolve,
-                              animations: {
-                                  self.tableView.reloadData()
-                              },
-                              completion: nil)
+        Task {
+            do {
+                let rows = try await SupabaseManager.shared.fetchAllMentorActivities()
+                
+                // Filter activities that are sent to students
+                // Only show activities where send_to is "everyone" or "All Students"
+                let studentActivities = rows.filter { row in
+                    guard let sendTo = row.send_to?.lowercased() else { return false }
+                    return sendTo.contains("everyone") || sendTo.contains("all students")
+                }
+                
+                // Convert rows to Mactivity and group by date
+                var newActivities: [Date: [Mactivity]] = [:]
+                
+                for row in studentActivities {
+                    let activity = Mactivity.from(row)
+                    let dateKey = Calendar.current.startOfDay(for: activity.startDate)
+                    
+                    if newActivities[dateKey] != nil {
+                        newActivities[dateKey]?.append(activity)
+                    } else {
+                        newActivities[dateKey] = [activity]
+                    }
+                }
+                
+                // Update UI on main thread
+                await MainActor.run {
+                    self.activities = newActivities
+                    self.updateActivitiesList(for: self.selectedDate)
+                    self.reloadCalendarDecorations()
+                    self.isLoading = false
+                }
+                
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                    self.showError("Failed to load activities: \(error.localizedDescription)")
+                }
+            }
         }
+    }
+    
+    private func showError(_ message: String) {
+        let alert = UIAlertController(
+            title: "Error",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     
     func updateActivitiesList(for date: Date) {
@@ -73,14 +121,24 @@ class SCalendarViewController: UIViewController {
     }
     
     private func reloadCalendarDecorations() {
-        var dateComponents: [DateComponents] = []
+        let calendar = Calendar.current
+        let visibleDateComponents = calendarView.visibleDateComponents
         
-        for date in activities.keys {
-            let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
-            dateComponents.append(components)
+        guard let yearMonth = visibleDateComponents.month,
+              let year = visibleDateComponents.year else {
+            return
         }
         
-        calendarView.reloadDecorations(forDateComponents: dateComponents, animated: true)
+        var allDaysInMonth: [DateComponents] = []
+        if let date = calendar.date(from: visibleDateComponents),
+           let range = calendar.range(of: .day, in: .month, for: date) {
+            for day in range {
+                let components = DateComponents(year: year, month: yearMonth, day: day)
+                allDaysInMonth.append(components)
+            }
+        }
+        
+        calendarView.reloadDecorations(forDateComponents: allDaysInMonth, animated: true)
     }
 }
 
@@ -99,7 +157,6 @@ extension SCalendarViewController {
         calendarView.translatesAutoresizingMaskIntoConstraints = false
         calendarView.layoutMargins = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         calendarView.wantsDateDecorations = true
-        
         calendarView.tintColor = .black
     }
     
@@ -109,26 +166,24 @@ extension SCalendarViewController {
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.showsVerticalScrollIndicator = false
+        tableView.allowsSelection = false
         
-        let nib = UINib(nibName: "ActivityTableViewCell", bundle: nil)
-        tableView.register(nib, forCellReuseIdentifier: "ActivityCell")
+        // Use MactivityTableViewCell instead of ActivityTableViewCell
+        let nib = UINib(nibName: "MactivityTableViewCell", bundle: nil)
+        tableView.register(nib, forCellReuseIdentifier: "MactivityCell")
     }
     
-    // ✅ NEW: Setup chevron button programmatically
     private func setupChevronButton() {
         chevronButton = UIButton(type: .system)
         
-        // Configure button appearance
         let chevronConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         let chevronImage = UIImage(systemName: "chevron.up", withConfiguration: chevronConfig)
         chevronButton.setImage(chevronImage, for: .normal)
         chevronButton.tintColor = .label
         
-        // Add to view
         view.addSubview(chevronButton)
         chevronButton.translatesAutoresizingMaskIntoConstraints = false
         
-        // Position it next to the month label
         NSLayoutConstraint.activate([
             chevronButton.centerYAnchor.constraint(equalTo: monthLabel.centerYAnchor),
             chevronButton.leadingAnchor.constraint(equalTo: monthLabel.trailingAnchor, constant: 8),
@@ -136,7 +191,6 @@ extension SCalendarViewController {
             chevronButton.heightAnchor.constraint(equalToConstant: 30)
         ])
         
-        // Add tap action
         chevronButton.addTarget(self, action: #selector(toggleCalendar), for: .touchUpInside)
     }
     
@@ -150,26 +204,21 @@ extension SCalendarViewController {
     @objc private func toggleCalendar() {
         isCalendarExpanded.toggle()
         
-        // ✅ Update chevron icon
         let chevronConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         let chevronImage = UIImage(systemName: isCalendarExpanded ? "chevron.up" : "chevron.down",
                                    withConfiguration: chevronConfig)
         
         UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
-            // Disable interactions during animation
             self.monthLabel.isUserInteractionEnabled = false
             self.chevronButton.isUserInteractionEnabled = false
             
-            // Rotate chevron
             self.chevronButton.setImage(chevronImage, for: .normal)
             
-            // Animate height & opacity
             self.calendarHeightConstraint.constant = self.isCalendarExpanded ? 420 : 0
             self.calendarView.alpha = self.isCalendarExpanded ? 1.0 : 0.0
             self.view.layoutIfNeeded()
             
         } completion: { _ in
-            // Re-enable interactions after animation
             self.monthLabel.isUserInteractionEnabled = true
             self.chevronButton.isUserInteractionEnabled = true
             
@@ -184,30 +233,6 @@ extension SCalendarViewController {
         let formatter = DateFormatter()
         formatter.dateFormat = "d MMMM"
         monthLabel.text = formatter.string(from: currentDate)
-    }
-}
-
-// MARK: - Sample Data
-extension SCalendarViewController {
-    
-    private func setupSampleData() {
-        let today = Calendar.current.startOfDay(for: Date())
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
-        let dayAfter = Calendar.current.date(byAdding: .day, value: 2, to: today)!
-        
-        activities[today] = [
-            Activity(title: "UI/UX Workshop", time: "10:00 AM"),
-            Activity(title: "Team Sync-Up", time: "3:00 PM")
-        ]
-        
-        activities[tomorrow] = [
-            Activity(title: "Project Review", time: "11:30 AM"),
-            Activity(title: "Client Meeting", time: "2:00 PM")
-        ]
-        
-        activities[dayAfter] = [
-            Activity(title: "Research Session", time: "5:00 PM")
-        ]
     }
 }
 
@@ -247,7 +272,8 @@ extension SCalendarViewController: UITableViewDataSource, UITableViewDelegate {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ActivityCell", for: indexPath) as! ActivityTableViewCell
+        let cell = tableView.dequeueReusableCell(withIdentifier: "MactivityCell", for: indexPath) as! MactivityTableViewCell
+        
         let activity = displayedActivities[indexPath.row]
         cell.configure(with: activity.title, time: activity.time)
         return cell

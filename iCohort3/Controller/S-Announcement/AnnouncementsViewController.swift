@@ -33,12 +33,62 @@ class AnnouncementsViewController: UIViewController {
         setupTableView()
         setupSearchUI()
 
-        announcements = []
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.addSample() }
-
         navigationController?.isNavigationBarHidden = true
         extendedLayoutIncludesOpaqueBars = true
         edgesForExtendedLayout = [.top, .bottom]
+        
+        loadAnnouncementsFromSupabase()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        loadAnnouncementsFromSupabase()
+    }
+
+    private func loadAnnouncementsFromSupabase() {
+        Task {
+            do {
+                let rows = try await SupabaseManager.shared.fetchMentorAnnouncements()
+                print("📢 Student fetched \(rows.count) announcements")
+
+                // ISO 8601 with / without fractional seconds
+                let fmtFrac = ISO8601DateFormatter()
+                fmtFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                let fmtPlain = ISO8601DateFormatter()
+
+                let mapped: [Announcement] = rows.map { row in
+                    let dateString = row.created_at ?? ""
+                    let date =
+                        fmtFrac.date(from: dateString) ??
+                        fmtPlain.date(from: dateString) ??
+                        Date()
+
+                    let color = row.color_hex.flatMap { UIColor.fromHex($0) }
+
+                    return Announcement(
+                        id: UUID(),
+                        title: row.title,
+                        body: row.description ?? "",
+                        tag: row.category,
+                        tagColor: color,
+                        createdAt: date,
+                        author: row.author ?? "Mentor",
+                        attachments: nil
+                    )
+                }
+
+                await MainActor.run {
+                    self.announcements = mapped
+                }
+            } catch {
+                print("❌ Failed to fetch announcements:", error)
+                await MainActor.run {
+                    self.placeholderLabel.text = "Error loading announcements"
+                    self.placeholderLabel.isHidden = false
+                    self.tableView.isHidden = true
+                }
+            }
+        }
     }
 
     private func setupViews() {
@@ -50,7 +100,6 @@ class AnnouncementsViewController: UIViewController {
         tableView.dataSource = self
         tableView.delegate = self
         
-        // Correct XIB name + reuse identifier
         let nib = UINib(nibName: "AnnouncementTableViewCell", bundle: nil)
         tableView.register(nib, forCellReuseIdentifier: "AnnouncementCell")
 
@@ -185,52 +234,6 @@ class AnnouncementsViewController: UIViewController {
         vc.modalPresentationStyle = .fullScreen
         present(vc, animated: true)
     }
-
-    // MARK: Sample Data
-    func addSample() {
-        // Sample image (add to Assets.xcassets or use system image)
-        let sampleImage = UIImage(named: "sample_attachment") ?? UIImage(systemName: "photo.fill")!
-        
-        // Sample PDF URL (you can replace with actual PDF in your bundle)
-        let pdfURL = Bundle.main.url(forResource: "sample_document", withExtension: "pdf") ?? URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf")!
-        
-        // Sample link
-        let linkURL = URL(string: "https://www.apple.com/education/")!
-        
-        announcements.insert(
-            Announcement(
-                id: UUID(),
-                title: "Mentor Sync Session",
-                body: "Weekly sync meeting for all mentors tomorrow. Please review the attached materials.",
-                tag: "Meeting",
-                createdAt: Date(),
-                author: "Program Lead",
-                attachments: [
-                    .image(sampleImage),
-                    .pdf("Meeting Agenda.pdf", pdfURL),
-                    .link("Apple Education", linkURL)
-                ]
-            ),
-            at: 0
-        )
-        
-        // Add another sample with different attachments
-        announcements.insert(
-            Announcement(
-                id: UUID(),
-                title: "New Training Resources",
-                body: "Check out these new training materials for mentors.",
-                tag: "Event",
-                createdAt: Date().addingTimeInterval(-3600),
-                author: "Training Team",
-                attachments: [
-                    .link("Training Portal", URL(string: "https://developer.apple.com")!),
-                    .image(UIImage(systemName: "book.fill")!)
-                ]
-            ),
-            at: 0
-        )
-    }
 }
 
 // MARK: - Table Data Source
@@ -252,7 +255,6 @@ extension AnnouncementsViewController: UITableViewDataSource, UITableViewDelegat
         let obj = filteredAnnouncements.isEmpty ? announcements[indexPath.row] : filteredAnnouncements[indexPath.row]
         cell.configure(with: obj)
         cell.selectionStyle = .none
-        cell.customTagColor = UIColor(red: 0.1, green: 0.6, blue: 0.9, alpha: 1) // your chosen color
         
         // Handle attachment button tap
         cell.onAttachmentTapped = { [weak self] attachments in

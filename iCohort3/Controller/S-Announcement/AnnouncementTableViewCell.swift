@@ -2,8 +2,6 @@
 //  AnnouncementTableViewCell.swift
 //  iCohort3
 //
-//  Created by user@51 on 16/11/25.
-//
 
 import UIKit
 
@@ -22,7 +20,6 @@ class AnnouncementCell: UITableViewCell {
     private var attachments: [AttachmentType] = []
     
     var customTagColor: UIColor?
-
     
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -70,11 +67,14 @@ class AnnouncementCell: UITableViewCell {
             tagLabel.text = "\(t)    "
             tagLabel.textAlignment = .center
 
-            // Apply user custom color if available
-            if let userColor = customTagColor {
+            // Use stored color from announcement if available
+            if let storedColor = a.tagColor {
+                tagLabel.backgroundColor = storedColor
+            } else if let userColor = customTagColor {
+                // Fallback to custom color
                 tagLabel.backgroundColor = userColor
             } else {
-                // Otherwise use your default logic
+                // Default colors based on tag type
                 if t.lowercased().contains("event") {
                     tagLabel.backgroundColor = UIColor(red: 0.18, green: 0.78, blue: 0.42, alpha: 1)
                 } else {
@@ -91,16 +91,14 @@ class AnnouncementCell: UITableViewCell {
             tagLabel.isHidden = true
         }
 
-        // 🔥 UPDATED DATE FORMAT
+        // Date format
         let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM • h:mm a"   // Example: 23 Nov • 3:45 PM
+        formatter.dateFormat = "d MMM • h:mm a"
 
         metaLabel.text = "\(formatter.string(from: a.createdAt)) • BY \(a.author.uppercased())"
         
         // Handle attachments
         configureAttachments(for: a)
-        
-        
     }
     
     private func configureAttachments(for announcement: Announcement) {
