@@ -8,6 +8,8 @@ enum TaskSectionWrapper {
 class StudentAllTasksViewController: UIViewController {
 
     @IBOutlet weak var verticalCollectionView: UICollectionView!
+    @IBOutlet weak var teamTitleLabel: UILabel!
+
     @IBAction func backButtonTapped(_ sender: Any) {
         self.dismiss(animated: true)
     }
@@ -48,6 +50,9 @@ class StudentAllTasksViewController: UIViewController {
             UINib(nibName: "TaskSectionCell", bundle: nil),
             forCellWithReuseIdentifier: "TaskSectionCell"
         )
+        if let teamName = teamName {
+               teamTitleLabel.text = teamName   // ← HERE
+           }
 
         // Optional: Show team name in navigation or label
         if let teamName = teamName {

@@ -10,6 +10,7 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="StudentAllTasksViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
+                <outlet property="teamTitleLabel" destination="sIE-Xd-miy" id="1dW-md-j5f"/>
                 <outlet property="verticalCollectionView" destination="X9a-V6-fxY" id="tSb-Me-qes"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
