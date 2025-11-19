@@ -47,14 +47,14 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="aPN-xk-44N">
-                                <rect key="frame" x="12" y="141" width="308" height="1"/>
+                                <rect key="frame" x="16" y="141" width="318" height="1"/>
                                 <color key="backgroundColor" systemColor="separatorColor"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="1" id="yY2-MQ-0VJ"/>
                                 </constraints>
                             </view>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" text="Due Date" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="fRB-EV-7sA">
-                                <rect key="frame" x="247" y="150" width="58" height="16"/>
+                                <rect key="frame" x="276" y="150" width="58" height="16"/>
                                 <fontDescription key="fontDescription" type="system" weight="medium" pointSize="13"/>
                                 <color key="textColor" red="0.36078431370000003" green="0.36078431370000003" blue="0.36078431370000003" alpha="1" colorSpace="custom" customColorSpace="calibratedRGB"/>
                                 <nil key="highlightedColor"/>
@@ -73,20 +73,29 @@
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Ze8-Kb-O9b">
+                                <rect key="frame" x="0.0" y="0.0" width="350" height="171"/>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="plain"/>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <constraints>
                             <constraint firstItem="Qbk-qo-TwI" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" constant="12" id="DSV-JW-oUk"/>
-                            <constraint firstItem="aPN-xk-44N" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" constant="12" id="Gu1-AJ-BW0"/>
+                            <constraint firstItem="aPN-xk-44N" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" constant="16" id="Gu1-AJ-BW0"/>
                             <constraint firstItem="Qbk-qo-TwI" firstAttribute="top" secondItem="pXi-4z-UNX" secondAttribute="bottom" constant="30" id="H5T-NF-bfJ"/>
                             <constraint firstItem="CgY-ZD-VkY" firstAttribute="leading" secondItem="pXi-4z-UNX" secondAttribute="trailing" constant="8" id="SNx-56-nNT"/>
-                            <constraint firstAttribute="trailing" secondItem="fRB-EV-7sA" secondAttribute="trailing" constant="45" id="Tqo-kF-hXP"/>
+                            <constraint firstAttribute="trailing" secondItem="fRB-EV-7sA" secondAttribute="trailing" constant="16" id="Tqo-kF-hXP"/>
                             <constraint firstItem="1u1-Qz-P1n" firstAttribute="leading" secondItem="pXi-4z-UNX" secondAttribute="trailing" constant="8" id="UbP-PA-Oar"/>
                             <constraint firstAttribute="trailing" secondItem="Qbk-qo-TwI" secondAttribute="trailing" constant="12" id="Xh6-kH-75q"/>
-                            <constraint firstAttribute="trailing" secondItem="aPN-xk-44N" secondAttribute="trailing" constant="30" id="c70-QU-1Hc"/>
+                            <constraint firstAttribute="trailing" secondItem="aPN-xk-44N" secondAttribute="trailing" constant="16" id="c70-QU-1Hc"/>
+                            <constraint firstItem="Ze8-Kb-O9b" firstAttribute="top" secondItem="5B6-JQ-dCn" secondAttribute="top" id="cPh-10-gXy"/>
                             <constraint firstItem="pXi-4z-UNX" firstAttribute="top" secondItem="5B6-JQ-dCn" secondAttribute="top" constant="12" id="cYi-Do-gHe"/>
                             <constraint firstAttribute="bottom" secondItem="fRB-EV-7sA" secondAttribute="bottom" constant="4" id="dIM-tL-7Wh"/>
                             <constraint firstItem="1u1-Qz-P1n" firstAttribute="top" secondItem="CgY-ZD-VkY" secondAttribute="bottom" constant="2" id="eM7-6z-XAO"/>
+                            <constraint firstItem="Qbk-qo-TwI" firstAttribute="top" secondItem="Ze8-Kb-O9b" secondAttribute="bottom" constant="-89" id="gcw-lG-lPV"/>
+                            <constraint firstAttribute="trailing" secondItem="Ze8-Kb-O9b" secondAttribute="trailing" id="k04-NI-FW6"/>
+                            <constraint firstItem="Ze8-Kb-O9b" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" id="oB4-af-LY2"/>
                             <constraint firstItem="pXi-4z-UNX" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" constant="12" id="oqQ-W2-gFw"/>
                             <constraint firstItem="fRB-EV-7sA" firstAttribute="top" secondItem="aPN-xk-44N" secondAttribute="bottom" constant="8" id="p4Z-3D-34K"/>
                             <constraint firstItem="CgY-ZD-VkY" firstAttribute="top" secondItem="5B6-JQ-dCn" secondAttribute="top" constant="12" id="xrG-WL-pzw"/>
@@ -104,6 +113,7 @@
             </constraints>
             <connections>
                 <outlet property="assignedToLabel" destination="CgY-ZD-VkY" id="IQf-yg-3jx"/>
+                <outlet property="cardTapped" destination="Ze8-Kb-O9b" id="pa4-HK-TAE"/>
                 <outlet property="cardView" destination="5B6-JQ-dCn" id="zXD-Xi-obQ"/>
                 <outlet property="dateLabel" destination="fRB-EV-7sA" id="8fH-77-abX"/>
                 <outlet property="descriptionLabel" destination="Qbk-qo-TwI" id="OSi-FU-Qja"/>

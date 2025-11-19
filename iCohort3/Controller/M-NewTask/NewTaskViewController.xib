@@ -11,7 +11,7 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="NewTaskViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
-                <outlet property="assignButton" destination="zZm-Ii-V2d" id="itl-mp-RFA"/>
+                <outlet property="assignButton" destination="zZm-Ii-V2d" id="Qub-ci-CIm"/>
                 <outlet property="assignView" destination="J7j-W8-GsK" id="fcz-xR-0Lh"/>
                 <outlet property="attachmentButton" destination="05G-o8-GfJ" id="jdm-Jp-VBA"/>
                 <outlet property="attachmentView" destination="koC-5d-6Yl" id="eaM-6x-ocO"/>
@@ -20,8 +20,8 @@
                 <outlet property="datePicker" destination="TCN-FG-6W0" id="oFd-vH-mIQ"/>
                 <outlet property="descriptionView" destination="Civ-Cb-yld" id="99h-D1-wfD"/>
                 <outlet property="descritionTextField" destination="p1V-p4-8gH" id="EIh-8E-USP"/>
-                <outlet property="doneButton" destination="vzo-hD-AGB" id="abX-TS-Yri"/>
                 <outlet property="headerView" destination="2ZM-5C-nR5" id="Mnb-gP-C3Q"/>
+                <outlet property="newTaskLabel" destination="zig-hS-jzV" id="43E-RH-S6o"/>
                 <outlet property="taskView" destination="Qui-pV-wWt" id="Aqe-Nu-InS"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
@@ -41,7 +41,11 @@
                                     <rect key="frame" x="0.0" y="20" width="393" height="60"/>
                                     <subviews>
                                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="D8E-jd-4dW">
-                                            <rect key="frame" x="16.000000000000004" y="16.000000000000004" width="34.333333333333343" height="34.333333333333343"/>
+                                            <rect key="frame" x="16" y="16" width="44" height="44"/>
+                                            <constraints>
+                                                <constraint firstAttribute="width" constant="44" id="Bte-j7-DRq"/>
+                                                <constraint firstAttribute="height" constant="44" id="C5a-wU-hvc"/>
+                                            </constraints>
                                             <state key="normal" title="Button"/>
                                             <buttonConfiguration key="configuration" style="plain" image="xmark" catalog="system" cornerStyle="capsule">
                                                 <backgroundConfiguration key="background">
@@ -53,21 +57,8 @@
                                                 <action selector="closeButtonTapped:" destination="-1" eventType="touchUpInside" id="Nmz-wg-0NY"/>
                                             </connections>
                                         </button>
-                                        <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="vzo-hD-AGB">
-                                            <rect key="frame" x="342.66666666666669" y="16.000000000000004" width="34.333333333333314" height="34.333333333333343"/>
-                                            <state key="normal" title="Button"/>
-                                            <buttonConfiguration key="configuration" style="plain" image="checkmark" catalog="system" cornerStyle="capsule">
-                                                <backgroundConfiguration key="background">
-                                                    <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                                </backgroundConfiguration>
-                                                <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                            </buttonConfiguration>
-                                            <connections>
-                                                <action selector="doneButtonTapped:" destination="-1" eventType="touchUpInside" id="bVI-h4-syl"/>
-                                            </connections>
-                                        </button>
                                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="New Task" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="zig-hS-jzV">
-                                            <rect key="frame" x="157.66666666666666" y="22.666666666666657" width="78" height="21"/>
+                                            <rect key="frame" x="157.66666666666666" y="27.666666666666657" width="78" height="21"/>
                                             <fontDescription key="fontDescription" type="boldSystem" pointSize="17"/>
                                             <nil key="textColor"/>
                                             <nil key="highlightedColor"/>
@@ -76,11 +67,9 @@
                                     <color key="backgroundColor" name="bg"/>
                                     <constraints>
                                         <constraint firstItem="zig-hS-jzV" firstAttribute="centerX" secondItem="2ZM-5C-nR5" secondAttribute="centerX" id="24P-sK-ch8"/>
-                                        <constraint firstAttribute="trailing" secondItem="vzo-hD-AGB" secondAttribute="trailing" constant="16" id="K3w-wo-TPF"/>
                                         <constraint firstItem="D8E-jd-4dW" firstAttribute="top" secondItem="2ZM-5C-nR5" secondAttribute="top" constant="16" id="LFN-34-xKH"/>
                                         <constraint firstItem="zig-hS-jzV" firstAttribute="centerY" secondItem="D8E-jd-4dW" secondAttribute="centerY" id="aP7-dd-zxV"/>
                                         <constraint firstItem="D8E-jd-4dW" firstAttribute="leading" secondItem="2ZM-5C-nR5" secondAttribute="leading" constant="16" id="g7z-lh-qEb"/>
-                                        <constraint firstItem="vzo-hD-AGB" firstAttribute="top" secondItem="2ZM-5C-nR5" secondAttribute="top" constant="16" id="qFR-in-EyG"/>
                                         <constraint firstAttribute="height" constant="60" id="r6n-jB-K7F"/>
                                     </constraints>
                                 </view>
@@ -89,7 +78,7 @@
                                     <subviews>
                                         <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="McA-nq-OnT">
                                             <rect key="frame" x="54" y="8" width="291" height="46"/>
-                                            <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                             <textInputTraits key="textInputTraits"/>
                                         </textField>
                                         <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="pencil" catalog="system" translatesAutoresizingMaskIntoConstraints="NO" id="bcG-qJ-KJl">
@@ -172,7 +161,7 @@
                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Civ-Cb-yld">
                                     <rect key="frame" x="16" y="330" width="361" height="100"/>
                                     <subviews>
-                                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="top" borderStyle="roundedRect" placeholder="Add Description" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="p1V-p4-8gH">
+                                        <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="top" placeholder="Add Description" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="p1V-p4-8gH">
                                             <rect key="frame" x="8" y="8" width="345" height="84"/>
                                             <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                             <textInputTraits key="textInputTraits"/>
@@ -202,6 +191,9 @@
                                             <buttonConfiguration key="configuration" style="plain" image="chevron.up.chevron.down" catalog="system">
                                                 <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                             </buttonConfiguration>
+                                            <connections>
+                                                <action selector="assignButtonTapped:" destination="-1" eventType="touchUpInside" id="3ek-ER-35T"/>
+                                            </connections>
                                         </button>
                                     </subviews>
                                     <color key="backgroundColor" systemColor="systemBackgroundColor"/>
@@ -225,6 +217,9 @@
                                         </backgroundConfiguration>
                                         <color key="baseForegroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     </buttonConfiguration>
+                                    <connections>
+                                        <action selector="confirmAssignTapped:" destination="-1" eventType="touchUpInside" id="Td6-WV-B6q"/>
+                                    </connections>
                                 </button>
                             </subviews>
                             <color key="backgroundColor" name="bg"/>
@@ -274,7 +269,6 @@
     </objects>
     <resources>
         <image name="calendar" catalog="system" width="128" height="107"/>
-        <image name="checkmark" catalog="system" width="128" height="114"/>
         <image name="chevron.up.chevron.down" catalog="system" width="109" height="128"/>
         <image name="pencil" catalog="system" width="128" height="113"/>
         <image name="xmark" catalog="system" width="128" height="113"/>

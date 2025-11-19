@@ -14,7 +14,8 @@ class TaskCardCellNew: UICollectionViewCell {
 
     @IBOutlet weak var separatorLine: UIView!
     @IBOutlet weak var dateLabel: UILabel!
-
+    @IBOutlet weak var cardTapped: UIButton!
+    
     // MARK: - Stored constraints
     private var remarkTitleTopConstraint: NSLayoutConstraint?
     private var remarkDescTopConstraint: NSLayoutConstraint?

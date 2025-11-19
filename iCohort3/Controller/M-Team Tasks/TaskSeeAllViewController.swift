@@ -7,6 +7,7 @@ class TaskSeeAllViewController: UIViewController {
     private var tasks: [TaskModel]
 
     // UI Elements
+    private let editButton = UIButton()
     private let backButton = UIButton()
     private let titleLabel = UILabel()
     private let collectionView: UICollectionView
@@ -34,6 +35,7 @@ class TaskSeeAllViewController: UIViewController {
         view.backgroundColor = UIColor(red: 242/255, green: 242/255, blue: 247/255, alpha: 1)
 
         setupBackButton()
+        setupEditButton()
         setupTitleLabel()
         setupCollectionView()
     }
@@ -74,16 +76,16 @@ class TaskSeeAllViewController: UIViewController {
         dismiss(animated: true)
     }
 
-    // MARK: - Setup Title
     private func setupTitleLabel() {
         titleLabel.font = .boldSystemFont(ofSize: 28)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(titleLabel)
 
         NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
+            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+            titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: backButton.trailingAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -16)
         ])
 
         switch category {
@@ -101,6 +103,47 @@ class TaskSeeAllViewController: UIViewController {
             titleLabel.textColor = .systemRed
         }
     }
+    
+    private func setupEditButton() {
+        view.addSubview(editButton)
+        editButton.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            editButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+            editButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            editButton.widthAnchor.constraint(equalToConstant: 70), // Extra width for "Edit"
+            editButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+
+        // Same style as back button
+        editButton.backgroundColor = .white
+        editButton.layer.cornerRadius = 22
+        editButton.layer.masksToBounds = true
+
+        // Text instead of icon
+        editButton.setTitle("Edit", for: .normal)
+        editButton.setTitleColor(.black, for: .normal)
+        editButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+
+        editButton.addTarget(self, action: #selector(editButtonPressed), for: .touchUpInside)
+    }
+
+
+    @objc private func editButtonPressed() {
+        let newTaskVC = NewTaskViewController(nibName: "NewTaskViewController", bundle: nil)
+
+        newTaskVC.modalPresentationStyle = .pageSheet
+        
+        if let sheet = newTaskVC.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+
+        present(newTaskVC, animated: true)
+    }
+
+
+
 
     // MARK: - Setup Collection View
     private func setupCollectionView() {

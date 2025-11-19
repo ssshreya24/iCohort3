@@ -12,13 +12,39 @@ class StudentAllTasksViewController: UIViewController {
     
     @IBOutlet weak var backButton: UIButton!
     @IBOutlet weak var addButton: UIButton!
+    
+    // Store team member data
+    let teamMemberImages: [UIImage] = [
+        UIImage(named: "Student") ?? UIImage(),
+        UIImage(named: "Student") ?? UIImage(),
+        UIImage(named: "Student") ?? UIImage()
+    ]
+    let teamMemberNames: [String] = ["Shruti", "Ananya", "Rahul"]
+    
     @IBAction func backButtonTapped(_ sender: Any) {
-            self.dismiss(animated: true)
+        self.dismiss(animated: true)
+    }
+    
+    @IBAction func addButtonTapped(_ sender: Any) {
+        let newTaskVC = NewTaskViewController(nibName: "NewTaskViewController", bundle: nil)
+        
+        // Set delegate
+        newTaskVC.delegate = self
+        
+        // Pass team member data
+        newTaskVC.teamMemberImages = teamMemberImages
+        newTaskVC.teamMemberNames = teamMemberNames
+        
+        newTaskVC.modalPresentationStyle = .pageSheet
+        if let sheet = newTaskVC.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
         }
-    // Add this property to receive team name
-    var teamName: String? // ← NEW
+        present(newTaskVC, animated: true)
+    }
+    
+    var teamName: String?
 
-    // FINAL LIST OF ALL ROWS
     let items: [TaskSectionWrapper] = [
         .teamProfile,
         .category(.assigned),
@@ -29,42 +55,63 @@ class StudentAllTasksViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // BACK BUTTON
-            backButton.layer.cornerRadius = backButton.frame.height / 2
-            backButton.backgroundColor = .white
-            backButton.clipsToBounds = true
+        backButton.layer.cornerRadius = backButton.frame.height / 2
+        backButton.backgroundColor = .white
+        backButton.clipsToBounds = true
 
-            // PLUS BUTTON
-            addButton.layer.cornerRadius = addButton.frame.height / 2
-            addButton.backgroundColor = .white
-            addButton.clipsToBounds = true
+        addButton.layer.cornerRadius = addButton.frame.height / 2
+        addButton.backgroundColor = .white
+        addButton.clipsToBounds = true
+        
         let bg = UIColor(red: 242/255, green: 242/255, blue: 247/255, alpha: 1)
         verticalCollectionView.backgroundColor = bg
         view.backgroundColor = bg
 
-        // Delegates
         verticalCollectionView.delegate = self
         verticalCollectionView.dataSource = self
 
-        // Register Team Profile cell
         verticalCollectionView.register(
             UINib(nibName: "TeamProfileRowCell", bundle: nil),
             forCellWithReuseIdentifier: "TeamProfileRowCell"
         )
 
-        // Register Task Section cell
         verticalCollectionView.register(
             UINib(nibName: "TaskSectionCell", bundle: nil),
             forCellWithReuseIdentifier: "TaskSectionCell"
         )
+        
         if let teamName = teamName {
-               teamTitleLabel.text = teamName   // ← HERE
-           }
+            teamTitleLabel.text = teamName
+        }
 
-        // Optional: Show team name in navigation or label
         if let teamName = teamName {
             self.title = teamName
         }
+    }
+}
+
+// MARK: - NewTaskDelegate
+extension StudentAllTasksViewController: NewTaskDelegate {
+    func didAssignTask(to memberName: String, description: String, date: Date) {
+        // Handle the assigned task here
+        print("Task assigned to: \(memberName)")
+        print("Description: \(description)")
+        print("Date: \(date)")
+        
+        // You can add the task to your data model and reload the collection view
+        // For example, add it to the assigned tasks array
+        
+        // Show confirmation
+        let alert = UIAlertController(
+            title: "Task Assigned",
+            message: "Task successfully assigned to \(memberName)",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+        
+        // Reload collection view if needed
+        verticalCollectionView.reloadData()
     }
 }
 
@@ -93,14 +140,10 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
                 for: indexPath
             ) as! TeamProfileRowCell
 
-            // Dummy data for now
+            // Use the stored team member data
             cell.configureProfiles(
-                images: [
-                    UIImage(named: "Student") ?? UIImage(),
-                    UIImage(named: "Student") ?? UIImage(),
-                    UIImage(named: "Student") ?? UIImage()
-                ],
-                names: ["Shruti", "Ananya", "Rahul"]
+                images: teamMemberImages,
+                names: teamMemberNames
             )
 
             return cell
@@ -165,4 +208,3 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
         }
     }
 }
-
