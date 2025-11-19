@@ -65,7 +65,7 @@
                                                                     <state key="normal" title="Button"/>
                                                                     <buttonConfiguration key="configuration" style="plain" image="minus.circle.fill" catalog="system"/>
                                                                     <connections>
-                                                                        <action selector="deleteTapped:" destination="Q5K-ZZ-E8Z" eventType="touchUpInside" id="H2o-Pa-vKJ"/>
+                                                                        <action selector="actionButtonTapped:" destination="Q5K-ZZ-E8Z" eventType="touchUpInside" id="MB3-6A-qgU"/>
                                                                     </connections>
                                                                 </button>
                                                                 <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="xkN-sf-Jpt">
@@ -101,9 +101,9 @@
                                                     </constraints>
                                                 </collectionViewCellContentView>
                                                 <connections>
+                                                    <outlet property="actionButton" destination="Tce-AA-7ky" id="6V0-vt-HTq"/>
                                                     <outlet property="containerView" destination="dB2-4x-T18" id="k43-f2-Cx1"/>
                                                     <outlet property="countLabel" destination="XR7-yL-Eip" id="6rn-4j-m03"/>
-                                                    <outlet property="editIndicator" destination="Tce-AA-7ky" id="FVS-dE-9Ql"/>
                                                     <outlet property="iconImageView" destination="xkN-sf-Jpt" id="00v-to-jce"/>
                                                     <outlet property="titleLabel" destination="rob-8h-Cd2" id="OV4-vS-Ac6"/>
                                                 </connections>
@@ -256,6 +256,7 @@
                         <outlet property="cardView" destination="3f9-ob-PuI" id="wYj-8a-oAd"/>
                         <outlet property="cardView2" destination="T55-4B-XTG" id="RcJ-7b-aeG"/>
                         <outlet property="collectionView" destination="L5V-EG-OUj" id="KUP-xD-MeZ"/>
+                        <outlet property="collectionViewCellHeight" destination="Xj4-Xt-Ztu" id="g8z-hf-36C"/>
                         <outlet property="editButton" destination="11x-Xo-cA0" id="zJw-PU-jEj"/>
                         <outlet property="tableView" destination="Olb-95-I2y" id="obl-Rf-vb6"/>
                         <outlet property="taskCard" destination="FFp-f5-vgo" id="wIM-2l-p1K"/>
@@ -276,7 +277,7 @@
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemRedColor">
-            <color red="1" green="0.2196078431372549" blue="0.23529411764705882" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="1" green="0.23137254900000001" blue="0.18823529410000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>

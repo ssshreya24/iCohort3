@@ -3,6 +3,7 @@
 //  iCohort3
 //
 //  Created by user@51 on 05/11/25.
+//  Updated to fix editing mode tapping and add All view
 //
 
 import UIKit
@@ -16,19 +17,27 @@ class SDashboardViewController: UIViewController {
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var editButton: UIButton!
     
+    @IBOutlet weak var collectionViewCellHeight: NSLayoutConstraint!
+    // If true, we're in edit mode
     var isEditingMode = false
     
-    // Mutable array to support drag & drop
-    var statuses: [(iconName: String, title: String, color: UIColor)] = [
+    // All statuses (master list)
+    let allStatuses: [(iconName: String, title: String, color: UIColor)] = [
         ("dot.circle.fill", "Not started", .systemGray),
         ("clock.fill", "In Progress", .systemOrange),
         ("magnifyingglass.circle.fill", "For Review", .systemYellow),
         ("checkmark.circle.fill", "Approved", .systemGreen),
         ("xmark.circle.fill", "Rejected", .systemRed),
-        ("cube.box.fill", "Prepared", .systemCyan),
+        ("cube.box.fill", "Prepared", .systemTeal),
         ("airplane.circle.fill", "Completed", .systemBlue),
         ("circle.grid.3x3.fill", "All", .black)
     ]
+    
+    // Visible statuses currently on dashboard (order can change)
+    var visibleStatuses: [(iconName: String, title: String, color: UIColor)] = []
+    
+    // Statuses removed by tapping minus — kept so they can be re-added later.
+    var removedStatuses: [(iconName: String, title: String, color: UIColor)] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -48,8 +57,24 @@ class SDashboardViewController: UIViewController {
         
         self.extendedLayoutIncludesOpaqueBars = true
         self.edgesForExtendedLayout = [.bottom, .top]
-        
         tableView.contentInsetAdjustmentBehavior = .never
+        
+        // Start with all statuses visible
+        visibleStatuses = allStatuses
+        
+        // Notifications from cell actions
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleDeleteNotification(_:)),
+                                               name: .statusCardDeleteTapped,
+                                               object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(handleAddNotification(_:)),
+                                               name: .statusCardAddTapped,
+                                               object: nil)
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -57,8 +82,7 @@ class SDashboardViewController: UIViewController {
         
         coordinator.animate(alongsideTransition: { _ in
             self.collectionView.collectionViewLayout.invalidateLayout()
-        }, completion: { _ in
-        })
+        }, completion: nil)
     }
     
     private func applyBackgroundGradient() {
@@ -80,9 +104,13 @@ class SDashboardViewController: UIViewController {
         }
     }
     
+    // MARK: - Edit / Done
     @IBAction func editButtonTapped(_ sender: UIButton) {
         isEditingMode.toggle()
         editButton.setTitle(isEditingMode ? "Done" : "Edit", for: .normal)
+        
+        // when leaving edit mode -> stop wiggle handled by cells on configure
+        // when entering edit mode -> show wiggle via cells
         collectionView.reloadData()
     }
     
@@ -109,27 +137,42 @@ class SDashboardViewController: UIViewController {
     }
 }
 
-// MARK: - UICollectionViewDataSource & UICollectionViewDelegateFlowLayout
-
+// MARK: - UICollectionViewDataSource & DelegateFlowLayout
 extension SDashboardViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     
     func collectionView(_ cv: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return statuses.count
+        // When editing, show visible cards + an add-card for each removed card.
+        // When not editing, only show visible cards.
+        if isEditingMode {
+            return visibleStatuses.count + removedStatuses.count
+        } else {
+            return visibleStatuses.count
+        }
     }
     
     func collectionView(_ cv: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = cv.dequeueReusableCell(withReuseIdentifier: "StatusCardCell", for: indexPath) as! StatusCardCell
-        let s = statuses[indexPath.item]
         
-        // Apply icon and color
-        cell.iconImageView.image = UIImage(systemName: s.iconName)?
-            .withRenderingMode(.alwaysTemplate)
-        cell.iconImageView.tintColor = s.color
-        
-        // Apply title and count
-        cell.titleLabel.text = s.title
-        cell.countLabel.text = "0"
-        cell.configure(title: s.title, count: 0, isEditing: isEditingMode)
+        if isEditingMode {
+            // index < visible => normal/editing cell
+            if indexPath.item < visibleStatuses.count {
+                let s = visibleStatuses[indexPath.item]
+                cell.iconImageView.image = UIImage(systemName: s.iconName)?.withRenderingMode(.alwaysTemplate)
+                cell.iconImageView.tintColor = s.color
+                cell.configure(iconName: s.iconName, title: s.title, count: 0, mode: .editing)
+            } else {
+                // Add card representing a removed status
+                let removedIndex = indexPath.item - visibleStatuses.count
+                let removed = removedStatuses[removedIndex]
+                // Show title of removed so user knows what will be re-added
+                cell.configure(iconName: nil, title: removed.title, count: nil, mode: .add)
+            }
+        } else {
+            let s = visibleStatuses[indexPath.item]
+            cell.iconImageView.image = UIImage(systemName: s.iconName)?.withRenderingMode(.alwaysTemplate)
+            cell.iconImageView.tintColor = s.color
+            cell.configure(iconName: s.iconName, title: s.title, count: 0, mode: .normal)
+        }
         
         return cell
     }
@@ -166,57 +209,71 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let selectedStatus = statuses[indexPath.item].title
+        // CRITICAL: Don't allow card taps in editing mode
+        // Only action buttons (+ and -) should work in editing mode
+        if isEditingMode {
+            // If this is an add-card, allow it (same behavior as tapping the + button)
+            if indexPath.item >= visibleStatuses.count {
+                let removedIndex = indexPath.item - visibleStatuses.count
+                restoreRemoved(at: removedIndex)
+            }
+            // Otherwise, ignore the tap completely
+            return
+        }
         
-        if selectedStatus == "Not started" {
+        // When not editing, open the appropriate VC
+        let selectedStatus = visibleStatuses[indexPath.item].title
+        
+        switch selectedStatus {
+        case "Not started":
             let vc = NotStartedViewController(nibName: "NotStartedViewController", bundle: nil)
             vc.modalPresentationStyle = .fullScreen
             self.present(vc, animated: true)
-        }
-        else if selectedStatus == "For Review" {
+        case "For Review":
             let vc = ForReviewViewController(nibName: "ForReviewViewController", bundle: nil)
             vc.modalPresentationStyle = .fullScreen
             self.present(vc, animated: true)
-        }
-        else if selectedStatus == "In Progress" {
+        case "In Progress":
             let vc = InProgressViewController(nibName: "InProgressViewController", bundle: nil)
             vc.modalPresentationStyle = .fullScreen
             self.present(vc, animated: true)
-        }
-        else if selectedStatus == "Prepared" {
+        case "Prepared":
             let vc = PreparedViewController(nibName: "PreparedViewController", bundle: nil)
             vc.modalPresentationStyle = .fullScreen
             self.present(vc, animated: true)
-        }
-        else if selectedStatus == "Completed" {
+        case "Completed":
             let vc = CompletedViewController(nibName: "CompletedViewController", bundle: nil)
             vc.modalPresentationStyle = .fullScreen
             self.present(vc, animated: true)
-        }
-        else if selectedStatus == "Approved" {
+        case "Approved":
             let vc = ApprovedViewController(nibName: "ApprovedViewController", bundle: nil)
             vc.modalPresentationStyle = .fullScreen
             self.present(vc, animated: true)
-        }
-        else if selectedStatus == "Rejected" {
+        case "Rejected":
             let vc = RejectedViewController(nibName: "RejectedViewController", bundle: nil)
             vc.modalPresentationStyle = .fullScreen
             self.present(vc, animated: true)
+        case "All":
+            let vc = AllTasksViewController(nibName: "AllTasksViewController", bundle: nil)
+            vc.modalPresentationStyle = .fullScreen
+            self.present(vc, animated: true)
+        default:
+            break
         }
     }
 }
 
-// MARK: - Drag and Drop Reordering
-
+// MARK: - Drag & Drop Reordering
 extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
     
     func collectionView(_ collectionView: UICollectionView,
                         itemsForBeginning session: UIDragSession,
                         at indexPath: IndexPath) -> [UIDragItem] {
-        guard isEditingMode else { return [] }
-        let item = statuses[indexPath.item]
-        let itemProvider = NSItemProvider(object: item.title as NSString)
-        let dragItem = UIDragItem(itemProvider: itemProvider)
+        // Drag only allowed when editing and only for visible items (not add-cards).
+        guard isEditingMode, indexPath.item < visibleStatuses.count else { return [] }
+        let item = visibleStatuses[indexPath.item]
+        let provider = NSItemProvider(object: item.title as NSString)
+        let dragItem = UIDragItem(itemProvider: provider)
         dragItem.localObject = item
         return [dragItem]
     }
@@ -225,19 +282,21 @@ extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionVi
                         performDropWith coordinator: UICollectionViewDropCoordinator) {
         guard let destinationIndexPath = coordinator.destinationIndexPath else { return }
         
-        coordinator.items.forEach { item in
-            guard let sourceIndexPath = item.sourceIndexPath,
-                  let draggedItem = item.dragItem.localObject as? (iconName: String, title: String, color: UIColor)
+        coordinator.items.forEach { dropItem in
+            guard let sourceIndexPath = dropItem.sourceIndexPath,
+                  let dragged = dropItem.dragItem.localObject as? (iconName: String, title: String, color: UIColor)
             else { return }
             
+            // We only allow reordering within visibleStatuses. Ignore drops that target add-card positions.
+            let dest = min(destinationIndexPath.item, visibleStatuses.count - 1)
+            
             collectionView.performBatchUpdates {
-                // ✅ Now mutates the class property
-                statuses.remove(at: sourceIndexPath.item)
-                statuses.insert(draggedItem, at: destinationIndexPath.item)
+                visibleStatuses.remove(at: sourceIndexPath.item)
+                visibleStatuses.insert(dragged, at: dest)
                 collectionView.deleteItems(at: [sourceIndexPath])
-                collectionView.insertItems(at: [destinationIndexPath])
+                collectionView.insertItems(at: [IndexPath(item: dest, section: 0)])
             }
-            coordinator.drop(item.dragItem, toItemAt: destinationIndexPath)
+            coordinator.drop(dropItem.dragItem, toItemAt: IndexPath(item: dest, section: 0))
         }
     }
     
@@ -249,9 +308,61 @@ extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionVi
         }
         
         if collectionView.hasActiveDrag {
-            return UICollectionViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
+            // allow move if destination is within visible range
+            if let dest = destinationIndexPath, dest.item <= visibleStatuses.count - 1 {
+                return UICollectionViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
+            } else {
+                // forbid dropping into add-cards area
+                return UICollectionViewDropProposal(operation: .forbidden)
+            }
         }
         
         return UICollectionViewDropProposal(operation: .forbidden)
+    }
+}
+
+// MARK: - Handle Add / Delete from cells
+extension SDashboardViewController {
+    
+    @objc func handleDeleteNotification(_ notification: Notification) {
+        guard let cell = notification.object as? StatusCardCell,
+              let indexPath = collectionView.indexPath(for: cell) else { return }
+        // Only allow delete from visible area
+        guard indexPath.item < visibleStatuses.count else { return }
+        
+        // Move the status from visible -> removed
+        let removed = visibleStatuses.remove(at: indexPath.item)
+        removedStatuses.append(removed)
+        
+        // Update UI with animation
+        collectionView.performBatchUpdates({
+            collectionView.deleteItems(at: [indexPath])
+            // If we are in editing mode and now we have to show an add-card (because removedStatuses.count increased),
+            // insert that add-card at the end of the collection view.
+            if isEditingMode {
+                let addIndex = IndexPath(item: visibleStatuses.count + removedStatuses.count - 1, section: 0)
+                collectionView.insertItems(at: [addIndex])
+            }
+        }, completion: nil)
+    }
+    
+    @objc func handleAddNotification(_ notification: Notification) {
+        guard let cell = notification.object as? StatusCardCell,
+              let indexPath = collectionView.indexPath(for: cell) else { return }
+        
+        // add action arrives only for add-cards (index >= visible.count)
+        guard indexPath.item >= visibleStatuses.count else { return }
+        let removedIndex = indexPath.item - visibleStatuses.count
+        restoreRemoved(at: removedIndex)
+    }
+    
+    // helper to restore removed status at end of visible list
+    func restoreRemoved(at removedIndex: Int) {
+        guard removedIndex >= 0 && removedIndex < removedStatuses.count else { return }
+        let toRestore = removedStatuses.remove(at: removedIndex)
+        visibleStatuses.append(toRestore)
+        
+        // reload collection view to reflect changes (animate if you want)
+        collectionView.reloadData()
     }
 }
