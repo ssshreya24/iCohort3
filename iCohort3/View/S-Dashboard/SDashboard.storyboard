@@ -239,6 +239,7 @@
                         <outlet property="editButton" destination="11x-Xo-cA0" id="zJw-PU-jEj"/>
                         <outlet property="tableView" destination="Olb-95-I2y" id="obl-Rf-vb6"/>
                         <outlet property="taskCard" destination="FFp-f5-vgo" id="wIM-2l-p1K"/>
+                        <outlet property="tasksDueTodayLabel" destination="Jvf-ix-ZXe" id="vD5-iA-bqA"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="Ief-a0-LHa" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>

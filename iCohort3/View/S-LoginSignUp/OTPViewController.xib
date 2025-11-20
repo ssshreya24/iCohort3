@@ -43,30 +43,78 @@
                     <subviews>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="nKF-G1-NiV">
                             <rect key="frame" x="0.0" y="35" width="49.333333333333336" height="50"/>
+                            <subviews>
+                                <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="QNP-s7-Rg7">
+                                    <rect key="frame" x="0.0" y="0.0" width="49.333333333333336" height="50"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                    <textInputTraits key="textInputTraits"/>
+                                </textField>
+                            </subviews>
                             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
+                                <constraint firstAttribute="bottom" secondItem="QNP-s7-Rg7" secondAttribute="bottom" id="3EX-X3-KEW"/>
+                                <constraint firstItem="QNP-s7-Rg7" firstAttribute="leading" secondItem="nKF-G1-NiV" secondAttribute="leading" id="72i-go-E9Q"/>
                                 <constraint firstAttribute="height" constant="50" id="XoL-2X-C2k"/>
+                                <constraint firstAttribute="trailing" secondItem="QNP-s7-Rg7" secondAttribute="trailing" id="fFp-q8-gDP"/>
+                                <constraint firstItem="QNP-s7-Rg7" firstAttribute="top" secondItem="nKF-G1-NiV" secondAttribute="top" id="gzH-ec-vCA"/>
                             </constraints>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="5vC-Wa-IQe">
                             <rect key="frame" x="61.333333333333343" y="35" width="49.333333333333343" height="50"/>
+                            <subviews>
+                                <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="aZY-P3-3el">
+                                    <rect key="frame" x="0.0" y="0.0" width="49.333333333333336" height="50"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                    <textInputTraits key="textInputTraits"/>
+                                </textField>
+                            </subviews>
                             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
+                                <constraint firstItem="aZY-P3-3el" firstAttribute="leading" secondItem="5vC-Wa-IQe" secondAttribute="leading" id="1Dz-vZ-pK3"/>
                                 <constraint firstAttribute="height" constant="50" id="VBD-un-F5z"/>
+                                <constraint firstItem="aZY-P3-3el" firstAttribute="top" secondItem="5vC-Wa-IQe" secondAttribute="top" id="Vyt-e6-6Ue"/>
+                                <constraint firstAttribute="bottom" secondItem="aZY-P3-3el" secondAttribute="bottom" id="bX2-ck-zbY"/>
+                                <constraint firstAttribute="trailing" secondItem="aZY-P3-3el" secondAttribute="trailing" id="g3S-mq-f7k"/>
                             </constraints>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="AGm-Ng-rzb">
                             <rect key="frame" x="122.66666666666666" y="35" width="49" height="50"/>
+                            <subviews>
+                                <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="gyk-Z7-1wu">
+                                    <rect key="frame" x="0.0" y="0.0" width="49" height="50"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                    <textInputTraits key="textInputTraits"/>
+                                </textField>
+                            </subviews>
                             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
+                                <constraint firstAttribute="trailing" secondItem="gyk-Z7-1wu" secondAttribute="trailing" id="4yt-aI-sdp"/>
                                 <constraint firstAttribute="height" constant="50" id="JHO-8R-R9K"/>
+                                <constraint firstAttribute="bottom" secondItem="gyk-Z7-1wu" secondAttribute="bottom" id="K7L-W5-VJY"/>
+                                <constraint firstItem="gyk-Z7-1wu" firstAttribute="top" secondItem="AGm-Ng-rzb" secondAttribute="top" id="K9f-Lb-nJX"/>
+                                <constraint firstItem="gyk-Z7-1wu" firstAttribute="leading" secondItem="AGm-Ng-rzb" secondAttribute="leading" id="zta-BJ-WNl"/>
                             </constraints>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="nw8-HH-fHE">
                             <rect key="frame" x="183.66666666666669" y="35" width="49.333333333333343" height="50"/>
+                            <subviews>
+                                <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="IRx-tr-zF0">
+                                    <rect key="frame" x="0.0" y="0.0" width="49.333333333333336" height="50"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                    <textInputTraits key="textInputTraits"/>
+                                </textField>
+                            </subviews>
                             <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
+                                <constraint firstItem="IRx-tr-zF0" firstAttribute="top" secondItem="nw8-HH-fHE" secondAttribute="top" id="EQy-DT-44L"/>
+                                <constraint firstAttribute="trailing" secondItem="IRx-tr-zF0" secondAttribute="trailing" id="KMm-0f-6Bz"/>
+                                <constraint firstAttribute="bottom" secondItem="IRx-tr-zF0" secondAttribute="bottom" id="ZuB-rb-02i"/>
                                 <constraint firstAttribute="height" constant="50" id="rBY-41-fH1"/>
+                                <constraint firstItem="IRx-tr-zF0" firstAttribute="leading" secondItem="nw8-HH-fHE" secondAttribute="leading" id="shp-aZ-W1H"/>
                             </constraints>
                         </view>
                     </subviews>
