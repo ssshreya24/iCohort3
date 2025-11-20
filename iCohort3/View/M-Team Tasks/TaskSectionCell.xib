@@ -41,7 +41,9 @@
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="MdM-jm-SeE">
                                 <rect key="frame" x="323.66666666666669" y="9" width="76.333333333333314" height="35"/>
                                 <state key="normal" title="Button"/>
-                                <buttonConfiguration key="configuration" style="plain" title="See All"/>
+                                <buttonConfiguration key="configuration" style="plain" title="See All">
+                                    <color key="baseForegroundColor" systemColor="tableCellBlueTextColor"/>
+                                </buttonConfiguration>
                                 <connections>
                                     <action selector="seeAllButtonPressed:" destination="ma7-fo-4Qa" eventType="touchUpInside" id="oOf-Zj-fw9"/>
                                 </connections>
@@ -78,4 +80,9 @@
             <point key="canvasLocation" x="97.70992366412213" y="133.80281690140845"/>
         </collectionViewCell>
     </objects>
+    <resources>
+        <systemColor name="tableCellBlueTextColor">
+            <color red="0.0" green="0.53333333333333333" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+    </resources>
 </document>

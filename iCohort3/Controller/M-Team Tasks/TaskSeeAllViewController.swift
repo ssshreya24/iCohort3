@@ -1,13 +1,24 @@
 import UIKit
 
+// Protocol to notify parent about changes
+protocol TaskSeeAllDelegate: AnyObject {
+    func didUpdateTask(in category: TaskCategory, at index: Int, with task: TaskModel)
+    func didDeleteTask(in category: TaskCategory, at index: Int)
+}
+
 // MARK: - TaskSeeAllViewController
 class TaskSeeAllViewController: UIViewController {
 
+    weak var delegate: TaskSeeAllDelegate?
+    
     private var category: TaskCategory
     private var tasks: [TaskModel]
+    
+    // Store team member data for editing
+    var teamMemberImages: [UIImage] = []
+    var teamMemberNames: [String] = []
 
     // UI Elements
-    private let editButton = UIButton()
     private let backButton = UIButton()
     private let titleLabel = UILabel()
     private let collectionView: UICollectionView
@@ -35,9 +46,20 @@ class TaskSeeAllViewController: UIViewController {
         view.backgroundColor = UIColor(red: 242/255, green: 242/255, blue: 247/255, alpha: 1)
 
         setupBackButton()
-        setupEditButton()
         setupTitleLabel()
         setupCollectionView()
+        
+        // Listen for delete notifications
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleDeleteTask(_:)),
+            name: NSNotification.Name("DeleteTask"),
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Setup Back Button
@@ -71,7 +93,6 @@ class TaskSeeAllViewController: UIViewController {
         backButton.addTarget(self, action: #selector(backButtonPressed), for: .touchUpInside)
     }
 
-
     @objc private func backButtonPressed() {
         dismiss(animated: true)
     }
@@ -103,47 +124,6 @@ class TaskSeeAllViewController: UIViewController {
             titleLabel.textColor = .systemRed
         }
     }
-    
-    private func setupEditButton() {
-        view.addSubview(editButton)
-        editButton.translatesAutoresizingMaskIntoConstraints = false
-
-        NSLayoutConstraint.activate([
-            editButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
-            editButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            editButton.widthAnchor.constraint(equalToConstant: 70), // Extra width for "Edit"
-            editButton.heightAnchor.constraint(equalToConstant: 44)
-        ])
-
-        // Same style as back button
-        editButton.backgroundColor = .white
-        editButton.layer.cornerRadius = 22
-        editButton.layer.masksToBounds = true
-
-        // Text instead of icon
-        editButton.setTitle("Edit", for: .normal)
-        editButton.setTitleColor(.black, for: .normal)
-        editButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-
-        editButton.addTarget(self, action: #selector(editButtonPressed), for: .touchUpInside)
-    }
-
-
-    @objc private func editButtonPressed() {
-        let newTaskVC = NewTaskViewController(nibName: "NewTaskViewController", bundle: nil)
-
-        newTaskVC.modalPresentationStyle = .pageSheet
-        
-        if let sheet = newTaskVC.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.prefersGrabberVisible = true
-        }
-
-        present(newTaskVC, animated: true)
-    }
-
-
-
 
     // MARK: - Setup Collection View
     private func setupCollectionView() {
@@ -161,6 +141,115 @@ class TaskSeeAllViewController: UIViewController {
         collectionView.delegate = self
         collectionView.dataSource = self
         collectionView.register(UINib(nibName: "TaskCardCellNew", bundle: nil), forCellWithReuseIdentifier: "TaskCardCellNew")
+    }
+    
+    // MARK: - Handle Delete Task
+    @objc private func handleDeleteTask(_ notification: Notification) {
+        guard let cell = notification.userInfo?["cell"] as? TaskCardCellNew,
+              let indexPath = collectionView.indexPath(for: cell) else {
+            return
+        }
+        
+        // Show confirmation
+        let alert = UIAlertController(
+            title: "Delete Task",
+            message: "Are you sure you want to delete this task?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self = self else { return }
+            
+            // Remove from local array
+            self.tasks.remove(at: indexPath.row)
+            
+            // Notify delegate
+            self.delegate?.didDeleteTask(in: self.category, at: indexPath.row)
+            
+            // Update UI
+            self.collectionView.deleteItems(at: [indexPath])
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    // MARK: - Present Edit Task
+    private func presentEditTask(at index: Int) {
+        let task = tasks[index]
+        
+        let newTaskVC = NewTaskViewController(nibName: "NewTaskViewController", bundle: nil)
+        newTaskVC.delegate = self
+        
+        // Pass team member data
+        newTaskVC.teamMemberImages = teamMemberImages
+        newTaskVC.teamMemberNames = teamMemberNames
+        
+        // Configure for edit mode
+        newTaskVC.isEditMode = true
+        newTaskVC.existingTitle = task.title
+        newTaskVC.existingDescription = task.desc
+        newTaskVC.existingDate = task.assignedDate
+        newTaskVC.selectedMemberName = task.name
+        newTaskVC.existingAttachments = task.attachments ?? []
+        newTaskVC.editingTaskIndex = index
+        
+        newTaskVC.modalPresentationStyle = .pageSheet
+        if let sheet = newTaskVC.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(newTaskVC, animated: true)
+    }
+    
+    // MARK: - Present Attachment Viewer
+    private func presentAttachmentViewer(attachments: [UIImage]) {
+        let viewerVC = AttachmentViewerViewController(attachments: attachments)
+        viewerVC.modalPresentationStyle = .fullScreen
+        viewerVC.modalTransitionStyle = .crossDissolve
+        present(viewerVC, animated: true)
+    }
+}
+
+// MARK: - NewTaskDelegate
+extension TaskSeeAllViewController: NewTaskDelegate {
+    func didAssignTask(to memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
+        // Not used in edit mode, but required by protocol
+    }
+    
+    func didUpdateTask(at index: Int, memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd MMM yyyy"
+        let dateString = dateFormatter.string(from: date)
+        
+        // Update local task
+        let updatedTask = TaskModel(
+            name: memberName,
+            desc: description,
+            date: dateString,
+            remark: tasks[index].remark,
+            remarkDesc: tasks[index].remarkDesc,
+            title: title,
+            attachments: attachments,
+            assignedDate: date
+        )
+        
+        tasks[index] = updatedTask
+        
+        // Notify delegate to update parent view controller
+        delegate?.didUpdateTask(in: category, at: index, with: updatedTask)
+        
+        // Reload the specific cell
+        collectionView.reloadItems(at: [IndexPath(row: index, section: 0)])
+        
+        // Show confirmation
+        let alert = UIAlertController(
+            title: "Task Updated",
+            message: "Task '\(title)' successfully updated",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }
 
@@ -181,15 +270,39 @@ extension TaskSeeAllViewController: UICollectionViewDelegate, UICollectionViewDa
             desc: task.desc,
             date: task.date,
             remark: task.remark,
-            remarkDesc: task.remarkDesc
+            remarkDesc: task.remarkDesc,
+            title: task.title,
+            attachments: task.attachments
         )
+        
+        // Handle ellipsis menu for edit
+        cell.onEllipsisMenu = { [weak self] _ in
+            guard let self = self else { return }
+            self.presentEditTask(at: indexPath.row)
+        }
+        
+        // Handle attachment viewer
+        cell.onAttachmentTapped = { [weak self] attachments in
+            guard let self = self else { return }
+            self.presentAttachmentViewer(attachments: attachments)
+        }
+        
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView,
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
-        return CGSize(width: collectionView.frame.width, height: 170)
+        
+        let task = tasks[indexPath.row]
+        
+        // Adjust height based on whether task has remarks
+        var height: CGFloat = 170
+        if task.remark != nil && task.remarkDesc != nil {
+            height = 200
+        }
+        
+        return CGSize(width: collectionView.frame.width, height: height)
     }
 }
 
@@ -241,4 +354,3 @@ class SlideOutToRightAnimator: NSObject, UIViewControllerAnimatedTransitioning {
         }
     }
 }
-

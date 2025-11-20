@@ -50,6 +50,7 @@ class MDashboardViewController: UIViewController {
         // Load sample data after 5 seconds
         loadSampleDataWithDelay()
     }
+    
     @IBAction func profileTapped(_ sender: Any) {
         let vc = ProfileViewController(nibName: "ProfileViewController", bundle: nil)
         vc.modalPresentationStyle = .pageSheet
@@ -342,27 +343,48 @@ extension MDashboardViewController: UICollectionViewDataSource {
     }
 }
 
+// MARK: - UICollectionViewDelegate (SINGLE EXTENSION - NO DUPLICATES)
 extension MDashboardViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        
+        // Section 0: Handle ongoing team selection
         if indexPath.section == 0 && !ongoingTeams.isEmpty {
+            let selectedTeam = ongoingTeams[indexPath.item].name
+            print("Selected Team:", selectedTeam)
 
-                   let selectedTeam = ongoingTeams[indexPath.item].name
-                   print("Selected Team:", selectedTeam)
+            // Load StudentAllTasks VC
+            let vc = StudentAllTasksViewController(nibName: "StudentAllTasksViewController", bundle: nil)
 
-                   // Load StudentAllTasks VC
-                   let vc = StudentAllTasksViewController(nibName: "StudentAllTasksViewController", bundle: nil)
+            // Pass team name
+            vc.teamName = selectedTeam
 
-                   // Pass team name
-                   vc.teamName = selectedTeam
-
-                   // Present it
-                   vc.modalPresentationStyle = .fullScreen
-                   self.present(vc, animated: true)
-
-                   return
-               }
+            // Present it
+            vc.modalPresentationStyle = .fullScreen
+            self.present(vc, animated: true)
+            
+            return
+        }
+        
+        // Section 1: Handle review task selection - Navigate to ReviewViewController
         if indexPath.section == 1 && !reviewTasks.isEmpty {
-            print("Open task:", reviewTasks[indexPath.item].taskTitle)
+            let selectedTask = reviewTasks[indexPath.item]
+            print("Opening task:", selectedTask.taskTitle)
+            
+            // Initialize ReviewViewController
+            let reviewVC = ReviewViewController(nibName: "ReviewViewController", bundle: nil)
+            
+            // Pass data to ReviewViewController
+            reviewVC.taskTitle = selectedTask.taskTitle
+            reviewVC.teamName = selectedTask.teamName
+            
+            // Push to ReviewViewController using navigation controller
+            if let navigationController = self.navigationController {
+                navigationController.pushViewController(reviewVC, animated: true)
+            } else {
+                // If no navigation controller, present modally
+                reviewVC.modalPresentationStyle = .fullScreen
+                self.present(reviewVC, animated: true)
+            }
         }
     }
 }
