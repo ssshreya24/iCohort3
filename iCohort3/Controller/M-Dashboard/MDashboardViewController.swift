@@ -133,8 +133,16 @@ class MDashboardViewController: UIViewController {
         collectionView.dataSource = self
         collectionView.collectionViewLayout = createLayout()
         
+        // IMPORTANT: Enable user interaction and selection
+        collectionView.isUserInteractionEnabled = true
+        collectionView.allowsSelection = true
+        
         // Register the empty state cell
         collectionView.register(EmptyStateCollectionViewCell.self, forCellWithReuseIdentifier: "EmptyCell")
+        
+        print("✅ Collection view setup complete")
+        print("✅ Delegate set:", collectionView.delegate != nil)
+        print("✅ DataSource set:", collectionView.dataSource != nil)
     }
     
 }
@@ -347,10 +355,12 @@ extension MDashboardViewController: UICollectionViewDataSource {
 extension MDashboardViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         
+        print("🔥 Cell tapped - Section: \(indexPath.section), Item: \(indexPath.item)")
+        
         // Section 0: Handle ongoing team selection
         if indexPath.section == 0 && !ongoingTeams.isEmpty {
             let selectedTeam = ongoingTeams[indexPath.item].name
-            print("Selected Team:", selectedTeam)
+            print("✅ Selected Team:", selectedTeam)
 
             // Load StudentAllTasks VC
             let vc = StudentAllTasksViewController(nibName: "StudentAllTasksViewController", bundle: nil)
@@ -368,7 +378,8 @@ extension MDashboardViewController: UICollectionViewDelegate {
         // Section 1: Handle review task selection - Navigate to ReviewViewController
         if indexPath.section == 1 && !reviewTasks.isEmpty {
             let selectedTask = reviewTasks[indexPath.item]
-            print("Opening task:", selectedTask.taskTitle)
+            print("✅ Opening task:", selectedTask.taskTitle)
+            print("✅ Team:", selectedTask.teamName)
             
             // Initialize ReviewViewController
             let reviewVC = ReviewViewController(nibName: "ReviewViewController", bundle: nil)
@@ -377,14 +388,16 @@ extension MDashboardViewController: UICollectionViewDelegate {
             reviewVC.taskTitle = selectedTask.taskTitle
             reviewVC.teamName = selectedTask.teamName
             
-            // Push to ReviewViewController using navigation controller
-            if let navigationController = self.navigationController {
-                navigationController.pushViewController(reviewVC, animated: true)
-            } else {
-                // If no navigation controller, present modally
-                reviewVC.modalPresentationStyle = .fullScreen
-                self.present(reviewVC, animated: true)
+            print("✅ ReviewViewController created")
+            
+            // Always present modally (since navigation controller might not be available)
+            reviewVC.modalPresentationStyle = .fullScreen
+            self.present(reviewVC, animated: true) {
+                print("✅ ReviewViewController presented successfully")
             }
+        } else {
+            print("❌ Condition not met - Section:", indexPath.section)
+            print("❌ Review tasks count:", reviewTasks.count)
         }
     }
 }

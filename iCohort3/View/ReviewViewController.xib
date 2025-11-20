@@ -22,6 +22,7 @@
                 <outlet property="remarkTextView" destination="5YB-sb-CFy" id="OE5-hX-zhh"/>
                 <outlet property="statusCardView" destination="QCc-bN-9Ie" id="pK6-2n-flK"/>
                 <outlet property="statusValueLabel" destination="cDr-hU-GNz" id="Ltw-it-9Rs"/>
+                <outlet property="taskTitleLabel" destination="WdZ-ee-Kqi" id="SaJ-2W-Tbv"/>
                 <outlet property="titleCardView" destination="Puw-IA-p5c" id="z13-nn-snt"/>
                 <outlet property="titleLabel" destination="4De-91-zFx" id="947-JC-9Qu"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>

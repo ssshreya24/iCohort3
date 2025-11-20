@@ -35,6 +35,10 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        print("✅ ReviewViewController loaded")
+        print("✅ Task Title: \(taskTitle ?? "nil")")
+        print("✅ Team Name: \(teamName ?? "nil")")
+        
         view.backgroundColor = UIColor(
             red: 0xEF/255.0,
             green: 0xEF/255.0,
@@ -62,15 +66,17 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     private func displayTaskData() {
         // If task title was passed, display it
         if let title = taskTitle {
-            // Assuming you have a label in titleCardView to show the task title
-            // You may need to add this outlet to your storyboard/xib
             taskTitleLabel?.text = title
+            print("✅ Task title set to: \(title)")
+        } else {
+            taskTitleLabel?.text = "No Task Title"
+            print("⚠️ No task title provided")
         }
         
         // If team name was passed, you could display it somewhere
         if let team = teamName {
-            // You could show this in a label or use it in other ways
-            print("Reviewing task from: \(team)")
+            print("✅ Reviewing task from: \(team)")
+            // You could add a team label if you want to display it
         }
     }
     
@@ -138,11 +144,15 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     // MARK: - Actions
     
     @IBAction func backButtonTapped(_ sender: UIButton) {
+        print("✅ Back button tapped")
+        
         // Check if we're in a navigation controller
         if navigationController != nil {
+            print("✅ Popping view controller")
             navigationController?.popViewController(animated: true)
         } else {
             // If presented modally
+            print("✅ Dismissing modally")
             dismiss(animated: true)
         }
     }

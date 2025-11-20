@@ -5,7 +5,6 @@
 //  Created by user@51 on 14/11/25.
 //
 
-
 import UIKit
 
 class ReviewCollectionViewCell: UICollectionViewCell {
@@ -18,6 +17,17 @@ class ReviewCollectionViewCell: UICollectionViewCell {
     
     override func awakeFromNib() {
         super.awakeFromNib()
+
+        // CRITICAL FIX: Enable cell interaction, disable subview interaction
+        self.isUserInteractionEnabled = true
+        contentView.isUserInteractionEnabled = false
+        cardView.isUserInteractionEnabled = false
+        
+        // CRITICAL FIX: Remove or disable the button that's blocking taps
+        taskCardButton.isUserInteractionEnabled = false
+        // OR you can completely remove it: taskCardButton.removeFromSuperview()
+        
+        print("✅ ReviewCollectionViewCell configured - interaction enabled")
 
         // Card view styling - white rounded card
         cardView.layer.cornerRadius = 12
@@ -51,6 +61,17 @@ class ReviewCollectionViewCell: UICollectionViewCell {
     func configure(with item: ReviewTask) {
         teamLabel.text = item.teamName
         taskLabel.text = item.taskTitle
+        
+        print("📱 ReviewCell configured: \(item.taskTitle)")
+    }
+    
+    // Optional: Add visual feedback for tap
+    override var isHighlighted: Bool {
+        didSet {
+            UIView.animate(withDuration: 0.2) {
+                self.cardView.alpha = self.isHighlighted ? 0.7 : 1.0
+                self.transform = self.isHighlighted ? CGAffineTransform(scaleX: 0.98, y: 0.98) : .identity
+            }
+        }
     }
 }
-
