@@ -233,10 +233,10 @@ extension TaskSectionCell:
         
         switch category {
         case .completed, .rejected:
-            return CGSize(width: 300, height: 170)   // bigger height for remark section
+            return CGSize(width: 300, height: 180)   // bigger height for remark section
             
         default:
-            return CGSize(width: 300, height: 170)   // normal height
+            return CGSize(width: 300, height: 180)   // normal height
         }
     }
 }

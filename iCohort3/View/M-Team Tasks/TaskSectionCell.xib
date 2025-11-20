@@ -26,10 +26,10 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <collectionView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" dataMode="none" translatesAutoresizingMaskIntoConstraints="NO" id="kdd-Cc-Y4a">
-                                <rect key="frame" x="16" y="52" width="384" height="170"/>
+                                <rect key="frame" x="16" y="52" width="384" height="180"/>
                                 <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>
-                                    <constraint firstAttribute="height" constant="170" id="zRC-Vb-Vsf"/>
+                                    <constraint firstAttribute="height" constant="180" id="zRC-Vb-Vsf"/>
                                 </constraints>
                                 <collectionViewFlowLayout key="collectionViewLayout" scrollDirection="horizontal" minimumLineSpacing="10" minimumInteritemSpacing="10" id="NFl-ZT-r4l">
                                     <size key="itemSize" width="128" height="128"/>

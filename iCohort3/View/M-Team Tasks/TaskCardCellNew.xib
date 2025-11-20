@@ -12,14 +12,14 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
         <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
         <collectionViewCell opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" reuseIdentifier="TaskCardCellNew" id="8f2-fB-uC4" customClass="TaskCardCellNew" customModule="iCohort3" customModuleProvider="target">
-            <rect key="frame" x="0.0" y="0.0" width="350" height="170"/>
+            <rect key="frame" x="0.0" y="0.0" width="350" height="180"/>
             <autoresizingMask key="autoresizingMask"/>
             <view key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center">
-                <rect key="frame" x="0.0" y="0.0" width="350" height="170"/>
+                <rect key="frame" x="0.0" y="0.0" width="350" height="180"/>
                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                 <subviews>
                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="5B6-JQ-dCn">
-                        <rect key="frame" x="0.0" y="0.0" width="350" height="170"/>
+                        <rect key="frame" x="0.0" y="0.0" width="350" height="180"/>
                         <subviews>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Student" translatesAutoresizingMaskIntoConstraints="NO" id="pXi-4z-UNX">
                                 <rect key="frame" x="12" y="12" width="40" height="40"/>
@@ -47,14 +47,14 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="aPN-xk-44N">
-                                <rect key="frame" x="16" y="148" width="318" height="1"/>
+                                <rect key="frame" x="16" y="150" width="318" height="1"/>
                                 <color key="backgroundColor" systemColor="separatorColor"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="1" id="yY2-MQ-0VJ"/>
                                 </constraints>
                             </view>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" text="Due Date" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="fRB-EV-7sA">
-                                <rect key="frame" x="11.999999999999996" y="154" width="45.666666666666657" height="12"/>
+                                <rect key="frame" x="11.999999999999996" y="156" width="45.666666666666657" height="12"/>
                                 <fontDescription key="fontDescription" type="system" weight="medium" pointSize="10"/>
                                 <color key="textColor" red="0.36078431370000003" green="0.36078431370000003" blue="0.36078431370000003" alpha="1" colorSpace="custom" customColorSpace="calibratedRGB"/>
                                 <nil key="highlightedColor"/>
@@ -73,7 +73,7 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="i1d-W8-ExT">
-                                <rect key="frame" x="308" y="151" width="30" height="15"/>
+                                <rect key="frame" x="308" y="153" width="30" height="15"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="30" id="Vh1-OG-Jjs"/>
                                     <constraint firstAttribute="height" constant="15" id="dpw-oe-99d"/>
@@ -109,13 +109,13 @@
                             <constraint firstItem="LGE-7P-XYI" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" constant="12" id="amX-uS-ocg"/>
                             <constraint firstAttribute="trailing" secondItem="aPN-xk-44N" secondAttribute="trailing" constant="16" id="c70-QU-1Hc"/>
                             <constraint firstItem="pXi-4z-UNX" firstAttribute="top" secondItem="5B6-JQ-dCn" secondAttribute="top" constant="12" id="cYi-Do-gHe"/>
-                            <constraint firstAttribute="bottom" secondItem="fRB-EV-7sA" secondAttribute="bottom" constant="4" id="dIM-tL-7Wh"/>
+                            <constraint firstAttribute="bottom" secondItem="fRB-EV-7sA" secondAttribute="bottom" constant="12" id="dIM-tL-7Wh"/>
                             <constraint firstItem="1u1-Qz-P1n" firstAttribute="top" secondItem="CgY-ZD-VkY" secondAttribute="bottom" constant="2" id="eM7-6z-XAO"/>
                             <constraint firstItem="fRB-EV-7sA" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" constant="12" id="k3I-5W-WH3"/>
                             <constraint firstAttribute="trailing" secondItem="i1d-W8-ExT" secondAttribute="trailing" constant="12" id="n9k-L2-PFp"/>
                             <constraint firstItem="pXi-4z-UNX" firstAttribute="leading" secondItem="5B6-JQ-dCn" secondAttribute="leading" constant="12" id="oqQ-W2-gFw"/>
                             <constraint firstItem="fRB-EV-7sA" firstAttribute="top" secondItem="aPN-xk-44N" secondAttribute="bottom" constant="5" id="p4Z-3D-34K"/>
-                            <constraint firstAttribute="bottom" secondItem="i1d-W8-ExT" secondAttribute="bottom" constant="4" id="r8g-MI-g6g"/>
+                            <constraint firstAttribute="bottom" secondItem="i1d-W8-ExT" secondAttribute="bottom" constant="12" id="r8g-MI-g6g"/>
                             <constraint firstAttribute="trailing" secondItem="FaW-8W-Dao" secondAttribute="trailing" constant="8" id="sNh-n3-ePn"/>
                             <constraint firstItem="Qbk-qo-TwI" firstAttribute="top" secondItem="LGE-7P-XYI" secondAttribute="bottom" constant="12" id="wG5-ur-jr9"/>
                             <constraint firstItem="CgY-ZD-VkY" firstAttribute="top" secondItem="5B6-JQ-dCn" secondAttribute="top" constant="12" id="xrG-WL-pzw"/>
