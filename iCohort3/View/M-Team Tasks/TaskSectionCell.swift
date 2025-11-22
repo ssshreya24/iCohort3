@@ -20,6 +20,7 @@ struct TaskModel {
 
 class TaskSectionCell: UICollectionViewCell {
 
+    @IBOutlet weak var heightConstrainnt: NSLayoutConstraint!
     @IBOutlet weak var titleLabel: UILabel!
     @IBOutlet weak var seeAllButton: UIButton!
     @IBOutlet weak var horizontalCollectionView: UICollectionView!
@@ -232,10 +233,10 @@ extension TaskSectionCell:
         
         switch category {
         case .completed, .rejected:
-            return CGSize(width: 300, height: 200)   // bigger height for remark section
+            return CGSize(width: 300, height: 180)   // bigger height for remark section
             
         default:
-            return CGSize(width: 300, height: 170)   // normal height
+            return CGSize(width: 300, height: 180)   // normal height
         }
     }
 }

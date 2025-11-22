@@ -23,9 +23,12 @@ class TaskCardCellNew: UICollectionViewCell {
     
     // MARK: - Stored constraints
     private var remarkTitleTopConstraint: NSLayoutConstraint?
-    private var remarkDescTopConstraint: NSLayoutConstraint?
+    private var remarkTitleLeadingConstraint: NSLayoutConstraint?
+    private var remarkDescLeadingConstraint: NSLayoutConstraint?
+    private var remarkDescTrailingConstraint: NSLayoutConstraint?
+    private var remarkDescBaselineConstraint: NSLayoutConstraint?
+    private var separatorTopConstraint: NSLayoutConstraint?
     private var dateTopConstraint: NSLayoutConstraint?
-    private var cardBottomConstraint: NSLayoutConstraint?
 
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -42,24 +45,18 @@ class TaskCardCellNew: UICollectionViewCell {
         remarkTitleLabel.isHidden = true
         remarkDescriptionLabel.isHidden = true
 
-        // allow manual constraints
+        // Allow manual constraints
         remarkTitleLabel.translatesAutoresizingMaskIntoConstraints = false
         remarkDescriptionLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        // ✨ MUST-HAVE (bottom constraint for expansion)
         dateLabel.translatesAutoresizingMaskIntoConstraints = false
-        cardView.translatesAutoresizingMaskIntoConstraints = false
+        separatorLine.translatesAutoresizingMaskIntoConstraints = false
         
         remarkTitleLabel.setContentHuggingPriority(.required, for: .horizontal)
         remarkTitleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         remarkDescriptionLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         remarkDescriptionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        // This is needed so completed/rejected can expand height
-        cardBottomConstraint =
-            cardView.bottomAnchor.constraint(equalTo: dateLabel.bottomAnchor, constant: 12)
-        cardBottomConstraint?.isActive = true
+        remarkDescriptionLabel.numberOfLines = 0 // Allow multiline
         
         // Setup ellipsis button menu
         setupEllipsisButton()
@@ -74,8 +71,13 @@ class TaskCardCellNew: UICollectionViewCell {
         remarkTitleLabel.isHidden = true
         remarkDescriptionLabel.isHidden = true
 
+        // Deactivate all dynamic constraints
         remarkTitleTopConstraint?.isActive = false
-        remarkDescTopConstraint?.isActive = false
+        remarkTitleLeadingConstraint?.isActive = false
+        remarkDescLeadingConstraint?.isActive = false
+        remarkDescTrailingConstraint?.isActive = false
+        remarkDescBaselineConstraint?.isActive = false
+        separatorTopConstraint?.isActive = false
         dateTopConstraint?.isActive = false
         
         onEllipsisMenu = nil
@@ -206,11 +208,10 @@ class TaskCardCellNew: UICollectionViewCell {
             remarkTitleLabel.isHidden = true
             remarkDescriptionLabel.isHidden = true
 
-            // Reset date position to NORMAL
+            // Reset date position to NORMAL (if you have an existing constraint in storyboard)
+            // Otherwise, you may need to create it
             dateTopConstraint?.isActive = false
-            dateTopConstraint = dateLabel.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 10)
-            dateTopConstraint?.isActive = true
-
+            
             return
         }
 
@@ -221,39 +222,63 @@ class TaskCardCellNew: UICollectionViewCell {
         remarkTitleLabel.text = remark
         remarkDescriptionLabel.text = remarkDesc
 
+        // Deactivate old constraints
         remarkTitleTopConstraint?.isActive = false
-        remarkDescTopConstraint?.isActive = false
+        remarkTitleLeadingConstraint?.isActive = false
+        remarkDescLeadingConstraint?.isActive = false
+        remarkDescTrailingConstraint?.isActive = false
+        remarkDescBaselineConstraint?.isActive = false
+        separatorTopConstraint?.isActive = false
         dateTopConstraint?.isActive = false
 
-        // --- BOTH LABELS BELOW DESCRIPTION ---
-        remarkTitleTopConstraint =
-            remarkTitleLabel.topAnchor.constraint(equalTo: descriptionLabel.bottomAnchor, constant: 8)
+        // --- Position remarkTitleLabel below description ---
+        remarkTitleTopConstraint = remarkTitleLabel.topAnchor.constraint(
+            equalTo: descriptionLabel.bottomAnchor,
+            constant: 10
+        )
         remarkTitleTopConstraint?.isActive = true
 
-        // --- HORIZONTAL LAYOUT FOR SAME LINE ---
+        remarkTitleLeadingConstraint = remarkTitleLabel.leadingAnchor.constraint(
+            equalTo: cardView.leadingAnchor,
+            constant: 12
+        )
+        remarkTitleLeadingConstraint?.isActive = true
 
-        // Red "REMARK:"
-        remarkTitleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12).isActive = true
+        // --- Position remarkDescriptionLabel next to remarkTitleLabel ---
+        remarkDescLeadingConstraint = remarkDescriptionLabel.leadingAnchor.constraint(
+            equalTo: remarkTitleLabel.trailingAnchor,
+            constant: 6
+        )
+        remarkDescLeadingConstraint?.isActive = true
 
-        // Black description next to it
-        remarkDescriptionLabel.leadingAnchor.constraint(equalTo: remarkTitleLabel.trailingAnchor, constant: 6).isActive = true
+        remarkDescTrailingConstraint = remarkDescriptionLabel.trailingAnchor.constraint(
+            lessThanOrEqualTo: cardView.trailingAnchor,
+            constant: -12
+        )
+        remarkDescTrailingConstraint?.isActive = true
 
         // Keep both aligned on baseline
-        remarkDescriptionLabel.firstBaselineAnchor.constraint(equalTo: remarkTitleLabel.firstBaselineAnchor).isActive = true
+        remarkDescBaselineConstraint = remarkDescriptionLabel.firstBaselineAnchor.constraint(
+            equalTo: remarkTitleLabel.firstBaselineAnchor
+        )
+        remarkDescBaselineConstraint?.isActive = true
 
-        // Allow text to expand but not break layout
-        remarkDescriptionLabel.trailingAnchor.constraint(lessThanOrEqualTo: cardView.trailingAnchor, constant: -12).isActive = true
+        // --- Separator moves down below remark description ---
+        separatorTopConstraint = separatorLine.topAnchor.constraint(
+            equalTo: remarkDescriptionLabel.bottomAnchor,
+            constant: 10
+        )
+        separatorTopConstraint?.isActive = true
 
-        // Separator moves down
-        separatorLine.translatesAutoresizingMaskIntoConstraints = false
-        separatorLine.topAnchor.constraint(equalTo: remarkDescriptionLabel.bottomAnchor, constant: 8).isActive = true
-
-        // Date below the separator
-        dateTopConstraint =
-            dateLabel.topAnchor.constraint(equalTo: separatorLine.bottomAnchor, constant: 8)
+        // --- Date below the separator ---
+        dateTopConstraint = dateLabel.topAnchor.constraint(
+            equalTo: separatorLine.bottomAnchor,
+            constant: 10
+        )
         dateTopConstraint?.isActive = true
-
-        // cardView height expands automatically because bottom is pinned
+        
+        // Force layout update
+        self.layoutIfNeeded()
     }
 }
 
