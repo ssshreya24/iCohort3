@@ -92,7 +92,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         ]
         
         for card in cards.compactMap({ $0 }) {
-            card.layer.cornerRadius = 16
+            card.layer.cornerRadius = 20
             card.layer.masksToBounds = true
             card.backgroundColor = .white
         }

@@ -25,7 +25,7 @@
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Mek-18-MYk">
-                    <rect key="frame" x="329" y="78" width="44" height="44"/>
+                    <rect key="frame" x="333" y="78" width="44" height="44"/>
                     <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <constraints>
                         <constraint firstAttribute="height" constant="44" id="NhJ-aJ-8jl"/>
@@ -63,7 +63,7 @@
                     <nil key="highlightedColor"/>
                 </label>
                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="wm0-cF-cgF">
-                    <rect key="frame" x="277" y="78" width="44" height="44"/>
+                    <rect key="frame" x="281" y="78" width="44" height="44"/>
                     <constraints>
                         <constraint firstAttribute="height" constant="44" id="fyl-92-ger"/>
                         <constraint firstAttribute="width" constant="44" id="poJ-qZ-0Ud"/>
@@ -93,7 +93,7 @@
                 <constraint firstItem="YWz-30-LNN" firstAttribute="trailing" secondItem="eRb-wt-VZF" secondAttribute="trailing" constant="20" id="Qro-rq-RO6"/>
                 <constraint firstItem="g0P-0m-SkW" firstAttribute="top" secondItem="L9h-dh-Tg6" secondAttribute="bottom" constant="24" id="SyU-6N-8Rc"/>
                 <constraint firstItem="Mek-18-MYk" firstAttribute="leading" secondItem="wm0-cF-cgF" secondAttribute="trailing" constant="8" id="W1V-d4-wDF"/>
-                <constraint firstItem="YWz-30-LNN" firstAttribute="trailing" secondItem="Mek-18-MYk" secondAttribute="trailing" constant="20" id="Xwz-6j-vKS"/>
+                <constraint firstItem="YWz-30-LNN" firstAttribute="trailing" secondItem="Mek-18-MYk" secondAttribute="trailing" constant="16" id="Xwz-6j-vKS"/>
                 <constraint firstItem="Mek-18-MYk" firstAttribute="centerY" secondItem="L9h-dh-Tg6" secondAttribute="centerY" id="ebn-Wq-LlC"/>
                 <constraint firstItem="L9h-dh-Tg6" firstAttribute="leading" secondItem="YWz-30-LNN" secondAttribute="leading" constant="18" id="gw0-SE-he0"/>
                 <constraint firstItem="g0P-0m-SkW" firstAttribute="leading" secondItem="YWz-30-LNN" secondAttribute="leading" id="i3I-ac-Ekv"/>
@@ -116,7 +116,7 @@
             <color white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="separatorColor">
-            <color red="0.23529411764705882" green="0.23529411764705882" blue="0.2627450980392157" alpha="0.12" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.28999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>

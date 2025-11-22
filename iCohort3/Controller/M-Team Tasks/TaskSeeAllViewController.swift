@@ -81,8 +81,8 @@ class TaskSeeAllViewController: UIViewController {
 
         // Black chevron
         let chevron = UIImage(
-            systemName: "chevron.backward",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+            systemName: "chevron.left",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
         )?.withTintColor(.black, renderingMode: .alwaysOriginal)
 
         backButton.setImage(chevron, for: .normal)
@@ -94,7 +94,7 @@ class TaskSeeAllViewController: UIViewController {
     }
 
     @objc private func backButtonPressed() {
-        dismiss(animated: true)
+        self.dismiss(animated: true)
     }
 
     private func setupTitleLabel() {
@@ -345,12 +345,23 @@ class SlideOutToRightAnimator: NSObject, UIViewControllerAnimatedTransitioning {
     func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval { 0.35 }
 
     func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
-        guard let fromView = transitionContext.view(forKey: .from) else { return }
+        guard let fromView = transitionContext.view(forKey: .from),
+              let toView = transitionContext.view(forKey: .to) else { return }
 
-        UIView.animate(withDuration: 0.35, animations: {
-            fromView.frame = fromView.frame.offsetBy(dx: fromView.frame.width, dy: 0)
-        }) { finished in
+        let container = transitionContext.containerView
+
+        // Add the destination view behind the current view
+        container.insertSubview(toView, belowSubview: fromView)
+
+        // Final position: pushed to the right
+        let finalFrame = fromView.frame.offsetBy(dx: container.bounds.width, dy: 0)
+
+        UIView.animate(withDuration: transitionDuration(using: transitionContext), animations: {
+            fromView.frame = finalFrame
+        }, completion: { finished in
             transitionContext.completeTransition(finished)
-        }
+        })
     }
 }
+
+

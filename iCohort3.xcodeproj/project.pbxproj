@@ -42,7 +42,6 @@
 		55F004262EBA004A00C4CE12 /* Exceptions for "iCohort3" folder in "iCohort3" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"Controller/M-Dashboard/Untitled.swift",
 				Info.plist,
 			);
 			target = 55F003FD2EBA004900C4CE12 /* iCohort3 */;
