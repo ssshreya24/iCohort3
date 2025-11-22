@@ -61,7 +61,7 @@ class AddTaskViewController: UIViewController {
         
         titleView.layer.cornerRadius = 20
         categoryView.layer.cornerRadius = 20
-        colorChangeView.layer.cornerRadius = 20
+        colorChangeView.layer.cornerRadius = 12
         addAttachmentView.layer.cornerRadius = 20
         colorOptionsView.layer.cornerRadius = 20
         

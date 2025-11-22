@@ -59,10 +59,7 @@ class AddActivityViewController: UIViewController {
 
     // MARK: - UI Setup
     private func setupUI() {
-        view.backgroundColor = UIColor(red: 0.93, green: 0.95, blue: 1.0, alpha: 1.0)
-        
-        topBarView.backgroundColor = UIColor(red: 0.93, green: 0.95, blue: 1.0, alpha: 1.0)
-        
+
         alertCardView.layer.cornerRadius = 20
         dateCardView.layer.cornerRadius = 20
         titleCardView.layer.cornerRadius = 20

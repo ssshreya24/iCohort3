@@ -209,7 +209,7 @@
                                     <autoresizingMask key="autoresizingMask"/>
                                     <subviews>
                                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="0nO-eK-tX6">
-                                            <rect key="frame" x="18" y="11.999999999999998" width="367" height="26.333333333333329"/>
+                                            <rect key="frame" x="8" y="11.999999999999998" width="377" height="26.333333333333329"/>
                                             <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="22"/>
                                             <nil key="textColor"/>
                                             <nil key="highlightedColor"/>
@@ -218,7 +218,7 @@
                                     <constraints>
                                         <constraint firstAttribute="trailingMargin" secondItem="0nO-eK-tX6" secondAttribute="trailing" id="FDC-OZ-2VW"/>
                                         <constraint firstItem="0nO-eK-tX6" firstAttribute="centerY" secondItem="HD9-21-sJE" secondAttribute="centerY" id="rQ2-Go-FgR"/>
-                                        <constraint firstItem="0nO-eK-tX6" firstAttribute="leading" secondItem="HD9-21-sJE" secondAttribute="leadingMargin" constant="10" id="rdd-ul-QIi"/>
+                                        <constraint firstItem="0nO-eK-tX6" firstAttribute="leading" secondItem="HD9-21-sJE" secondAttribute="leadingMargin" id="rdd-ul-QIi"/>
                                     </constraints>
                                     <connections>
                                         <outlet property="titleLabel" destination="0nO-eK-tX6" id="9ME-Eo-mJP"/>

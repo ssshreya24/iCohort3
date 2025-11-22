@@ -427,8 +427,8 @@ class EmptyStateCollectionViewCell: UICollectionViewCell {
     func setupUI() {
         contentView.addSubview(messageLabel)
         NSLayoutConstraint.activate([
-            messageLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            messageLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            messageLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            messageLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: 12),
             messageLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
             messageLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8)
         ])
