@@ -3,7 +3,7 @@
 //  iCohort3
 //
 //  Created by user@51 on 05/11/25.
-//  Updated to fix editing mode tapping and add All view
+//  Updated to fix layout and prevent unnecessary scrolling
 //
 
 import UIKit
@@ -11,27 +11,38 @@ import UIKit
 class SDashboardViewController: UIViewController {
     
     @IBOutlet weak var collectionView: UICollectionView!
-    @IBOutlet weak var cardView2: UIView!
     @IBOutlet weak var cardView: UIView!
     @IBOutlet weak var taskCard: UIView!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var editButton: UIButton!
     @IBOutlet weak var tasksDueTodayLabel: UILabel!
-    private let noTasksLabel: UILabel = {
-            let label = UILabel()
-            label.text = "No tasks due today"
-            label.textAlignment = .center
-            label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-            label.textColor = .darkGray
-            label.alpha = 0 // initially hidden
-            return label
-        }()
+    @IBOutlet weak var contentView: UIView!
     
+    private let noTasksLabel: UILabel = {
+        let label = UILabel()
+        label.text = "No tasks today"
+        label.textAlignment = .center
+        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .systemGray
+        label.isHidden = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
+    @IBOutlet weak var contentViewHeight: NSLayoutConstraint!
+    @IBOutlet weak var scrollView: UIScrollView!
     @IBOutlet weak var collectionViewCellHeight: NSLayoutConstraint!
-    // If true, we're in edit mode
+    @IBOutlet weak var tableViewHeight: NSLayoutConstraint!
+    
+    // Track table view data
+    var taskCount: Int = 0 {
+        didSet {
+            updateTableViewVisibility()
+        }
+    }
+    
     var isEditingMode = false
     
-    // All statuses (master list)
     let allStatuses: [(iconName: String, title: String, color: UIColor)] = [
         ("dot.circle.fill", "Not started", .systemGray),
         ("clock.fill", "In Progress", .systemOrange),
@@ -43,45 +54,15 @@ class SDashboardViewController: UIViewController {
         ("circle.grid.3x3.fill", "All", .black)
     ]
     
-    // Visible statuses currently on dashboard (order can change)
     var visibleStatuses: [(iconName: String, title: String, color: UIColor)] = []
-    
-    // Statuses removed by tapping minus — kept so they can be re-added later.
     var removedStatuses: [(iconName: String, title: String, color: UIColor)] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        applyBackgroundGradient()
-        taskCard.addSubview(noTasksLabel)
-        noTasksLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        NSLayoutConstraint.activate([
-            noTasksLabel.topAnchor.constraint(equalTo: tasksDueTodayLabel.bottomAnchor, constant: 20),
-            noTasksLabel.centerXAnchor.constraint(equalTo: taskCard.centerXAnchor)
-        ])
-
-
+        setupUI()
         
-        cardView.backgroundColor = .clear
-        collectionView.backgroundColor = .clear
-        cardView2.layer.cornerRadius = 30
-        taskCard.layer.cornerRadius = 30
-        
-        collectionView.dataSource = self
-        collectionView.delegate = self
-        
-        collectionView.dragDelegate = self
-        collectionView.dropDelegate = self
-        collectionView.dragInteractionEnabled = true
-        
-        self.extendedLayoutIncludesOpaqueBars = true
-        self.edgesForExtendedLayout = [.bottom, .top]
-        tableView.contentInsetAdjustmentBehavior = .never
-        
-        // Start with all statuses visible
         visibleStatuses = allStatuses
         
-        // Notifications from cell actions
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(handleDeleteNotification(_:)),
                                                name: .statusCardDeleteTapped,
@@ -92,27 +73,93 @@ class SDashboardViewController: UIViewController {
                                                object: nil)
     }
     
+    private func setupUI() {
+        applyBackgroundGradient()
+        
+        contentView.backgroundColor = .clear
+        cardView.backgroundColor = .clear
+        collectionView.backgroundColor = .clear
+        
+        // Set task card to white background
+        taskCard.layer.cornerRadius = 20
+        taskCard.backgroundColor = .white
+        
+        collectionView.dataSource = self
+        collectionView.delegate = self
+        collectionView.dragDelegate = self
+        collectionView.dropDelegate = self
+        collectionView.dragInteractionEnabled = true
+        
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.isScrollEnabled = false
+        tableView.backgroundColor = .clear
+        tableView.layer.cornerRadius = 20
+        
+        scrollView.isScrollEnabled = true
+        scrollView.showsVerticalScrollIndicator = false
+        
+        // Add noTasksLabel to taskCard
+        taskCard.addSubview(noTasksLabel)
+        setupNoTasksLabelConstraints()
+    }
+    
+    private func setupNoTasksLabelConstraints() {
+        NSLayoutConstraint.activate([
+            noTasksLabel.centerXAnchor.constraint(equalTo: taskCard.centerXAnchor),
+            noTasksLabel.topAnchor.constraint(equalTo: tasksDueTodayLabel.bottomAnchor, constant: 40),
+            noTasksLabel.leadingAnchor.constraint(equalTo: taskCard.leadingAnchor, constant: 20),
+            noTasksLabel.trailingAnchor.constraint(equalTo: taskCard.trailingAnchor, constant: -20),
+            noTasksLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 50)
+        ])
+    }
+    
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if let g = view.layer.sublayers?.first as? CAGradientLayer {
+            g.frame = view.bounds
+        }
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updateCollectionViewHeight()
+        updateTableViewVisibility()
+        
+        // Ensure scrolling is enabled
+        scrollView.isScrollEnabled = true
+        scrollView.alwaysBounceVertical = true
+    }
+    
     override func viewDidAppear(_ animated: Bool) {
-         super.viewDidAppear(animated)
-         
-         // Animate the label after a delay
-         noTasksLabel.transform = CGAffineTransform(translationX: 0, y: 20) // start slightly below
-         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-             UIView.animate(withDuration: 0.5) {
-                 self.noTasksLabel.alpha = 1
-                 self.noTasksLabel.transform = .identity
-             }
-         }
-     }
+        super.viewDidAppear(animated)
+        // Ensure visibility after view appears
+        taskCard.bringSubviewToFront(noTasksLabel)
+        
+        // Debug scroll view setup
+        debugScrollView()
+    }
+    
+    private func debugScrollView() {
+        print("=== Scroll View Debug ===")
+        print("ScrollView frame: \(scrollView.frame)")
+        print("ScrollView bounds: \(scrollView.bounds)")
+        print("ScrollView contentSize: \(scrollView.contentSize)")
+        print("ContentView frame: \(contentView.frame)")
+        print("ContentViewHeight constant: \(contentViewHeight.constant)")
+        print("ScrollView isScrollEnabled: \(scrollView.isScrollEnabled)")
+        print("========================")
+    }
     
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        
         coordinator.animate(alongsideTransition: { _ in
             self.collectionView.collectionViewLayout.invalidateLayout()
+            self.updateCollectionViewHeight()
         }, completion: nil)
     }
     
@@ -128,10 +175,88 @@ class SDashboardViewController: UIViewController {
         view.layer.insertSublayer(g, at: 0)
     }
     
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        if let g = view.layer.sublayers?.first as? CAGradientLayer {
-            g.frame = view.bounds
+    // MARK: - Dynamic Height Management
+    
+    private func updateCollectionViewHeight() {
+        let numberOfItems = isEditingMode ? (visibleStatuses.count + removedStatuses.count) : visibleStatuses.count
+        let numberOfRows = ceil(CGFloat(numberOfItems) / 2.0)
+        let cellHeight: CGFloat = 100
+        let lineSpacing: CGFloat = 8
+        let topPadding: CGFloat = 8
+        let bottomPadding: CGFloat = 8
+        
+        let totalHeight = (numberOfRows * cellHeight) + ((numberOfRows - 1) * lineSpacing) + topPadding + bottomPadding
+        collectionViewCellHeight.constant = totalHeight
+        
+        updateContentHeight()
+    }
+    
+    private func updateTableViewVisibility() {
+        let hasContent = taskCount > 0
+        
+        if hasContent {
+            tableView.isHidden = false
+            noTasksLabel.isHidden = true
+            
+            tableView.reloadData()
+            tableView.layoutIfNeeded()
+            
+            let contentHeight = tableView.contentSize.height
+            tableViewHeight.constant = min(contentHeight, 300)
+            
+        } else {
+            tableView.isHidden = true
+            noTasksLabel.isHidden = false
+            
+            // Increased height when showing "No tasks today"
+            tableViewHeight.constant = 100
+        }
+        
+        // Force layout update and bring label to front
+        view.layoutIfNeeded()
+        taskCard.layoutIfNeeded()
+        taskCard.bringSubviewToFront(noTasksLabel)
+        
+        updateContentHeight()
+    }
+    
+    private func updateContentHeight() {
+        // Force layout first
+        view.layoutIfNeeded()
+        taskCard.layoutIfNeeded()
+        collectionView.layoutIfNeeded()
+        
+        // Get actual heights
+        let collectionHeight = collectionViewCellHeight.constant
+        let tableAreaHeight = tableViewHeight.constant
+        let tasksDueLabelHeight: CGFloat = 60
+        let spacing: CGFloat = 20
+        let bottomPadding: CGFloat = 60
+        
+        // Calculate task card total height
+        let taskCardContentHeight = tasksDueLabelHeight + tableAreaHeight + bottomPadding
+        
+        // Total content height - add extra padding to ensure scrollability
+        let totalHeight = collectionHeight + spacing + taskCardContentHeight + 100
+        
+        contentViewHeight.constant = totalHeight
+        
+        // Force immediate layout update
+        contentView.setNeedsLayout()
+        contentView.layoutIfNeeded()
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        
+        // Update scroll view content size with delay to ensure layout is complete
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Always enable scrolling
+            self.scrollView.isScrollEnabled = true
+            self.scrollView.alwaysBounceVertical = true
+            
+            // Verify scroll view frame
+            print("ScrollView frame: \(self.scrollView.frame)")
+            print("ContentView height: \(self.contentViewHeight.constant)")
+            print("ScrollView contentSize: \(self.scrollView.contentSize)")
         }
     }
     
@@ -140,9 +265,8 @@ class SDashboardViewController: UIViewController {
         isEditingMode.toggle()
         editButton.setTitle(isEditingMode ? "Done" : "Edit", for: .normal)
         
-        // when leaving edit mode -> stop wiggle handled by cells on configure
-        // when entering edit mode -> show wiggle via cells
         collectionView.reloadData()
+        updateCollectionViewHeight()
     }
     
     @IBAction func profileTapped(_ sender: Any) {
@@ -172,8 +296,6 @@ class SDashboardViewController: UIViewController {
 extension SDashboardViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     
     func collectionView(_ cv: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        // When editing, show visible cards + an add-card for each removed card.
-        // When not editing, only show visible cards.
         if isEditingMode {
             return visibleStatuses.count + removedStatuses.count
         } else {
@@ -184,18 +306,19 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
     func collectionView(_ cv: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = cv.dequeueReusableCell(withReuseIdentifier: "StatusCardCell", for: indexPath) as! StatusCardCell
         
+        // Make cell background clear so main gradient shows through
+        cell.backgroundColor = .clear
+        cell.contentView.backgroundColor = .clear
+        
         if isEditingMode {
-            // index < visible => normal/editing cell
             if indexPath.item < visibleStatuses.count {
                 let s = visibleStatuses[indexPath.item]
                 cell.iconImageView.image = UIImage(systemName: s.iconName)?.withRenderingMode(.alwaysTemplate)
                 cell.iconImageView.tintColor = s.color
                 cell.configure(iconName: s.iconName, title: s.title, count: 0, mode: .editing)
             } else {
-                // Add card representing a removed status
                 let removedIndex = indexPath.item - visibleStatuses.count
                 let removed = removedStatuses[removedIndex]
-                // Show title of removed so user knows what will be re-added
                 cell.configure(iconName: nil, title: removed.title, count: nil, mode: .add)
             }
         } else {
@@ -240,19 +363,14 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        // CRITICAL: Don't allow card taps in editing mode
-        // Only action buttons (+ and -) should work in editing mode
         if isEditingMode {
-            // If this is an add-card, allow it (same behavior as tapping the + button)
             if indexPath.item >= visibleStatuses.count {
                 let removedIndex = indexPath.item - visibleStatuses.count
                 restoreRemoved(at: removedIndex)
             }
-            // Otherwise, ignore the tap completely
             return
         }
         
-        // When not editing, open the appropriate VC
         let selectedStatus = visibleStatuses[indexPath.item].title
         
         switch selectedStatus {
@@ -294,13 +412,34 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
     }
 }
 
+// MARK: - UITableViewDataSource & Delegate
+extension SDashboardViewController: UITableViewDataSource, UITableViewDelegate {
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return taskCount
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
+        // Configure your cell here
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return UITableView.automaticDimension
+    }
+    
+    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 60
+    }
+}
+
 // MARK: - Drag & Drop Reordering
 extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
     
     func collectionView(_ collectionView: UICollectionView,
                         itemsForBeginning session: UIDragSession,
                         at indexPath: IndexPath) -> [UIDragItem] {
-        // Drag only allowed when editing and only for visible items (not add-cards).
         guard isEditingMode, indexPath.item < visibleStatuses.count else { return [] }
         let item = visibleStatuses[indexPath.item]
         let provider = NSItemProvider(object: item.title as NSString)
@@ -318,7 +457,6 @@ extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionVi
                   let dragged = dropItem.dragItem.localObject as? (iconName: String, title: String, color: UIColor)
             else { return }
             
-            // We only allow reordering within visibleStatuses. Ignore drops that target add-card positions.
             let dest = min(destinationIndexPath.item, visibleStatuses.count - 1)
             
             collectionView.performBatchUpdates {
@@ -339,11 +477,9 @@ extension SDashboardViewController: UICollectionViewDragDelegate, UICollectionVi
         }
         
         if collectionView.hasActiveDrag {
-            // allow move if destination is within visible range
             if let dest = destinationIndexPath, dest.item <= visibleStatuses.count - 1 {
                 return UICollectionViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
             } else {
-                // forbid dropping into add-cards area
                 return UICollectionViewDropProposal(operation: .forbidden)
             }
         }
@@ -358,42 +494,37 @@ extension SDashboardViewController {
     @objc func handleDeleteNotification(_ notification: Notification) {
         guard let cell = notification.object as? StatusCardCell,
               let indexPath = collectionView.indexPath(for: cell) else { return }
-        // Only allow delete from visible area
         guard indexPath.item < visibleStatuses.count else { return }
         
-        // Move the status from visible -> removed
         let removed = visibleStatuses.remove(at: indexPath.item)
         removedStatuses.append(removed)
         
-        // Update UI with animation
         collectionView.performBatchUpdates({
             collectionView.deleteItems(at: [indexPath])
-            // If we are in editing mode and now we have to show an add-card (because removedStatuses.count increased),
-            // insert that add-card at the end of the collection view.
             if isEditingMode {
                 let addIndex = IndexPath(item: visibleStatuses.count + removedStatuses.count - 1, section: 0)
                 collectionView.insertItems(at: [addIndex])
             }
-        }, completion: nil)
+        }, completion: { _ in
+            self.updateCollectionViewHeight()
+        })
     }
     
     @objc func handleAddNotification(_ notification: Notification) {
         guard let cell = notification.object as? StatusCardCell,
               let indexPath = collectionView.indexPath(for: cell) else { return }
         
-        // add action arrives only for add-cards (index >= visible.count)
         guard indexPath.item >= visibleStatuses.count else { return }
         let removedIndex = indexPath.item - visibleStatuses.count
         restoreRemoved(at: removedIndex)
     }
     
-    // helper to restore removed status at end of visible list
     func restoreRemoved(at removedIndex: Int) {
         guard removedIndex >= 0 && removedIndex < removedStatuses.count else { return }
         let toRestore = removedStatuses.remove(at: removedIndex)
         visibleStatuses.append(toRestore)
         
-        // reload collection view to reflect changes (animate if you want)
         collectionView.reloadData()
+        updateCollectionViewHeight()
     }
 }

@@ -61,7 +61,7 @@ class AddTaskViewController: UIViewController {
         
         titleView.layer.cornerRadius = 20
         categoryView.layer.cornerRadius = 20
-        colorChangeView.layer.cornerRadius = 12
+        colorChangeView.layer.cornerRadius = 40
         addAttachmentView.layer.cornerRadius = 20
         colorOptionsView.layer.cornerRadius = 20
         
@@ -76,7 +76,7 @@ class AddTaskViewController: UIViewController {
     }
 
     @objc private func categoryNameChanged(_ sender: UITextField) {
-        categoryLabel.text = sender.text?.isEmpty == false ? sender.text : "Label"
+        categoryLabel.text = sender.text?.isEmpty == false ? sender.text : "Category Name"
     }
     
     private func setupColorButtons() {

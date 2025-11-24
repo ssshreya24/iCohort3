@@ -26,13 +26,19 @@ class StatusCardCell: UICollectionViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         
+        // Make cell backgrounds clear so gradient shows through
+        self.backgroundColor = .white
+        self.contentView.backgroundColor = .clear
+        
         containerView.layer.cornerRadius = 16
         containerView.layer.masksToBounds = false
         containerView.layer.shadowColor = UIColor.black.cgColor
         containerView.layer.shadowOpacity = 0.08
         containerView.layer.shadowOffset = CGSize(width: 0, height: 3)
         containerView.layer.shadowRadius = 5
-        containerView.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.95)
+        
+        // Make container clear/transparent so main gradient shows through
+        containerView.backgroundColor = .white
         
         iconImageView.clipsToBounds = true
         iconImageView.contentMode = .scaleAspectFit
