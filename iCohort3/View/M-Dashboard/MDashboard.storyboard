@@ -24,6 +24,17 @@
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="5k3-Ru-wyN">
+                                <rect key="frame" x="318" y="63.666666666666657" width="55" height="55"/>
+                                <gestureRecognizers/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="55" id="fYb-Rx-bCy"/>
+                                    <constraint firstAttribute="height" constant="55" id="pVb-d5-1AD"/>
+                                </constraints>
+                                <connections>
+                                    <outletCollection property="gestureRecognizers" destination="87O-F5-r0b" appends="YES" id="e1U-hN-eCs"/>
+                                </connections>
+                            </imageView>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="7B2-uf-pnh" userLabel="todayCardView">
                                 <rect key="frame" x="20" y="176.33333333333334" width="353" height="90.000000000000028"/>
                                 <subviews>
@@ -229,44 +240,27 @@
                                     <outlet property="delegate" destination="Y6W-OH-hqX" id="v5h-EH-bCG"/>
                                 </connections>
                             </collectionView>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="gVS-qW-V2L">
-                                <rect key="frame" x="329" y="72" width="44" height="44"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="44" id="YLX-wr-MsL"/>
-                                    <constraint firstAttribute="height" constant="44" id="vH3-ea-8w7"/>
-                                </constraints>
-                                <state key="normal" title="Button"/>
-                                <buttonConfiguration key="configuration" style="plain" image="person.fill" catalog="system" cornerStyle="capsule">
-                                    <backgroundConfiguration key="background">
-                                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                    </backgroundConfiguration>
-                                    <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                </buttonConfiguration>
-                                <connections>
-                                    <action selector="profileTapped:" destination="Y6W-OH-hqX" eventType="touchUpInside" id="ORE-ad-n1e"/>
-                                </connections>
-                            </button>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="vDu-zF-Fre"/>
                         <color key="backgroundColor" name="bg"/>
                         <constraints>
                             <constraint firstItem="7B2-uf-pnh" firstAttribute="top" secondItem="Jjl-3X-FQL" secondAttribute="bottom" constant="17.666666666666686" id="5RZ-oA-iY7"/>
                             <constraint firstItem="Jjl-3X-FQL" firstAttribute="leading" secondItem="vDu-zF-Fre" secondAttribute="leading" constant="20" id="5YT-W2-ad2"/>
-                            <constraint firstItem="vDu-zF-Fre" firstAttribute="trailing" secondItem="gVS-qW-V2L" secondAttribute="trailing" constant="20" id="6QY-JS-Now"/>
                             <constraint firstItem="XSx-ut-8qR" firstAttribute="top" secondItem="7B2-uf-pnh" secondAttribute="bottom" constant="20" id="7Pn-rT-slg"/>
-                            <constraint firstItem="Jjl-3X-FQL" firstAttribute="top" secondItem="gVS-qW-V2L" secondAttribute="bottom" constant="2.0000000000000142" id="9BT-rn-jBy"/>
+                            <constraint firstItem="5k3-Ru-wyN" firstAttribute="bottom" secondItem="Jjl-3X-FQL" secondAttribute="bottom" constant="-40" id="BlO-1P-eMm"/>
                             <constraint firstItem="vDu-zF-Fre" firstAttribute="trailing" secondItem="XSx-ut-8qR" secondAttribute="trailing" id="HDK-d6-vPZ"/>
                             <constraint firstItem="Jjl-3X-FQL" firstAttribute="top" secondItem="vDu-zF-Fre" secondAttribute="top" id="VrN-zz-h0t"/>
                             <constraint firstItem="vDu-zF-Fre" firstAttribute="bottom" secondItem="XSx-ut-8qR" secondAttribute="bottom" id="WYc-Zf-ueF"/>
                             <constraint firstItem="vDu-zF-Fre" firstAttribute="trailing" secondItem="7B2-uf-pnh" secondAttribute="trailing" constant="20" id="bKh-8S-WLo"/>
                             <constraint firstItem="7B2-uf-pnh" firstAttribute="leading" secondItem="vDu-zF-Fre" secondAttribute="leading" constant="20" id="qa4-aB-WfS"/>
+                            <constraint firstItem="vDu-zF-Fre" firstAttribute="trailing" secondItem="5k3-Ru-wyN" secondAttribute="trailing" constant="20" id="qq3-qV-Nbm"/>
                             <constraint firstItem="XSx-ut-8qR" firstAttribute="leading" secondItem="vDu-zF-Fre" secondAttribute="leading" id="uQr-dw-u0Y"/>
                         </constraints>
                     </view>
                     <connections>
                         <outlet property="collectionView" destination="XSx-ut-8qR" id="rwd-mL-6PG"/>
                         <outlet property="greetingLabel" destination="Jjl-3X-FQL" id="ch1-mt-VDr"/>
-                        <outlet property="profileButton" destination="gVS-qW-V2L" id="zro-Lo-FIj"/>
+                        <outlet property="profileImageView" destination="5k3-Ru-wyN" id="SoF-rq-cab"/>
                         <outlet property="separatorView" destination="3Ie-3T-S8Q" id="VJl-XY-IJl"/>
                         <outlet property="todayCardView" destination="7B2-uf-pnh" id="ZkX-81-CDa"/>
                         <outlet property="todayCountLabel" destination="zch-Rx-kex" id="iwA-2J-mMm"/>
@@ -274,18 +268,22 @@
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="Ief-a0-LHa" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+                <tapGestureRecognizer id="87O-F5-r0b">
+                    <connections>
+                        <action selector="profileImageTapped:" destination="Y6W-OH-hqX" id="zqq-af-tNH"/>
+                    </connections>
+                </tapGestureRecognizer>
             </objects>
             <point key="canvasLocation" x="132.06106870229007" y="130.98591549295776"/>
         </scene>
     </scenes>
     <resources>
         <image name="chevron.right" catalog="system" width="97" height="128"/>
-        <image name="person.fill" catalog="system" width="128" height="120"/>
         <namedColor name="bg">
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <systemColor name="separatorColor">
-            <color red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.28999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.23529411764705882" green="0.23529411764705882" blue="0.2627450980392157" alpha="0.12" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>

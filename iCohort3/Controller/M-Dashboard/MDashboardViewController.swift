@@ -1,5 +1,7 @@
 import UIKit
 
+// MARK: - Models
+
 struct OngoingTeam {
     let name: String
     let badgeCount: Int
@@ -10,30 +12,47 @@ struct ReviewTask {
     let taskTitle: String
 }
 
-class MDashboardViewController: UIViewController {
+// MARK: - Dashboard
+
+class MDashboardViewController: UIViewController, ProfileViewControllerDelegate {
+    
+    // MARK: - Outlets
     
     @IBOutlet weak var greetingLabel: UILabel!
-    @IBOutlet weak var profileButton: UIButton!
-
+    @IBOutlet weak var profileImageView: UIImageView!     // avatar at top-right
+    
     @IBOutlet weak var separatorView: UIView!
     @IBOutlet weak var todayCardView: UIView!
     @IBOutlet weak var todayTitleLabel: UILabel!
     @IBOutlet weak var todayCountLabel: UILabel!
-
+    
     @IBOutlet weak var collectionView: UICollectionView!
-
+    
+    // MARK: - Data
+    
     var ongoingTeams: [OngoingTeam] = []
     var reviewTasks: [ReviewTask] = []
-
+    
+    // MARK: - Lifecycle
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Apply background gradient
-        applyBackgroundGradient()
+        // Default avatar
+        if let img = UIImage(named: "ProfileImageMentor") {
+            setProfileAvatarImage(img)
+        }
+        profileImageView.layer.cornerRadius = profileImageView.bounds.width / 2
+            profileImageView.clipsToBounds = true
+            profileImageView.contentMode = .scaleAspectFill
         
+        // In case userInteractionEnabled is off in IB
+        profileImageView.isUserInteractionEnabled = true
+        
+        // Background + UI
+        applyBackgroundGradient()
         setupCollectionView()
         
-        // Set greeting
         greetingLabel.text = "Hi User"
         
         todayCardView.layer.cornerRadius = 16
@@ -46,19 +65,39 @@ class MDashboardViewController: UIViewController {
         collectionView.layer.cornerRadius = 16
         collectionView.backgroundColor = .clear
         
-        // Start with empty arrays - showing empty states
-        // Load sample data after 5 seconds
+        // Load sample data after delay (for empty state first)
         loadSampleDataWithDelay()
     }
     
-    @IBAction func profileTapped(_ sender: Any) {
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        // Make avatar circular
+        profileImageView.layer.cornerRadius = profileImageView.bounds.width / 2
+        profileImageView.layer.masksToBounds = true
+    }
+    
+    // MARK: - Avatar helper
+    
+    private func setProfileAvatarImage(_ image: UIImage) {
+        profileImageView.image = image
+        profileImageView.contentMode = .scaleAspectFit   // show full image
+        profileImageView.clipsToBounds = true
+    }
+    
+    // MARK: - Open Profile
+    
+    @IBAction func profileImageTapped(_ sender: UITapGestureRecognizer) {
         let vc = ProfileViewController(nibName: "ProfileViewController", bundle: nil)
         vc.modalPresentationStyle = .pageSheet
         vc.modalTransitionStyle = .coverVertical
-
+        
+        // delegate so avatar updates come back
+        vc.delegate = self
+        
         if let sheet = vc.sheetPresentationController {
             let topGap: CGFloat = 0
-
+            
             sheet.detents = [
                 .custom(identifier: .init("almostFull")) { context in
                     context.maximumDetentValue - topGap
@@ -69,10 +108,18 @@ class MDashboardViewController: UIViewController {
             sheet.largestUndimmedDetentIdentifier = .init("almostFull")
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
-
+        
         present(vc, animated: true)
     }
-
+    
+    // MARK: - ProfileViewControllerDelegate
+    
+    func profileViewController(_ controller: ProfileViewController,
+                               didUpdateAvatar image: UIImage) {
+        setProfileAvatarImage(image)
+    }
+    
+    // MARK: - Background
     
     private func applyBackgroundGradient() {
         let g = CAGradientLayer()
@@ -86,6 +133,8 @@ class MDashboardViewController: UIViewController {
         view.layer.insertSublayer(g, at: 0)
     }
     
+    // MARK: - Data loading
+    
     func loadSampleDataWithDelay() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
             self?.loadSampleData()
@@ -93,10 +142,8 @@ class MDashboardViewController: UIViewController {
     }
     
     func loadSampleData() {
-        // Update greeting with user name
         greetingLabel.text = "Hi Arshad"
         
-        // Sample ongoing teams
         ongoingTeams = [
             OngoingTeam(name: "Team 7", badgeCount: 3),
             OngoingTeam(name: "Team 8", badgeCount: 1),
@@ -107,7 +154,6 @@ class MDashboardViewController: UIViewController {
             OngoingTeam(name: "Team 13", badgeCount: 3)
         ]
         
-        // Sample review tasks
         reviewTasks = [
             ReviewTask(teamName: "Team 9", taskTitle: "Upload UI/UX Colour Palette"),
             ReviewTask(teamName: "Team 7", taskTitle: "Flow of Features and Functionalities"),
@@ -116,65 +162,66 @@ class MDashboardViewController: UIViewController {
             ReviewTask(teamName: "Team 10", taskTitle: "Sprint planning documentation")
         ]
         
-        // Update the today count
         todayCountLabel.text = "\(reviewTasks.count)"
         
-        // Reload collection view with animation
         UIView.transition(with: collectionView,
-                         duration: 0.3,
-                         options: .transitionCrossDissolve,
-                         animations: {
+                          duration: 0.3,
+                          options: .transitionCrossDissolve,
+                          animations: {
             self.collectionView.reloadData()
         })
     }
-
+    
+    // MARK: - Collection setup
+    
     func setupCollectionView() {
         collectionView.delegate = self
         collectionView.dataSource = self
         collectionView.collectionViewLayout = createLayout()
         
-        // IMPORTANT: Enable user interaction and selection
         collectionView.isUserInteractionEnabled = true
         collectionView.allowsSelection = true
         
-        // Register the empty state cell
-        collectionView.register(EmptyStateCollectionViewCell.self, forCellWithReuseIdentifier: "EmptyCell")
-        
-        print("✅ Collection view setup complete")
-        print("✅ Delegate set:", collectionView.delegate != nil)
-        print("✅ DataSource set:", collectionView.dataSource != nil)
+        collectionView.register(EmptyStateCollectionViewCell.self,
+                                forCellWithReuseIdentifier: "EmptyCell")
     }
-    
 }
 
-
+// MARK: - Layout
 
 extension MDashboardViewController {
     
     func createLayout() -> UICollectionViewLayout {
         return UICollectionViewCompositionalLayout { sectionIndex, _ in
-            return sectionIndex == 0 ?
-                self.horizontalSection() :
-                self.verticalSection()
+            return sectionIndex == 0
+                ? self.horizontalSection()
+                : self.verticalSection()
         }
     }
-
+    
     func horizontalSection() -> NSCollectionLayoutSection {
-        // Check if empty state
+        // Empty state
         if ongoingTeams.isEmpty {
-            let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
-                                                  heightDimension: .absolute(60))
+            let itemSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0),
+                heightDimension: .absolute(60)
+            )
             let item = NSCollectionLayoutItem(layoutSize: itemSize)
             
-            let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
-                                                   heightDimension: .absolute(60))
-            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
+            let groupSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0),
+                heightDimension: .absolute(60)
+            )
+            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize,
+                                                           subitems: [item])
             
             let section = NSCollectionLayoutSection(group: group)
             section.contentInsets = .init(top: 8, leading: 16, bottom: 8, trailing: 16)
             
-            let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
-                                                    heightDimension: .absolute(40))
+            let headerSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0),
+                heightDimension: .absolute(40)
+            )
             section.boundarySupplementaryItems = [
                 NSCollectionLayoutBoundarySupplementaryItem(
                     layoutSize: headerSize,
@@ -185,29 +232,25 @@ extension MDashboardViewController {
             return section
         }
         
-        // Fixed width for each team card
+        // Normal section
         let itemSize = NSCollectionLayoutSize(
             widthDimension: .absolute(90),
             heightDimension: .absolute(100)
         )
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
-
-        // Group contains single item
+        
         let groupSize = NSCollectionLayoutSize(
             widthDimension: .absolute(90),
             heightDimension: .absolute(100)
         )
-        let group = NSCollectionLayoutGroup.horizontal(
-            layoutSize: groupSize,
-            subitems: [item]
-        )
-
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize,
+                                                       subitems: [item])
+        
         let section = NSCollectionLayoutSection(group: group)
         section.orthogonalScrollingBehavior = .continuous
         section.contentInsets = .init(top: 8, leading: 16, bottom: 16, trailing: 16)
         section.interGroupSpacing = 8
-
-        // header
+        
         let headerSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
             heightDimension: .absolute(40)
@@ -221,12 +264,14 @@ extension MDashboardViewController {
         ]
         return section
     }
-
+    
     func verticalSection() -> NSCollectionLayoutSection {
-        // Check if empty state
+        // Empty state
         if reviewTasks.isEmpty {
-            let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
-                                                  heightDimension: .absolute(60))
+            let itemSize = NSCollectionLayoutSize(
+                widthDimension: .fractionalWidth(1.0),
+                heightDimension: .absolute(60)
+            )
             let item = NSCollectionLayoutItem(layoutSize: itemSize)
             
             let group = NSCollectionLayoutGroup.vertical(
@@ -248,23 +293,25 @@ extension MDashboardViewController {
                     alignment: .top
                 )
             ]
-            
             return section
         }
         
-        let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
-                                              heightDimension: .estimated(80))
+        // Normal section
+        let itemSize = NSCollectionLayoutSize(
+            widthDimension: .fractionalWidth(1.0),
+            heightDimension: .estimated(80)
+        )
         let item = NSCollectionLayoutItem(layoutSize: itemSize)
-
+        
         let group = NSCollectionLayoutGroup.vertical(
             layoutSize: itemSize,
             subitems: [item]
         )
-
+        
         let section = NSCollectionLayoutSection(group: group)
         section.contentInsets = .init(top: 8, leading: 16, bottom: 20, trailing: 16)
         section.interGroupSpacing = 12
-
+        
         let headerSize = NSCollectionLayoutSize(
             widthDimension: .fractionalWidth(1.0),
             heightDimension: .absolute(40)
@@ -276,17 +323,19 @@ extension MDashboardViewController {
                 alignment: .top
             )
         ]
-
+        
         return section
     }
 }
 
+// MARK: - DataSource
 
 extension MDashboardViewController: UICollectionViewDataSource {
+    
     func numberOfSections(in collectionView: UICollectionView) -> Int {
         return 2
     }
-
+    
     func collectionView(_ collectionView: UICollectionView,
                         numberOfItemsInSection section: Int) -> Int {
         if section == 0 {
@@ -295,20 +344,22 @@ extension MDashboardViewController: UICollectionViewDataSource {
             return reviewTasks.isEmpty ? 1 : reviewTasks.count
         }
     }
-
+    
     func collectionView(_ collectionView: UICollectionView,
                         cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-
+        
         if indexPath.section == 0 {
             if ongoingTeams.isEmpty {
                 let cell = collectionView.dequeueReusableCell(
-                    withReuseIdentifier: "EmptyCell", for: indexPath
+                    withReuseIdentifier: "EmptyCell",
+                    for: indexPath
                 ) as! EmptyStateCollectionViewCell
                 cell.configure(with: "You're not assigned to any teams at the moment.")
                 return cell
             } else {
                 let cell = collectionView.dequeueReusableCell(
-                    withReuseIdentifier: "OngoingCell", for: indexPath
+                    withReuseIdentifier: "OngoingCell",
+                    for: indexPath
                 ) as! OngoingCollectionViewCell
                 let item = ongoingTeams[indexPath.item]
                 cell.configure(with: item)
@@ -317,13 +368,15 @@ extension MDashboardViewController: UICollectionViewDataSource {
         } else {
             if reviewTasks.isEmpty {
                 let cell = collectionView.dequeueReusableCell(
-                    withReuseIdentifier: "EmptyCell", for: indexPath
+                    withReuseIdentifier: "EmptyCell",
+                    for: indexPath
                 ) as! EmptyStateCollectionViewCell
                 cell.configure(with: "No tasks to review Today")
                 return cell
             } else {
                 let cell = collectionView.dequeueReusableCell(
-                    withReuseIdentifier: "ReviewCell", for: indexPath
+                    withReuseIdentifier: "ReviewCell",
+                    for: indexPath
                 ) as! ReviewCollectionViewCell
                 let item = reviewTasks[indexPath.item]
                 cell.configure(with: item)
@@ -331,12 +384,12 @@ extension MDashboardViewController: UICollectionViewDataSource {
             }
         }
     }
-
-    // HEADER
+    
+    // Header
     func collectionView(_ collectionView: UICollectionView,
                         viewForSupplementaryElementOfKind kind: String,
                         at indexPath: IndexPath) -> UICollectionReusableView {
-
+        
         let header = collectionView.dequeueReusableSupplementaryView(
             ofKind: UICollectionView.elementKindSectionHeader,
             withReuseIdentifier: "SectionHeader",
@@ -351,48 +404,45 @@ extension MDashboardViewController: UICollectionViewDataSource {
     }
 }
 
-// MARK: - UICollectionViewDelegate (SINGLE EXTENSION - NO DUPLICATES)
+// MARK: - Delegate
+
 extension MDashboardViewController: UICollectionViewDelegate {
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+    
+    func collectionView(_ collectionView: UICollectionView,
+                        didSelectItemAt indexPath: IndexPath) {
         
         print("🔥 Cell tapped - Section: \(indexPath.section), Item: \(indexPath.item)")
         
-        // Section 0: Handle ongoing team selection
+        // Section 0: Ongoing teams
         if indexPath.section == 0 && !ongoingTeams.isEmpty {
             let selectedTeam = ongoingTeams[indexPath.item].name
             print("✅ Selected Team:", selectedTeam)
-
-            // Load StudentAllTasks VC
-            let vc = StudentAllTasksViewController(nibName: "StudentAllTasksViewController", bundle: nil)
-
-            // Pass team name
-            vc.teamName = selectedTeam
-
-            // Present it
-            vc.modalPresentationStyle = .fullScreen
-            self.present(vc, animated: true)
             
+            let vc = StudentAllTasksViewController(
+                nibName: "StudentAllTasksViewController",
+                bundle: nil
+            )
+            vc.teamName = selectedTeam
+            vc.modalPresentationStyle = .fullScreen
+            present(vc, animated: true)
             return
         }
         
-        // Section 1: Handle review task selection - Navigate to ReviewViewController
+        // Section 1: Review tasks
         if indexPath.section == 1 && !reviewTasks.isEmpty {
             let selectedTask = reviewTasks[indexPath.item]
             print("✅ Opening task:", selectedTask.taskTitle)
             print("✅ Team:", selectedTask.teamName)
             
-            // Initialize ReviewViewController
-            let reviewVC = ReviewViewController(nibName: "ReviewViewController", bundle: nil)
-            
-            // Pass data to ReviewViewController
+            let reviewVC = ReviewViewController(
+                nibName: "ReviewViewController",
+                bundle: nil
+            )
             reviewVC.taskTitle = selectedTask.taskTitle
             reviewVC.teamName = selectedTask.teamName
-            
-            print("✅ ReviewViewController created")
-            
-            // Always present modally (since navigation controller might not be available)
             reviewVC.modalPresentationStyle = .fullScreen
-            self.present(reviewVC, animated: true) {
+            
+            present(reviewVC, animated: true) {
                 print("✅ ReviewViewController presented successfully")
             }
         } else {
@@ -403,7 +453,9 @@ extension MDashboardViewController: UICollectionViewDelegate {
 }
 
 // MARK: - Empty State Cell
+
 class EmptyStateCollectionViewCell: UICollectionViewCell {
+    
     let messageLabel: UILabel = {
         let label = UILabel()
         label.textAlignment = .left
@@ -424,13 +476,17 @@ class EmptyStateCollectionViewCell: UICollectionViewCell {
         setupUI()
     }
     
-    func setupUI() {
+    private func setupUI() {
         contentView.addSubview(messageLabel)
         NSLayoutConstraint.activate([
-            messageLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            messageLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: 12),
-            messageLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            messageLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8)
+            messageLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor,
+                                                  constant: 12),
+            messageLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor,
+                                                   constant: -12),
+            messageLabel.topAnchor.constraint(equalTo: contentView.topAnchor,
+                                              constant: 8),
+            messageLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor,
+                                                 constant: -8)
         ])
     }
     

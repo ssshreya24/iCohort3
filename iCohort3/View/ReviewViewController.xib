@@ -14,6 +14,7 @@
                 <outlet property="assignedToCardView" destination="QMg-eJ-YVW" id="h6S-Mf-bLP"/>
                 <outlet property="assigneeNameLabel" destination="nvI-DI-Wnx" id="ET1-Dv-vUf"/>
                 <outlet property="attachmentCardView" destination="fOF-Er-eB6" id="Cu1-g7-uBl"/>
+                <outlet property="attachmentFileNameButton" destination="TyT-ju-AGl" id="jpv-MI-nbJ"/>
                 <outlet property="backButton" destination="Vdi-1a-nFq" id="DYr-xf-XQx"/>
                 <outlet property="completeButton" destination="Z3S-QK-br3" id="nY3-GZ-s7t"/>
                 <outlet property="descriptionCardView" destination="9Ml-HW-ERO" id="RPX-c1-Bcm"/>
@@ -205,19 +206,22 @@
                                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="yJO-7t-6KP">
                                                     <rect key="frame" x="0.0" y="50" width="353" height="50"/>
                                                     <subviews>
-                                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Flow.jpg" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" preferredMaxLayoutWidth="82.700000000000003" translatesAutoresizingMaskIntoConstraints="NO" id="dp1-0k-NJc">
-                                                            <rect key="frame" x="20" y="14.999999999999998" width="313" height="20.333333333333329"/>
-                                                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                                            <nil key="textColor"/>
-                                                            <nil key="highlightedColor"/>
-                                                        </label>
+                                                        <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="leading" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="TyT-ju-AGl">
+                                                            <rect key="frame" x="5" y="7.6666666666666856" width="328" height="34.333333333333336"/>
+                                                            <color key="tintColor" white="0.33333333333333331" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                                            <state key="normal" title="Button"/>
+                                                            <buttonConfiguration key="configuration" style="plain" title="Pallete_proof"/>
+                                                            <connections>
+                                                                <action selector="attachmentButtonTapped:" destination="-1" eventType="touchUpInside" id="9lb-Ol-UVS"/>
+                                                            </connections>
+                                                        </button>
                                                     </subviews>
                                                     <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                                     <constraints>
-                                                        <constraint firstItem="dp1-0k-NJc" firstAttribute="centerY" secondItem="yJO-7t-6KP" secondAttribute="centerY" id="Nz7-TA-wpt"/>
                                                         <constraint firstAttribute="height" constant="50" id="bkf-mv-JHz"/>
-                                                        <constraint firstAttribute="trailing" secondItem="dp1-0k-NJc" secondAttribute="trailing" constant="20" id="fKk-m5-Kxa"/>
-                                                        <constraint firstItem="dp1-0k-NJc" firstAttribute="leading" secondItem="yJO-7t-6KP" secondAttribute="leading" constant="20" id="oN9-mt-jOb"/>
+                                                        <constraint firstAttribute="bottom" secondItem="TyT-ju-AGl" secondAttribute="bottom" constant="8" id="gOD-wZ-YrF"/>
+                                                        <constraint firstItem="TyT-ju-AGl" firstAttribute="leading" secondItem="yJO-7t-6KP" secondAttribute="leading" constant="5" id="iLN-jP-fF5"/>
+                                                        <constraint firstAttribute="trailing" secondItem="TyT-ju-AGl" secondAttribute="trailing" constant="20" id="xoc-lM-ZKz"/>
                                                     </constraints>
                                                 </view>
                                             </subviews>
@@ -342,8 +346,9 @@
                                     </constraints>
                                 </view>
                                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="SGh-YX-sMz">
-                                    <rect key="frame" x="60" y="664" width="100" height="34.333333333333371"/>
+                                    <rect key="frame" x="60" y="664" width="100" height="40"/>
                                     <constraints>
+                                        <constraint firstAttribute="height" constant="40" id="bOx-xl-rWp"/>
                                         <constraint firstAttribute="width" constant="100" id="ttM-7s-zkg"/>
                                     </constraints>
                                     <state key="normal" title="Button"/>
@@ -356,9 +361,10 @@
                                     </connections>
                                 </button>
                                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Z3S-QK-br3">
-                                    <rect key="frame" x="233" y="664" width="100" height="34.333333333333371"/>
+                                    <rect key="frame" x="233" y="664" width="100" height="40"/>
                                     <constraints>
                                         <constraint firstAttribute="width" constant="100" id="Ar6-mH-Rw8"/>
+                                        <constraint firstAttribute="height" constant="40" id="E1M-tK-MS5"/>
                                     </constraints>
                                     <state key="normal" title="Button"/>
                                     <buttonConfiguration key="configuration" style="gray" title="Complete">
@@ -438,10 +444,10 @@
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemGreenColor">
-            <color red="0.20392156859999999" green="0.78039215689999997" blue="0.34901960780000002" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.20392156862745098" green="0.7803921568627451" blue="0.34901960784313724" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemRedColor">
-            <color red="1" green="0.23137254900000001" blue="0.18823529410000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="1" green="0.2196078431372549" blue="0.23529411764705882" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemYellowColor">
             <color red="1" green="0.80000000000000004" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>

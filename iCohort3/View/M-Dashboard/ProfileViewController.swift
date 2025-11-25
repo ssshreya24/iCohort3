@@ -7,9 +7,16 @@
 
 import UIKit
 import SafariServices
+protocol ProfileViewControllerDelegate: AnyObject {
+    func profileViewController(_ controller: ProfileViewController,
+                               didUpdateAvatar image: UIImage)
+}
+
 
 class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
                              UINavigationControllerDelegate {
+    weak var delegate: ProfileViewControllerDelegate?
+
     // MARK: - Top Back
     
         @IBOutlet weak var backButton: UIButton!
@@ -59,14 +66,14 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
        }
 
        private var profile = Profile(
-           firstName: nil,
-           lastName: nil,
-           department: nil,
-           srmMail: nil,
-           facultyId: nil,
-           personalMail: nil,
-           contactNumber: nil,
-           showPersonalMail: true
+        firstName: "Arshad",
+            lastName: "Shaikh",
+            department: "Industry Mentor",
+            srmMail: "as4371@srmist.edu.in",
+            facultyId: "14368",
+            personalMail: "arshad546@gmail.com",
+            contactNumber: "9410670414",
+            showPersonalMail: true
        )
 
        // MARK: - Convenience
@@ -88,7 +95,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
            setupUI()
            setupInitialState()
            avatarEditButton.isHidden = true
-           avatarImageView.image = UIImage(named: "ProfileImageMentor")
+           if let img = UIImage(named: "ProfileImageMentor") {
+                   let square = img.centerSquare()
+                   avatarImageView.image = square
+               }
        }
 
        override func viewDidLayoutSubviews() {
@@ -155,15 +165,77 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
            btn.setTitleColor(.systemRed, for: .normal)
        }
 
-       private func setupInitialState() {
-           for tf in allTextFields.compactMap({ $0 }) {
-               tf.isEnabled = false
-               tf.placeholder = "Not Set"
-               tf.textColor = .systemBlue
-               tf.text = "Not Set"
-           }
-       }
+    private func setupInitialState() {
+        // All fields start as non-editable
+        for tf in allTextFields.compactMap({ $0 }) {
+            tf.isEnabled = false
+        }
 
+        // First Name
+        if let value = profile.firstName, !value.isEmpty {
+            firstNameField.text = value
+            firstNameField.textColor = .label
+        } else {
+            firstNameField.text = "Not Set"
+            firstNameField.textColor = .systemBlue
+        }
+
+        // Last Name
+        if let value = profile.lastName, !value.isEmpty {
+            lastNameField.text = value
+            lastNameField.textColor = .label
+        } else {
+            lastNameField.text = "Not Set"
+            lastNameField.textColor = .systemBlue
+        }
+
+        // Department
+        if let value = profile.department, !value.isEmpty {
+            departmentField.text = value
+            departmentField.textColor = .label
+        } else {
+            departmentField.text = "Not Set"
+            departmentField.textColor = .systemBlue
+        }
+
+        // SRM Mail
+        if let value = profile.srmMail, !value.isEmpty {
+            srmMailField.text = value
+            srmMailField.textColor = .label
+        } else {
+            srmMailField.text = "Not Set"
+            srmMailField.textColor = .systemBlue
+        }
+
+        // Faculty Id
+        if let value = profile.facultyId, !value.isEmpty {
+            facultyIdField.text = value
+            facultyIdField.textColor = .label
+        } else {
+            facultyIdField.text = "Not Set"
+            facultyIdField.textColor = .systemBlue
+        }
+
+        // Personal Mail
+        if let value = profile.personalMail, !value.isEmpty {
+            personalMailField.text = value
+            personalMailField.textColor = .label
+        } else {
+            personalMailField.text = "Not Set"
+            personalMailField.textColor = .systemBlue
+        }
+
+        // Contact Number
+        if let value = profile.contactNumber, !value.isEmpty {
+            contactNumberField.text = value
+            contactNumberField.textColor = .label
+        } else {
+            contactNumberField.text = "Not Set"
+            contactNumberField.textColor = .systemBlue
+        }
+
+        personalMailSwitch.isOn = profile.showPersonalMail
+    }
        // MARK: - Actions
 
        @IBAction func backButtonTapped(_ sender: UIButton) {
@@ -206,14 +278,18 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             present(picker, animated: true)
         }
 
-        func imagePickerController(_ picker: UIImagePickerController,
-                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage
-            if let img = image {
-                avatarImageView.image = img
-            }
-            dismiss(animated: true)
+    func imagePickerController(_ picker: UIImagePickerController,
+                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+
+        let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage
+        if let img = image {
+            let square = img.centerSquare()
+            avatarImageView.image = square
+            delegate?.profileViewController(self, didUpdateAvatar: square)
         }
+        dismiss(animated: true)
+    }
+
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             dismiss(animated: true)
@@ -255,38 +331,56 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
            // later you can use this flag to show/hide personal mail elsewhere
        }
 
-       @IBAction func editButtonTapped(_ sender: UIButton) {
-           
-           isEditingProfile.toggle()
-           avatarEditButton.isHidden = !isEditingProfile
+    @IBAction func editButtonTapped(_ sender: UIButton) {
 
-           if isEditingProfile {
-               editButton.setTitle("Save", for: .normal)
+        isEditingProfile.toggle()
+        avatarEditButton.isHidden = !isEditingProfile
 
-               for tf in allTextFields.compactMap({ $0 }) {
-                   tf.isEnabled = true
-                   tf.textColor = .label
-                   if tf.text == "Not Set" {
-                       tf.text = ""
-                   }
-               }
-               firstNameField?.becomeFirstResponder()
-           } else {
-               editButton.setTitle("Edit", for: .normal)
-               saveProfileData()
+        if isEditingProfile {
+            // ENTER EDIT MODE
+            editButton.setTitle("Save", for: .normal)
 
-               for tf in allTextFields.compactMap({ $0 }) {
-                   tf.isEnabled = false
-                   let isEmpty = tf.text?
-                       .trimmingCharacters(in: .whitespacesAndNewlines)
-                       .isEmpty ?? true
-                   tf.textColor = isEmpty ? .systemBlue : .label
-                   if isEmpty {
-                       tf.text = "Not Set"
-                   }
-               }
-           }
-       }
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.isEnabled = true
+
+                let trimmed = tf.text?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+                if trimmed == "Not Set" || trimmed.isEmpty {
+                    // Not set → keep BLUE, clear for typing
+                    tf.textColor = .systemBlue
+                    tf.text = ""
+                } else {
+                    // Has value → GREY while editing
+                    tf.textColor = .systemGray
+                }
+            }
+
+            firstNameField?.becomeFirstResponder()
+
+        } else {
+            // EXIT EDIT MODE (SAVE)
+            editButton.setTitle("Edit", for: .normal)
+            saveProfileData()
+
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.isEnabled = false
+
+                let trimmed = tf.text?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+                if trimmed.isEmpty {
+                    // Empty after save → Not Set in BLUE
+                    tf.text = "Not Set"
+                    tf.textColor = .systemBlue
+                } else {
+                    // Has value after save → BLACK
+                    tf.textColor = .label
+                }
+            }
+        }
+    }
+
 
        // MARK: - Save
 
@@ -301,3 +395,16 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
            profile.showPersonalMail = personalMailSwitch.isOn
        }
    }
+extension UIImage {
+    func centerSquare() -> UIImage {
+        let originalSize = self.size
+        let side = min(originalSize.width, originalSize.height)
+        let x = (originalSize.width  - side) / 2.0
+        let y = (originalSize.height - side) / 2.0
+
+        let cropRect = CGRect(x: x, y: y, width: side, height: side).integral
+
+        guard let cg = self.cgImage?.cropping(to: cropRect) else { return self }
+        return UIImage(cgImage: cg, scale: self.scale, orientation: self.imageOrientation)
+    }
+}

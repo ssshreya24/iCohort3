@@ -1,4 +1,5 @@
 import UIKit
+import SafariServices
 
 class ReviewViewController: UIViewController, UITextViewDelegate  {
     
@@ -13,6 +14,9 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     // MARK: - Cards (containers)
     @IBOutlet weak var titleCardView: UIView!        // Colour Palette + Due Date
     @IBOutlet weak var attachmentCardView: UIView!   // Attachment
+    
+    @IBOutlet weak var attachmentFileNameButton: UIButton!
+    
     @IBOutlet weak var descriptionCardView: UIView!  // Add remark
     @IBOutlet weak var assignedToCardView: UIView!   // Assigned To
     @IBOutlet weak var statusCardView: UIView!       // Status
@@ -31,6 +35,8 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     // Placeholder text for remark
     private let remarkPlaceholder = "Add remark"
     
+    let attachmentURLString = "https://drive.google.com/file/d/15u49CPwtkgH7QgTGV1jvwiGVs3yrF25z/view?usp=sharing"
+    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -38,6 +44,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         print("✅ ReviewViewController loaded")
         print("✅ Task Title: \(taskTitle ?? "nil")")
         print("✅ Team Name: \(teamName ?? "nil")")
+
         
         view.backgroundColor = UIColor(
             red: 0xEF/255.0,
@@ -157,6 +164,16 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         }
     }
     
+    @IBAction func attachmentButtonTapped(_ sender: UIButton) {
+        guard let url = URL(string: attachmentURLString) else { return }
+
+        let safariVC = SFSafariViewController(url: url)
+        safariVC.modalPresentationStyle = .pageSheet    // or .fullScreen if you want
+        present(safariVC, animated: true)
+    }
+    
+    
+    
     @IBAction func rejectButtonTapped(_ sender: UIButton) {
         print("Reject tapped for task: \(taskTitle ?? "Unknown")")
         
@@ -262,3 +279,5 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         }
     }
 }
+
+
