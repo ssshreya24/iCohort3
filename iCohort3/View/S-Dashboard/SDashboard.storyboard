@@ -116,7 +116,7 @@
                                                                             <nil key="highlightedColor"/>
                                                                         </label>
                                                                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Tce-AA-7ky">
-                                                                            <rect key="frame" x="109" y="50" width="50" height="34"/>
+                                                                            <rect key="frame" x="109" y="50" width="50" height="38"/>
                                                                             <color key="tintColor" systemColor="systemRedColor"/>
                                                                             <state key="normal" title="Button"/>
                                                                             <buttonConfiguration key="configuration" style="plain" image="minus.circle.fill" catalog="system"/>
@@ -146,6 +146,7 @@
                                                                         <constraint firstItem="rob-8h-Cd2" firstAttribute="leading" secondItem="xkN-sf-Jpt" secondAttribute="leading" id="mQg-7B-CgZ"/>
                                                                         <constraint firstAttribute="trailing" secondItem="Tce-AA-7ky" secondAttribute="trailing" id="mon-Sa-hlt"/>
                                                                         <constraint firstItem="XR7-yL-Eip" firstAttribute="top" secondItem="dB2-4x-T18" secondAttribute="top" constant="4" id="n7H-55-8aN"/>
+                                                                        <constraint firstItem="Tce-AA-7ky" firstAttribute="centerY" secondItem="rob-8h-Cd2" secondAttribute="centerY" id="oWa-Dg-fKm"/>
                                                                         <constraint firstItem="Tce-AA-7ky" firstAttribute="top" secondItem="XR7-yL-Eip" secondAttribute="bottom" constant="16" id="yO0-LR-XEE"/>
                                                                     </constraints>
                                                                 </view>

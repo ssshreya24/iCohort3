@@ -91,6 +91,14 @@
                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hYf-1e-l66" userLabel="titleCardView">
                     <rect key="frame" x="16" y="218" width="361" height="120"/>
                     <subviews>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="oGZ-Qg-3Ew">
+                            <rect key="frame" x="40.666666666666657" y="59.666666666666686" width="280" height="1"/>
+                            <color key="backgroundColor" systemColor="separatorColor"/>
+                            <constraints>
+                                <constraint firstAttribute="width" constant="280" id="VRC-Jk-AcX"/>
+                                <constraint firstAttribute="height" constant="1" id="gzi-hY-MPY"/>
+                            </constraints>
+                        </view>
                         <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="Title" minimumFontSize="17" sizingRule="oversize" translatesAutoresizingMaskIntoConstraints="NO" id="2M4-Mm-XP6">
                             <rect key="frame" x="16" y="16" width="329" height="40"/>
                             <constraints>
@@ -113,6 +121,8 @@
                         <constraint firstItem="2M4-Mm-XP6" firstAttribute="leading" secondItem="hYf-1e-l66" secondAttribute="leading" constant="16" id="GNj-Pf-y1p"/>
                         <constraint firstAttribute="bottom" secondItem="foh-Bz-k9Q" secondAttribute="bottom" constant="16" id="IIJ-Sz-cbI"/>
                         <constraint firstAttribute="trailing" secondItem="foh-Bz-k9Q" secondAttribute="trailing" constant="16" id="Wkr-k6-koY"/>
+                        <constraint firstItem="oGZ-Qg-3Ew" firstAttribute="centerX" secondItem="hYf-1e-l66" secondAttribute="centerX" id="gCg-vu-AUh"/>
+                        <constraint firstItem="oGZ-Qg-3Ew" firstAttribute="centerY" secondItem="hYf-1e-l66" secondAttribute="centerY" id="o1b-v2-lMP"/>
                         <constraint firstItem="foh-Bz-k9Q" firstAttribute="top" secondItem="2M4-Mm-XP6" secondAttribute="bottom" constant="8" id="tzN-k7-urp"/>
                         <constraint firstAttribute="height" constant="120" id="zde-C7-fsS"/>
                     </constraints>
