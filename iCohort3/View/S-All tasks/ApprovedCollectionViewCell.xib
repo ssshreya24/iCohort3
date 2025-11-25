@@ -21,7 +21,7 @@
                         <rect key="frame" x="12" y="8" width="400" height="200"/>
                         <subviews>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WlJ-Jt-hUd">
-                                <rect key="frame" x="16" y="114" width="368" height="1"/>
+                                <rect key="frame" x="16" y="127" width="368" height="1"/>
                                 <color key="backgroundColor" systemColor="separatorColor"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="1" id="FSZ-JJ-dTc"/>
@@ -72,19 +72,19 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Due Date: 3 Nov 2025" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="0Lo-Wl-XbM">
-                                <rect key="frame" x="245.33333333333331" y="117" width="138.66666666666669" height="15.666666666666657"/>
+                                <rect key="frame" x="245.33333333333331" y="130" width="138.66666666666669" height="60"/>
                                 <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="13"/>
                                 <color key="textColor" red="0.36078431370000003" green="0.36078431370000003" blue="0.36078431370000003" alpha="1" colorSpace="custom" customColorSpace="calibratedRGB"/>
                                 <nil key="highlightedColor"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Remark " textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Dmo-6x-aMQ">
-                                <rect key="frame" x="30" y="99.666666666666671" width="43" height="13.333333333333329"/>
+                                <rect key="frame" x="16" y="112.66666666666667" width="43" height="13.333333333333329"/>
                                 <fontDescription key="fontDescription" type="system" pointSize="11"/>
                                 <color key="textColor" systemColor="systemRedColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" verticalCompressionResistancePriority="751" misplaced="YES" text="Work on the UI more" textAlignment="natural" lineBreakMode="wordWrap" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wWi-9R-Mce">
-                                <rect key="frame" x="77" y="100" width="110" height="13"/>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" verticalCompressionResistancePriority="751" text="Work on the UI more" textAlignment="natural" lineBreakMode="wordWrap" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wWi-9R-Mce">
+                                <rect key="frame" x="63.000000000000007" y="112.66666666666667" width="107.66666666666669" height="13.333333333333329"/>
                                 <fontDescription key="fontDescription" type="system" pointSize="11"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
@@ -96,7 +96,6 @@
                             <constraint firstItem="WlJ-Jt-hUd" firstAttribute="leading" secondItem="Heh-Pa-bnK" secondAttribute="leading" constant="16" id="0rk-Ca-iNz"/>
                             <constraint firstItem="0Lo-Wl-XbM" firstAttribute="top" secondItem="WlJ-Jt-hUd" secondAttribute="bottom" constant="2" id="7sZ-QV-rm9"/>
                             <constraint firstItem="ssk-G0-dzC" firstAttribute="top" secondItem="Qug-mT-9qn" secondAttribute="bottom" constant="30" id="AVp-3l-cSI"/>
-                            <constraint firstItem="Dmo-6x-aMQ" firstAttribute="top" secondItem="ssk-G0-dzC" secondAttribute="bottom" constant="17" id="C2J-aT-xvz"/>
                             <constraint firstItem="zUu-Yd-VdN" firstAttribute="top" secondItem="Ss6-N3-vDn" secondAttribute="bottom" id="CBt-Ca-Qga"/>
                             <constraint firstItem="Ss6-N3-vDn" firstAttribute="top" secondItem="Heh-Pa-bnK" secondAttribute="top" constant="10" id="CHk-Z7-LKM"/>
                             <constraint firstItem="zUu-Yd-VdN" firstAttribute="leading" secondItem="o9z-ov-DNo" secondAttribute="trailing" constant="2" id="GSA-4x-tTg"/>
@@ -106,17 +105,19 @@
                             <constraint firstItem="wWi-9R-Mce" firstAttribute="centerY" secondItem="Dmo-6x-aMQ" secondAttribute="centerY" id="M92-b7-ecj"/>
                             <constraint firstAttribute="width" constant="400" id="NvO-Sz-YZ6"/>
                             <constraint firstAttribute="trailing" secondItem="Ss6-N3-vDn" secondAttribute="trailing" constant="10" id="O7n-3k-4EQ"/>
-                            <constraint firstItem="wWi-9R-Mce" firstAttribute="top" secondItem="ssk-G0-dzC" secondAttribute="bottom" constant="17" id="OoQ-BB-QgR"/>
+                            <constraint firstItem="Dmo-6x-aMQ" firstAttribute="top" secondItem="ssk-G0-dzC" secondAttribute="bottom" constant="30" id="W5I-aI-94I"/>
                             <constraint firstAttribute="trailing" secondItem="ssk-G0-dzC" secondAttribute="trailing" constant="30" id="Y76-8T-MVN"/>
                             <constraint firstItem="wWi-9R-Mce" firstAttribute="leading" secondItem="Dmo-6x-aMQ" secondAttribute="trailing" constant="4" id="aKg-nG-1q6"/>
                             <constraint firstItem="ssk-G0-dzC" firstAttribute="leading" secondItem="Heh-Pa-bnK" secondAttribute="leading" constant="16" id="axZ-YY-Svy"/>
                             <constraint firstItem="3cS-ch-XTy" firstAttribute="leading" secondItem="Qug-mT-9qn" secondAttribute="trailing" constant="8" id="hto-02-SQT"/>
                             <constraint firstAttribute="trailing" secondItem="zUu-Yd-VdN" secondAttribute="trailing" constant="10" id="nDM-8F-oic"/>
                             <constraint firstAttribute="trailing" secondItem="0Lo-Wl-XbM" secondAttribute="trailing" constant="16" id="noh-tP-tnK"/>
+                            <constraint firstAttribute="bottom" secondItem="0Lo-Wl-XbM" secondAttribute="bottom" constant="10" id="nsL-X4-8c9"/>
                             <constraint firstItem="Qug-mT-9qn" firstAttribute="leading" secondItem="Heh-Pa-bnK" secondAttribute="leading" constant="12" id="oeB-A5-Dee"/>
                             <constraint firstAttribute="trailing" secondItem="WlJ-Jt-hUd" secondAttribute="trailing" constant="16" id="u0R-Ba-58p"/>
                             <constraint firstAttribute="height" constant="200" id="ua4-4o-zlE"/>
-                            <constraint firstItem="Dmo-6x-aMQ" firstAttribute="leading" secondItem="Heh-Pa-bnK" secondAttribute="leading" constant="30" id="w16-PQ-JOu"/>
+                            <constraint firstItem="Dmo-6x-aMQ" firstAttribute="leading" secondItem="Heh-Pa-bnK" secondAttribute="leading" constant="16" id="w16-PQ-JOu"/>
+                            <constraint firstItem="wWi-9R-Mce" firstAttribute="top" secondItem="ssk-G0-dzC" secondAttribute="bottom" constant="30" id="wnD-3b-dS0"/>
                             <constraint firstItem="3cS-ch-XTy" firstAttribute="centerY" secondItem="Qug-mT-9qn" secondAttribute="centerY" id="zhh-f1-htK"/>
                         </constraints>
                     </view>
@@ -150,16 +151,16 @@
         <image name="circle.fill" catalog="system" width="128" height="123"/>
         <image name="logo" width="356" height="334"/>
         <systemColor name="separatorColor">
-            <color red="0.23529411764705882" green="0.23529411764705882" blue="0.2627450980392157" alpha="0.12" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.28999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemGreenColor">
-            <color red="0.20392156862745098" green="0.7803921568627451" blue="0.34901960784313724" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.20392156859999999" green="0.78039215689999997" blue="0.34901960780000002" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemRedColor">
-            <color red="1" green="0.2196078431372549" blue="0.23529411764705882" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="1" green="0.23137254900000001" blue="0.18823529410000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>
