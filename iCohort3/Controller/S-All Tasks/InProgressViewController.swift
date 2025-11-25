@@ -6,6 +6,7 @@
 //
 
 import UIKit
+
 struct DashboardTask {
     let title: String
     let dueDate: String
@@ -19,7 +20,6 @@ class InProgressViewController: UIViewController {
     @IBOutlet weak var collectionView: UICollectionView!
     var tasks: [[String: String]] = []
 
-    // Empty state label
     private var emptyLabel: UILabel = {
         let label = UILabel()
         label.text = "No tasks in progress"
@@ -41,7 +41,6 @@ class InProgressViewController: UIViewController {
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
-        // Register custom cell
         let nib = UINib(nibName: "InProgressCollectionViewCell", bundle: nil)
         collectionView.register(nib, forCellWithReuseIdentifier: "InProgressCollectionViewCell")
 
@@ -49,19 +48,16 @@ class InProgressViewController: UIViewController {
         collectionView.delegate = self
         collectionView.backgroundColor = .clear
 
-        // Simulate loading tasks after 2 sec
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             self.loadTasks()
         }
     }
-    
-    private func openTaskDetail(for task: [String: String]) {
 
-        // Load the XIB
+    // MARK: - OPEN TASK DETAIL (Shared function)
+    private func openTaskDetail(for task: [String: String]) {
         let vc = TaskDetailViewController(nibName: "TaskDetailViewController", bundle: nil)
 
-        // SAMPLE DATA (change as needed)
-        let model = DashboardTask (
+        let model = DashboardTask(
             title: task["title"] ?? "",
             dueDate: "25 Sep 2025",
             assigneeName: "Shreya",
@@ -69,23 +65,23 @@ class InProgressViewController: UIViewController {
             attachmentNames: ["UIFlow.pdf", "Design.png"]
         )
 
-        // Set before presenting (safe way)
         vc.task = model
-
         vc.modalPresentationStyle = .fullScreen
         present(vc, animated: true)
     }
 
-
+    // MARK: - BACK BUTTON
     private func setupBackButton() {
         let backButton = UIButton(type: .system)
         backButton.translatesAutoresizingMaskIntoConstraints = false
         backButton.backgroundColor = UIColor(white: 1.0, alpha: 0.8)
         backButton.layer.cornerRadius = 22
+
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
         let arrowImage = UIImage(systemName: "chevron.left", withConfiguration: config)
         backButton.setImage(arrowImage, for: .normal)
-        backButton.tintColor = UIColor.black
+        backButton.tintColor = .black
+
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         view.addSubview(backButton)
 
@@ -98,7 +94,7 @@ class InProgressViewController: UIViewController {
     }
 
     @objc private func backButtonTapped() {
-        self.dismiss(animated: true, completion: nil)
+        dismiss(animated: true, completion: nil)
     }
 
     private func applyBackgroundGradient() {
@@ -121,17 +117,17 @@ class InProgressViewController: UIViewController {
     }
 
     private func loadTasks() {
-        // Example tasks
         self.tasks = [
             ["title": "Task A", "desc": "Work on Home Page UI"],
             ["title": "Task B", "desc": "API Integration for Dashboard"]
         ]
-        self.emptyLabel.isHidden = true
-        self.collectionView.reloadData()
+
+        emptyLabel.isHidden = true
+        collectionView.reloadData()
     }
 }
 
-// MARK: - Collection View Setup
+// MARK: - COLLECTION VIEW
 extension InProgressViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -139,7 +135,12 @@ extension InProgressViewController: UICollectionViewDataSource, UICollectionView
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "InProgressCollectionViewCell", for: indexPath) as! InProgressCollectionViewCell
+
+        let cell = collectionView.dequeueReusableCell(
+            withReuseIdentifier: "InProgressCollectionViewCell",
+            for: indexPath
+        ) as! InProgressCollectionViewCell
+
         let task = tasks[indexPath.row]
 
         cell.configure(
@@ -149,23 +150,32 @@ extension InProgressViewController: UICollectionViewDataSource, UICollectionView
             name: "Shreya"
         )
 
-        // Button setup
+        // 🔵 BUTTON TAP
         cell.circleButton.tag = indexPath.row
         cell.circleButton.addTarget(self, action: #selector(submitTask(_:)), for: .touchUpInside)
 
+        // 🟢 CARD TAP
+        cell.tag = indexPath.row
+        let tap = UITapGestureRecognizer(target: self, action: #selector(cardTapped(_:)))
+        cell.addGestureRecognizer(tap)
+        cell.isUserInteractionEnabled = true
+
         return cell
+    }
+
+    @objc private func submitTask(_ sender: UIButton) {
+        let index = sender.tag
+        openTaskDetail(for: tasks[index])
+    }
+
+    // Card tap → same action as the button
+    @objc private func cardTapped(_ gesture: UITapGestureRecognizer) {
+        guard let cell = gesture.view else { return }
+        openTaskDetail(for: tasks[cell.tag])
     }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         return CGSize(width: collectionView.frame.width - 40, height: 160)
     }
-
-    @objc private func submitTask(_ sender: UIButton) {
-        let index = sender.tag
-        let selectedTask = tasks[index]
-
-        // Directly open the upload screen
-        openTaskDetail(for: selectedTask)
-    }
-
 }
+
