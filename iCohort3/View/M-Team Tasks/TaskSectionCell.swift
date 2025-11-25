@@ -29,6 +29,7 @@ class TaskSectionCell: UICollectionViewCell {
     var seeAllTapped: (() -> Void)?
     var onEditTask: ((TaskModel, Int) -> Void)?
     var onViewAttachments: (([UIImage]) -> Void)?
+    var onDeleteTask: ((Int) -> Void)?
     
     @IBAction func seeAllButtonPressed(_ sender: UIButton) {
         seeAllTapped?()
@@ -212,7 +213,7 @@ extension TaskSectionCell:
             attachments: task.attachments
         )
         
-        // Handle ellipsis menu for edit/delete
+        // Handle ellipsis menu for edit
         cell.onEllipsisMenu = { [weak self] tappedCell in
             guard let self = self else { return }
             self.onEditTask?(task, indexPath.row)
@@ -224,6 +225,14 @@ extension TaskSectionCell:
             self.onViewAttachments?(attachments)
         }
         
+        // FIXED: Directly pass delete request to parent without showing alert here
+        // The parent (StudentAllTasksViewController) will show the confirmation alert
+        cell.onDeleteTapped = { [weak self] tappedCell in
+            guard let self = self else { return }
+            // Just notify parent - don't show alert here
+            self.onDeleteTask?(indexPath.row)
+        }
+        
         return cell
     }
     
@@ -233,10 +242,10 @@ extension TaskSectionCell:
         
         switch category {
         case .completed, .rejected:
-            return CGSize(width: 300, height: 180)   // bigger height for remark section
+            return CGSize(width: 300, height: 180)
             
         default:
-            return CGSize(width: 300, height: 180)   // normal height
+            return CGSize(width: 300, height: 180)
         }
     }
 }

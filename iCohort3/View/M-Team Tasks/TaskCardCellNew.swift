@@ -15,9 +15,10 @@ class TaskCardCellNew: UICollectionViewCell {
     @IBOutlet weak var separatorLine: UIView!
     @IBOutlet weak var dateLabel: UILabel!
     
-    // Callback for ellipsis button
+    // Callbacks
     var onEllipsisMenu: ((TaskCardCellNew) -> Void)?
     var onAttachmentTapped: (([UIImage]) -> Void)?
+    var onDeleteTapped: ((TaskCardCellNew) -> Void)?
     
     private var currentAttachments: [UIImage] = []
     
@@ -56,7 +57,7 @@ class TaskCardCellNew: UICollectionViewCell {
 
         remarkDescriptionLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         remarkDescriptionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        remarkDescriptionLabel.numberOfLines = 0 // Allow multiline
+        remarkDescriptionLabel.numberOfLines = 0
         
         // Setup ellipsis button menu
         setupEllipsisButton()
@@ -82,6 +83,7 @@ class TaskCardCellNew: UICollectionViewCell {
         
         onEllipsisMenu = nil
         onAttachmentTapped = nil
+        onDeleteTapped = nil
         currentAttachments = []
         
         // Reset attachment button
@@ -113,7 +115,7 @@ class TaskCardCellNew: UICollectionViewCell {
         
         let deleteAction = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
             guard let self = self else { return }
-            self.showDeleteConfirmation()
+            self.onDeleteTapped?(self)
         }
         
         return UIMenu(title: "", children: [editAction, deleteAction])
@@ -129,39 +131,13 @@ class TaskCardCellNew: UICollectionViewCell {
         }
         
         let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            self?.showDeleteConfirmation()
+            guard let self = self else { return }
+            self.onDeleteTapped?(self)
         }
         
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
         
         alert.addAction(editAction)
-        alert.addAction(deleteAction)
-        alert.addAction(cancelAction)
-        
-        if let viewController = self.window?.rootViewController {
-            viewController.present(alert, animated: true)
-        }
-    }
-    
-    func showDeleteConfirmation() {
-        let alert = UIAlertController(
-            title: "Delete Task",
-            message: "Are you sure you want to delete this task?",
-            preferredStyle: .alert
-        )
-        
-        let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            guard let self = self else { return }
-            // Post notification to delete task
-            NotificationCenter.default.post(
-                name: NSNotification.Name("DeleteTask"),
-                object: nil,
-                userInfo: ["cell": self]
-            )
-        }
-        
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
-        
         alert.addAction(deleteAction)
         alert.addAction(cancelAction)
         
@@ -207,11 +183,7 @@ class TaskCardCellNew: UICollectionViewCell {
         if remark == nil || remarkDesc == nil {
             remarkTitleLabel.isHidden = true
             remarkDescriptionLabel.isHidden = true
-
-            // Reset date position to NORMAL (if you have an existing constraint in storyboard)
-            // Otherwise, you may need to create it
             dateTopConstraint?.isActive = false
-            
             return
         }
 
@@ -231,7 +203,7 @@ class TaskCardCellNew: UICollectionViewCell {
         separatorTopConstraint?.isActive = false
         dateTopConstraint?.isActive = false
 
-        // --- Position remarkTitleLabel below description ---
+        // Position remarkTitleLabel below description
         remarkTitleTopConstraint = remarkTitleLabel.topAnchor.constraint(
             equalTo: descriptionLabel.bottomAnchor,
             constant: 10
@@ -244,7 +216,7 @@ class TaskCardCellNew: UICollectionViewCell {
         )
         remarkTitleLeadingConstraint?.isActive = true
 
-        // --- Position remarkDescriptionLabel next to remarkTitleLabel ---
+        // Position remarkDescriptionLabel next to remarkTitleLabel
         remarkDescLeadingConstraint = remarkDescriptionLabel.leadingAnchor.constraint(
             equalTo: remarkTitleLabel.trailingAnchor,
             constant: 6
@@ -257,27 +229,25 @@ class TaskCardCellNew: UICollectionViewCell {
         )
         remarkDescTrailingConstraint?.isActive = true
 
-        // Keep both aligned on baseline
         remarkDescBaselineConstraint = remarkDescriptionLabel.firstBaselineAnchor.constraint(
             equalTo: remarkTitleLabel.firstBaselineAnchor
         )
         remarkDescBaselineConstraint?.isActive = true
 
-        // --- Separator moves down below remark description ---
+        // Separator moves down below remark description
         separatorTopConstraint = separatorLine.topAnchor.constraint(
             equalTo: remarkDescriptionLabel.bottomAnchor,
             constant: 10
         )
         separatorTopConstraint?.isActive = true
 
-        // --- Date below the separator ---
+        // Date below the separator
         dateTopConstraint = dateLabel.topAnchor.constraint(
             equalTo: separatorLine.bottomAnchor,
             constant: 10
         )
         dateTopConstraint?.isActive = true
         
-        // Force layout update
         self.layoutIfNeeded()
     }
 }

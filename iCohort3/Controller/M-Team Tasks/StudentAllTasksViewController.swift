@@ -38,14 +38,10 @@ class StudentAllTasksViewController: UIViewController {
     func presentNewTaskViewController(isEditMode: Bool, task: TaskModel? = nil, category: TaskCategory? = nil, taskIndex: Int? = nil) {
         let newTaskVC = NewTaskViewController(nibName: "NewTaskViewController", bundle: nil)
         
-        // Set delegate
         newTaskVC.delegate = self
-        
-        // Pass team member data
         newTaskVC.teamMemberImages = teamMemberImages
         newTaskVC.teamMemberNames = teamMemberNames
         
-        // Configure for edit mode if needed
         if isEditMode, let task = task, let category = category, let taskIndex = taskIndex {
             newTaskVC.isEditMode = true
             newTaskVC.existingTitle = task.title
@@ -54,8 +50,6 @@ class StudentAllTasksViewController: UIViewController {
             newTaskVC.selectedMemberName = task.name
             newTaskVC.existingAttachments = task.attachments ?? []
             newTaskVC.editingTaskIndex = taskIndex
-            
-            // Store category for update
             newTaskVC.editingCategory = category
         }
         
@@ -106,26 +100,10 @@ class StudentAllTasksViewController: UIViewController {
         
         if let teamName = teamName {
             teamTitleLabel.text = teamName
-        }
-
-        if let teamName = teamName {
             self.title = teamName
         }
         
-        // Initialize with sample data
         initializeSampleData()
-        
-        // Listen for delete notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleDeleteTask(_:)),
-            name: NSNotification.Name("DeleteTask"),
-            object: nil
-        )
-    }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
     }
     
     func initializeSampleData() {
@@ -154,16 +132,6 @@ class StudentAllTasksViewController: UIViewController {
         ]
     }
     
-    @objc func handleDeleteTask(_ notification: Notification) {
-        guard notification.userInfo?["cell"] is TaskCardCellNew else {
-            return
-        }
-        
-        // Find and remove the task
-        // Note: In a real app, you'd need to track which category the cell belongs to
-        verticalCollectionView.reloadData()
-    }
-    
     func presentAttachmentViewer(attachments: [UIImage]) {
         let viewerVC = AttachmentViewerViewController(attachments: attachments)
         viewerVC.modalPresentationStyle = .fullScreen
@@ -190,31 +158,69 @@ class StudentAllTasksViewController: UIViewController {
         case .rejected: rejectedTasks = tasks
         }
     }
+    
+    // MARK: - Delete Task with Confirmation
+    private func deleteTask(in category: TaskCategory, at index: Int, task: TaskModel) {
+        // Show confirmation alert
+        let alert = UIAlertController(
+            title: "Delete Task",
+            message: "Are you sure you want to delete '\(task.title ?? "this task")'?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self = self else { return }
+            
+            var tasks = self.getTasksArray(for: category)
+            
+            guard index >= 0 && index < tasks.count else {
+                print("Invalid index: \(index) for category: \(category)")
+                return
+            }
+            
+            // Remove task
+            tasks.remove(at: index)
+            self.updateTasksArray(for: category, with: tasks)
+            
+            // Reload collection view with animation
+            UIView.animate(withDuration: 0.3) {
+                self.verticalCollectionView.reloadData()
+            }
+            
+            // Show success message
+            let successAlert = UIAlertController(
+                title: "Task Deleted",
+                message: "Task successfully deleted",
+                preferredStyle: .alert
+            )
+            successAlert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(successAlert, animated: true)
+        })
+        
+        present(alert, animated: true)
+    }
 }
 
 // MARK: - TaskSeeAllDelegate
 extension StudentAllTasksViewController: TaskSeeAllDelegate {
     func didUpdateTask(in category: TaskCategory, at index: Int, with task: TaskModel) {
-        // Update the appropriate array
         var tasks = getTasksArray(for: category)
         if index < tasks.count {
             tasks[index] = task
             updateTasksArray(for: category, with: tasks)
         }
-        
-        // Reload collection view
         verticalCollectionView.reloadData()
     }
     
     func didDeleteTask(in category: TaskCategory, at index: Int) {
-        // Remove from the appropriate array
         var tasks = getTasksArray(for: category)
-        if index < tasks.count {
-            tasks.remove(at: index)
-            updateTasksArray(for: category, with: tasks)
-        }
         
-        // Reload collection view
+        guard index >= 0 && index < tasks.count else { return }
+        
+        tasks.remove(at: index)
+        updateTasksArray(for: category, with: tasks)
+        
         verticalCollectionView.reloadData()
     }
 }
@@ -226,8 +232,9 @@ extension StudentAllTasksViewController: NewTaskDelegate {
         dateFormatter.dateFormat = "dd MMM yyyy"
         let dateString = dateFormatter.string(from: date)
         
+        // FIX: Handle "All Members" - create single task instead of multiple
         let newTask = TaskModel(
-            name: memberName,
+            name: memberName, // Keep "All Members" as the name
             desc: description,
             date: dateString,
             remark: nil,
@@ -239,7 +246,6 @@ extension StudentAllTasksViewController: NewTaskDelegate {
         
         assignedTasks.append(newTask)
         
-        // Show confirmation
         let alert = UIAlertController(
             title: "Task Assigned",
             message: "Task '\(title)' successfully assigned to \(memberName)",
@@ -248,7 +254,6 @@ extension StudentAllTasksViewController: NewTaskDelegate {
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
         
-        // Reload collection view
         verticalCollectionView.reloadData()
     }
     
@@ -257,10 +262,7 @@ extension StudentAllTasksViewController: NewTaskDelegate {
         dateFormatter.dateFormat = "dd MMM yyyy"
         let dateString = dateFormatter.string(from: date)
         
-        // Find which category this task belongs to using the stored category in NewTaskViewController
-        // For now, we'll search through all categories
-        var found = false
-        
+        // Search through all categories to find and update the task
         for category in [TaskCategory.assigned, .review, .completed, .rejected] {
             var tasks = getTasksArray(for: category)
             if index < tasks.count {
@@ -275,12 +277,10 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                     assignedDate: date
                 )
                 updateTasksArray(for: category, with: tasks)
-                found = true
                 break
             }
         }
         
-        // Show confirmation
         let alert = UIAlertController(
             title: "Task Updated",
             message: "Task '\(title)' successfully updated",
@@ -289,7 +289,6 @@ extension StudentAllTasksViewController: NewTaskDelegate {
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
         
-        // Reload collection view
         verticalCollectionView.reloadData()
     }
 }
@@ -319,7 +318,6 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
                 for: indexPath
             ) as! TeamProfileRowCell
 
-            // Use the stored team member data
             cell.configureProfiles(
                 images: teamMemberImages,
                 names: teamMemberNames
@@ -333,7 +331,6 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
                 for: indexPath
             ) as! TaskSectionCell
 
-            // Pass the appropriate tasks based on category
             let tasksForCategory = getTasksArray(for: category)
             
             cell.configureSection(type: category, tasks: tasksForCategory)
@@ -349,7 +346,24 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
                 guard let self = self else { return }
                 self.presentAttachmentViewer(attachments: attachments)
             }
+            
+            // FIXED: Delete callback now properly triggers confirmation
+            cell.onDeleteTask = { [weak self] taskIndex in
+                guard let self = self else { return }
+                
+                let tasks = self.getTasksArray(for: category)
+                
+                // Validate index before accessing
+                guard taskIndex >= 0 && taskIndex < tasks.count else {
+                    print("❌ Delete failed: Invalid index \(taskIndex) for category \(category)")
+                    return
+                }
+                
+                let taskToDelete = tasks[taskIndex]
+                self.deleteTask(in: category, at: taskIndex, task: taskToDelete)
+            }
 
+            // Handle see all button
             cell.seeAllTapped = { [weak self] in
                 guard let self = self else { return }
 
@@ -357,8 +371,6 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
 
                 let seeAllVC = TaskSeeAllViewController(category: category, tasks: tasks)
                 seeAllVC.delegate = self
-                
-                // Pass team member data for editing
                 seeAllVC.teamMemberImages = self.teamMemberImages
                 seeAllVC.teamMemberNames = self.teamMemberNames
                 
