@@ -6,14 +6,18 @@
 //
 
 import UIKit
+import SafariServices
 
-class ProfileViewController: UIViewController {
-    // MARK: - Top Bar
+class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
+                             UINavigationControllerDelegate {
+    // MARK: - Top Back
+    
         @IBOutlet weak var backButton: UIButton!
         @IBOutlet weak var editButton: UIButton!
         
         // MARK: - Avatar
         @IBOutlet weak var avatarImageView: UIImageView!
+    @IBOutlet weak var avatarEditButton: UIButton!
         
         // MARK: - Cards
         @IBOutlet weak var profileCardView: UIView!    // First Name / Last Name
@@ -83,6 +87,8 @@ class ProfileViewController: UIViewController {
            super.viewDidLoad()
            setupUI()
            setupInitialState()
+           avatarEditButton.isHidden = true
+           avatarImageView.image = UIImage(named: "ProfileImageMentor")
        }
 
        override func viewDidLayoutSubviews() {
@@ -90,6 +96,10 @@ class ProfileViewController: UIViewController {
            makeAvatarCircular()
            makeTopButtonsRounded()
            makeSignOutRounded()
+           avatarImageView.layer.cornerRadius = avatarImageView.bounds.width / 2
+                   avatarImageView.layer.masksToBounds = true
+                   avatarEditButton.layer.cornerRadius = avatarEditButton.bounds.height / 2
+                   avatarEditButton.layer.masksToBounds = true
        }
 
        // MARK: - Setup / Styling
@@ -163,6 +173,51 @@ class ProfileViewController: UIViewController {
                dismiss(animated: true, completion: nil)
            }
        }
+    
+    @IBAction func avatarEditButtonTapped(_ sender: UIButton) {
+      
+
+        let sheet = UIAlertController(
+            title: "Change Profile Picture",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            sheet.addAction(UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
+                self?.presentImagePicker(source: .camera)
+            })
+        }
+
+        sheet.addAction(UIAlertAction(title: "Upload from Photos", style: .default) { [weak self] _ in
+            self?.presentImagePicker(source: .photoLibrary)
+        })
+
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        present(sheet, animated: true)
+    }
+    private func presentImagePicker(source: UIImagePickerController.SourceType) {
+            guard UIImagePickerController.isSourceTypeAvailable(source) else { return }
+            let picker = UIImagePickerController()
+            picker.sourceType = source
+            picker.allowsEditing = true
+            picker.delegate = self
+            present(picker, animated: true)
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage
+            if let img = image {
+                avatarImageView.image = img
+            }
+            dismiss(animated: true)
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            dismiss(animated: true)
+        }
 
        @IBAction func signOutButtonTapped(_ sender: UIButton) {
            DispatchQueue.main.async {
@@ -201,7 +256,9 @@ class ProfileViewController: UIViewController {
        }
 
        @IBAction func editButtonTapped(_ sender: UIButton) {
+           
            isEditingProfile.toggle()
+           avatarEditButton.isHidden = !isEditingProfile
 
            if isEditingProfile {
                editButton.setTitle("Save", for: .normal)

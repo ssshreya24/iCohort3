@@ -12,6 +12,7 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="ProfileViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
                 <outlet property="academicCardView" destination="BNp-OA-8Tz" id="7Kf-Gc-2Wd"/>
+                <outlet property="avatarEditButton" destination="bJL-m4-4p2" id="vIj-iK-FUR"/>
                 <outlet property="avatarImageView" destination="OBw-Qn-sHZ" id="aFn-Ug-omc"/>
                 <outlet property="backButton" destination="PrM-lH-aKZ" id="daa-h7-BCw"/>
                 <outlet property="contactNumberField" destination="3mo-nV-YfC" id="JRg-up-fi7"/>
@@ -49,6 +50,17 @@
                                         <constraint firstAttribute="height" constant="90" id="t9T-6v-jxA"/>
                                     </constraints>
                                 </imageView>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="bJL-m4-4p2">
+                                    <rect key="frame" x="169" y="130.66666666666666" width="55" height="34.333333333333343"/>
+                                    <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <state key="normal" title="Button"/>
+                                    <buttonConfiguration key="configuration" style="plain" title="Edit">
+                                        <fontDescription key="titleFontDescription" type="system" weight="semibold" pointSize="17"/>
+                                    </buttonConfiguration>
+                                    <connections>
+                                        <action selector="avatarEditButtonTapped:" destination="-1" eventType="touchUpInside" id="SZe-vc-3gJ"/>
+                                    </connections>
+                                </button>
                                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="uAl-Kc-cPf">
                                     <rect key="frame" x="303" y="25" width="70" height="44"/>
                                     <constraints>
@@ -186,8 +198,8 @@
                                                 <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="C1M-sd-698">
                                                     <rect key="frame" x="0.0" y="0.0" width="353" height="50"/>
                                                     <subviews>
-                                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Department" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" preferredMaxLayoutWidth="82.700000000000003" translatesAutoresizingMaskIntoConstraints="NO" id="ims-YP-vMG">
-                                                            <rect key="frame" x="20" y="14.999999999999998" width="91" height="20.333333333333329"/>
+                                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Designation" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" preferredMaxLayoutWidth="82.700000000000003" translatesAutoresizingMaskIntoConstraints="NO" id="ims-YP-vMG">
+                                                            <rect key="frame" x="20.000000000000007" y="14.999999999999998" width="90.666666666666686" height="20.333333333333329"/>
                                                             <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                                             <nil key="textColor"/>
                                                             <nil key="highlightedColor"/>
@@ -455,6 +467,7 @@
                             <constraints>
                                 <constraint firstItem="bpL-r6-nnU" firstAttribute="trailing" secondItem="f10-UA-hd8" secondAttribute="trailing" id="0Oi-94-fDc"/>
                                 <constraint firstItem="Mfy-Rd-3ai" firstAttribute="centerX" secondItem="R1R-xE-Brr" secondAttribute="centerX" id="1hy-fm-QPz"/>
+                                <constraint firstItem="bJL-m4-4p2" firstAttribute="centerX" secondItem="OBw-Qn-sHZ" secondAttribute="centerX" id="2sB-ex-rLc"/>
                                 <constraint firstItem="BNp-OA-8Tz" firstAttribute="leading" secondItem="f10-UA-hd8" secondAttribute="leading" id="4NY-IL-vgc"/>
                                 <constraint firstItem="f10-UA-hd8" firstAttribute="leading" secondItem="R1R-xE-Brr" secondAttribute="leading" constant="20" symbolic="YES" id="4fy-ck-Vbz"/>
                                 <constraint firstItem="bpL-r6-nnU" firstAttribute="top" secondItem="BNp-OA-8Tz" secondAttribute="bottom" constant="20" id="55l-qS-IBG"/>
@@ -479,6 +492,7 @@
                                 <constraint firstItem="BNp-OA-8Tz" firstAttribute="top" secondItem="6pR-gA-Wf7" secondAttribute="bottom" constant="20" id="feb-4j-jWO"/>
                                 <constraint firstItem="PrM-lH-aKZ" firstAttribute="leading" secondItem="R1R-xE-Brr" secondAttribute="leading" constant="31" id="i9O-nr-mgF"/>
                                 <constraint firstItem="c6c-cE-gwi" firstAttribute="trailing" secondItem="f10-UA-hd8" secondAttribute="trailing" id="j7c-hz-wMY"/>
+                                <constraint firstItem="bJL-m4-4p2" firstAttribute="bottom" secondItem="OBw-Qn-sHZ" secondAttribute="bottom" constant="-4" id="kjv-AG-MSc"/>
                                 <constraint firstItem="NJG-iY-h1D" firstAttribute="leading" secondItem="f10-UA-hd8" secondAttribute="leading" id="kmR-u9-hML"/>
                                 <constraint firstItem="f10-UA-hd8" firstAttribute="top" secondItem="OBw-Qn-sHZ" secondAttribute="bottom" constant="20" id="kme-EW-CLs"/>
                                 <constraint firstItem="BNp-OA-8Tz" firstAttribute="trailing" secondItem="f10-UA-hd8" secondAttribute="trailing" id="kxH-Km-NjP"/>
@@ -517,13 +531,13 @@
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <systemColor name="linkColor">
-            <color red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.0" green="0.47843137254901963" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemPinkColor">
-            <color red="1" green="0.1764705882" blue="0.33333333329999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="1" green="0.17647058823529413" blue="0.33333333333333331" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>
