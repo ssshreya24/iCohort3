@@ -18,6 +18,10 @@ class LoginViewController: UIViewController {
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var emailTextField: UITextField!
     
+    // MARK: - Temporary hardcoded credentials (DELETE LATER)
+    private let TEMP_EMAIL = "abc@srmist.edu.in"
+    private let TEMP_PASSWORD = "abc123"
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
@@ -146,22 +150,35 @@ class LoginViewController: UIViewController {
     @IBAction func signInTapped(_ sender: UIButton) {
         print("Sign In button tapped")
         
-        // Basic validation
+        // Get input
         guard let email = emailTextField.text, !email.isEmpty,
               let password = passwordTextField.text, !password.isEmpty else {
-            print("Email or password cannot be empty")
+            showAlert(title: "Error", message: "Email or password cannot be empty")
             return
         }
         
-        // Example: simulate login success
-        print("Login successful for user:", email)
-        
-        // Optionally store remember-me preference
-        if rememberMeButton.isSelected {
-            print("Remember Me is checked. Saving credentials/state.")
-            UserDefaults.standard.set(true, forKey: "isLoggedIn")
+        // TEMPORARY: Validate against hardcoded credentials
+        if email.lowercased() == TEMP_EMAIL.lowercased() && password == TEMP_PASSWORD {
+            print("✅ Login successful for user:", email)
+            
+            // Optionally store remember-me preference
+            if rememberMeButton.isSelected {
+                print("Remember Me is checked. Saving credentials/state.")
+                UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                UserDefaults.standard.set(email, forKey: "userEmail")
+            }
+            
+            handleLoginSuccess()
+        } else {
+            print("❌ Invalid credentials")
+            showAlert(title: "Login Failed", message: "Invalid email or password. Please check and try again.")
         }
-        
-        handleLoginSuccess()
+    }
+    
+    // MARK: - Helper to show alerts
+    func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }

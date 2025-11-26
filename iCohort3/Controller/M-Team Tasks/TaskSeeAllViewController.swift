@@ -35,7 +35,7 @@ class TaskSeeAllViewController: UIViewController {
 
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
-        transitioningDelegate = self // custom transition
+        transitioningDelegate = self
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -48,18 +48,6 @@ class TaskSeeAllViewController: UIViewController {
         setupBackButton()
         setupTitleLabel()
         setupCollectionView()
-        
-        // Listen for delete notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleDeleteTask(_:)),
-            name: NSNotification.Name("DeleteTask"),
-            object: nil
-        )
-    }
-    
-    deinit {
-        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Setup Back Button
@@ -74,22 +62,17 @@ class TaskSeeAllViewController: UIViewController {
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16)
         ])
 
-        // Make the button circular
         backButton.backgroundColor = .white
         backButton.layer.cornerRadius = 22
         backButton.layer.masksToBounds = true
 
-        // Black chevron
         let chevron = UIImage(
             systemName: "chevron.left",
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
         )?.withTintColor(.black, renderingMode: .alwaysOriginal)
 
         backButton.setImage(chevron, for: .normal)
-
-        // Center image
         backButton.imageView?.contentMode = .scaleAspectFit
-
         backButton.addTarget(self, action: #selector(backButtonPressed), for: .touchUpInside)
     }
 
@@ -144,13 +127,7 @@ class TaskSeeAllViewController: UIViewController {
     }
     
     // MARK: - Handle Delete Task
-    @objc private func handleDeleteTask(_ notification: Notification) {
-        guard let cell = notification.userInfo?["cell"] as? TaskCardCellNew,
-              let indexPath = collectionView.indexPath(for: cell) else {
-            return
-        }
-        
-        // Show confirmation
+    private func handleDeleteTask(at index: Int) {
         let alert = UIAlertController(
             title: "Delete Task",
             message: "Are you sure you want to delete this task?",
@@ -162,13 +139,13 @@ class TaskSeeAllViewController: UIViewController {
             guard let self = self else { return }
             
             // Remove from local array
-            self.tasks.remove(at: indexPath.row)
+            self.tasks.remove(at: index)
             
             // Notify delegate
-            self.delegate?.didDeleteTask(in: self.category, at: indexPath.row)
+            self.delegate?.didDeleteTask(in: self.category, at: index)
             
             // Update UI
-            self.collectionView.deleteItems(at: [indexPath])
+            self.collectionView.deleteItems(at: [IndexPath(row: index, section: 0)])
         })
         
         present(alert, animated: true)
@@ -214,7 +191,7 @@ class TaskSeeAllViewController: UIViewController {
 // MARK: - NewTaskDelegate
 extension TaskSeeAllViewController: NewTaskDelegate {
     func didAssignTask(to memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
-        // Not used in edit mode, but required by protocol
+        // Not used in edit mode
     }
     
     func didUpdateTask(at index: Int, memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
@@ -236,10 +213,10 @@ extension TaskSeeAllViewController: NewTaskDelegate {
         
         tasks[index] = updatedTask
         
-        // Notify delegate to update parent view controller
+        // Notify delegate
         delegate?.didUpdateTask(in: category, at: index, with: updatedTask)
         
-        // Reload the specific cell
+        // Reload cell
         collectionView.reloadItems(at: [IndexPath(row: index, section: 0)])
         
         // Show confirmation
@@ -287,6 +264,12 @@ extension TaskSeeAllViewController: UICollectionViewDelegate, UICollectionViewDa
             self.presentAttachmentViewer(attachments: attachments)
         }
         
+        // Handle delete action
+        cell.onDeleteTapped = { [weak self] _ in
+            guard let self = self else { return }
+            self.handleDeleteTask(at: indexPath.row)
+        }
+        
         return cell
     }
 
@@ -296,7 +279,6 @@ extension TaskSeeAllViewController: UICollectionViewDelegate, UICollectionViewDa
         
         let task = tasks[indexPath.row]
         
-        // Adjust height based on whether task has remarks
         var height: CGFloat = 170
         if task.remark != nil && task.remarkDesc != nil {
             height = 200
@@ -329,7 +311,6 @@ class SlideInFromRightAnimator: NSObject, UIViewControllerAnimatedTransitioning 
         let container = transitionContext.containerView
         container.addSubview(toView)
 
-        // Start off-screen to the right
         toView.frame = container.bounds.offsetBy(dx: container.bounds.width, dy: 0)
 
         UIView.animate(withDuration: 0.35, animations: {
@@ -349,11 +330,8 @@ class SlideOutToRightAnimator: NSObject, UIViewControllerAnimatedTransitioning {
               let toView = transitionContext.view(forKey: .to) else { return }
 
         let container = transitionContext.containerView
-
-        // Add the destination view behind the current view
         container.insertSubview(toView, belowSubview: fromView)
 
-        // Final position: pushed to the right
         let finalFrame = fromView.frame.offsetBy(dx: container.bounds.width, dy: 0)
 
         UIView.animate(withDuration: transitionDuration(using: transitionContext), animations: {
@@ -363,5 +341,3 @@ class SlideOutToRightAnimator: NSObject, UIViewControllerAnimatedTransitioning {
         })
     }
 }
-
-

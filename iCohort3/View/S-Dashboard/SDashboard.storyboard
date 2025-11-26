@@ -110,13 +110,13 @@
                                                                             <nil key="highlightedColor"/>
                                                                         </label>
                                                                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Labelp" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="rob-8h-Cd2">
-                                                                            <rect key="frame" x="16" y="56" width="89" height="26"/>
+                                                                            <rect key="frame" x="8" y="56" width="97" height="26"/>
                                                                             <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="16"/>
                                                                             <nil key="textColor"/>
                                                                             <nil key="highlightedColor"/>
                                                                         </label>
                                                                         <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Tce-AA-7ky">
-                                                                            <rect key="frame" x="109" y="50" width="50" height="34"/>
+                                                                            <rect key="frame" x="109" y="50" width="50" height="38"/>
                                                                             <color key="tintColor" systemColor="systemRedColor"/>
                                                                             <state key="normal" title="Button"/>
                                                                             <buttonConfiguration key="configuration" style="plain" image="minus.circle.fill" catalog="system"/>
@@ -142,9 +142,11 @@
                                                                         <constraint firstItem="xkN-sf-Jpt" firstAttribute="top" secondItem="dB2-4x-T18" secondAttribute="top" constant="8" id="ID7-WG-b9O"/>
                                                                         <constraint firstAttribute="trailing" secondItem="rob-8h-Cd2" secondAttribute="trailing" constant="54" id="RL6-XG-Yn3"/>
                                                                         <constraint firstItem="xkN-sf-Jpt" firstAttribute="leading" secondItem="dB2-4x-T18" secondAttribute="leading" constant="8" id="RhA-No-jEI"/>
-                                                                        <constraint firstItem="rob-8h-Cd2" firstAttribute="leading" secondItem="xkN-sf-Jpt" secondAttribute="leading" constant="8" id="mQg-7B-CgZ"/>
+                                                                        <constraint firstAttribute="trailing" secondItem="Tce-AA-7ky" secondAttribute="trailing" id="djk-AZ-r8k"/>
+                                                                        <constraint firstItem="rob-8h-Cd2" firstAttribute="leading" secondItem="xkN-sf-Jpt" secondAttribute="leading" id="mQg-7B-CgZ"/>
                                                                         <constraint firstAttribute="trailing" secondItem="Tce-AA-7ky" secondAttribute="trailing" id="mon-Sa-hlt"/>
                                                                         <constraint firstItem="XR7-yL-Eip" firstAttribute="top" secondItem="dB2-4x-T18" secondAttribute="top" constant="4" id="n7H-55-8aN"/>
+                                                                        <constraint firstItem="Tce-AA-7ky" firstAttribute="centerY" secondItem="rob-8h-Cd2" secondAttribute="centerY" id="oWa-Dg-fKm"/>
                                                                         <constraint firstItem="Tce-AA-7ky" firstAttribute="top" secondItem="XR7-yL-Eip" secondAttribute="bottom" constant="16" id="yO0-LR-XEE"/>
                                                                     </constraints>
                                                                 </view>
@@ -175,22 +177,13 @@
                                                         <nil key="textColor"/>
                                                         <nil key="highlightedColor"/>
                                                     </label>
-                                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="bk8-gu-8Jy">
-                                                        <rect key="frame" x="268.66666666666669" y="3.3333333333333712" width="84.333333333333314" height="33.333333333333336"/>
-                                                        <state key="normal" title="Button"/>
-                                                        <buttonConfiguration key="configuration" style="plain" title="View All">
-                                                            <fontDescription key="titleFontDescription" type="system" weight="semibold" pointSize="16"/>
-                                                        </buttonConfiguration>
-                                                    </button>
                                                 </subviews>
                                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                                 <constraints>
                                                     <constraint firstAttribute="bottom" secondItem="Jvf-ix-ZXe" secondAttribute="bottom" constant="8" id="8it-Az-9aG"/>
-                                                    <constraint firstItem="bk8-gu-8Jy" firstAttribute="centerY" secondItem="Jvf-ix-ZXe" secondAttribute="centerY" id="CHC-ij-N1m"/>
                                                     <constraint firstAttribute="height" constant="40" id="IyF-Qe-80I"/>
                                                     <constraint firstItem="Jvf-ix-ZXe" firstAttribute="top" secondItem="FFp-f5-vgo" secondAttribute="top" constant="8" id="QcD-e8-vY7"/>
                                                     <constraint firstItem="Jvf-ix-ZXe" firstAttribute="centerY" secondItem="FFp-f5-vgo" secondAttribute="centerY" id="dXu-yO-NdL"/>
-                                                    <constraint firstAttribute="trailing" secondItem="bk8-gu-8Jy" secondAttribute="trailing" constant="8" id="ffW-tl-RIq"/>
                                                     <constraint firstItem="Jvf-ix-ZXe" firstAttribute="leading" secondItem="FFp-f5-vgo" secondAttribute="leading" constant="20" id="kPn-il-5qh"/>
                                                 </constraints>
                                             </view>
@@ -285,7 +278,7 @@
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemRedColor">
-            <color red="1" green="0.2196078431372549" blue="0.23529411764705882" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="1" green="0.23137254900000001" blue="0.18823529410000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>
