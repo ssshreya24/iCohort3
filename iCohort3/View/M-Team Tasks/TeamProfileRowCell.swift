@@ -16,7 +16,7 @@ class TeamProfileRowCell: UICollectionViewCell {
 
 
         [img1, img2, img3].forEach { img in
-            img?.layer.cornerRadius = 30
+            img?.layer.cornerRadius = 35
             img?.clipsToBounds = true
             img?.contentMode = .scaleAspectFill
         }
