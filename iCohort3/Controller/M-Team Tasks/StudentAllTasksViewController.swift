@@ -15,9 +15,9 @@ class StudentAllTasksViewController: UIViewController {
     
     // Store team member data
     let teamMemberImages: [UIImage] = [
-        UIImage(named: "Student") ?? UIImage(),
-        UIImage(named: "Student") ?? UIImage(),
-        UIImage(named: "Student") ?? UIImage()
+        UIImage(named: "Shreya") ?? UIImage(),
+        UIImage(named: "Shruti") ?? UIImage(),
+        UIImage(named: "Lakshi") ?? UIImage()
     ]
     let teamMemberNames: [String] = ["Shruti", "Ananya", "Rahul"]
     
