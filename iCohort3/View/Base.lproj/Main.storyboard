@@ -73,7 +73,7 @@
                                                 </constraints>
                                             </imageView>
                                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="gAh-HG-bSE">
-                                                <rect key="frame" x="53" y="0.0" width="24" height="130"/>
+                                                <rect key="frame" x="0.0" y="0.0" width="130" height="130"/>
                                                 <state key="normal" title="Button"/>
                                                 <buttonConfiguration key="configuration" style="plain"/>
                                                 <connections>
@@ -94,7 +94,7 @@
                                             <constraint firstItem="JwY-bs-d7t" firstAttribute="top" secondItem="Jae-5t-BYm" secondAttribute="top" constant="10" id="5l9-nY-atX"/>
                                             <constraint firstItem="KUv-Wy-zk1" firstAttribute="centerX" secondItem="Jae-5t-BYm" secondAttribute="centerX" id="6Jo-LK-yeW"/>
                                             <constraint firstItem="gAh-HG-bSE" firstAttribute="top" secondItem="Jae-5t-BYm" secondAttribute="top" id="7xY-bX-7AL"/>
-                                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="gAh-HG-bSE" secondAttribute="trailing" id="Gs6-iD-xtn"/>
+                                            <constraint firstAttribute="trailing" secondItem="gAh-HG-bSE" secondAttribute="trailing" id="Gs6-iD-xtn"/>
                                             <constraint firstItem="JwY-bs-d7t" firstAttribute="centerX" secondItem="Jae-5t-BYm" secondAttribute="centerX" id="bQ9-3g-hue"/>
                                             <constraint firstItem="KUv-Wy-zk1" firstAttribute="centerY" secondItem="gAh-HG-bSE" secondAttribute="centerY" constant="33.666666666666671" id="fze-ld-el7"/>
                                             <constraint firstItem="KUv-Wy-zk1" firstAttribute="centerX" secondItem="gAh-HG-bSE" secondAttribute="centerX" id="p8d-kr-bB9"/>
