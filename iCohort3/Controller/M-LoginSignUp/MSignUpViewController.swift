@@ -26,18 +26,31 @@ class MSignUpViewController: UIViewController {
     @IBOutlet weak var departmentView: UIView!
     @IBOutlet weak var passwordField: UITextField!
     @IBOutlet weak var confirmField: UITextField!
+    @IBOutlet weak var instituteView: UIView!
+    @IBOutlet weak var instituteField: UITextField!
+    @IBOutlet weak var instituteButton: UIButton!
+
 
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupBackButton()
         roundViews()
+        setupInstituteDropdownTextField()
         
         // Do any additional setup after loading the view.
     }
+    private let institutes = [
+        "SRM Institute of Science and Technology",
+        "Maharashtra Institute of Technology World Peace University (MIT-WPU)",
+        "Galgotias University",
+        "Graphic Era University, Dehradun",
+        "Chandigarh University",
+    ]
+
     
     func roundViews() {
-        let containers = [fullNameContainer, emailContainer, designationView,employeeView,departmentView, passwordContainer, confirmContainer]
+        let containers = [fullNameContainer, emailContainer, designationView,employeeView,departmentView, passwordContainer, confirmContainer, instituteView]
         
         for view in containers {
             view?.layer.cornerRadius = 20
@@ -59,6 +72,43 @@ class MSignUpViewController: UIViewController {
         signUpButton.layer.masksToBounds = false
     }
     
+    private func setupInstituteDropdownTextField() {
+        instituteField.placeholder = "Select Institute"
+        instituteField.textColor = .label
+
+        // Disable typing & keyboard
+        instituteField.tintColor = .clear
+        instituteField.delegate = self
+
+        // Container view for proper sizing & centering
+        let rightContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
+
+        // Chevron button
+        let chevronButton = UIButton(type: .system)
+
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        let chevronImage = UIImage(systemName: "chevron.down", withConfiguration: config)
+
+        chevronButton.setImage(chevronImage, for: .normal)
+        chevronButton.tintColor = .gray
+        chevronButton.frame = CGRect(x: 10, y: 10, width: 24, height: 24)
+
+        // Dropdown menu
+        let actions = institutes.map { institute in
+            UIAction(title: institute) { _ in
+                self.instituteField.text = institute
+            }
+        }
+
+        chevronButton.menu = UIMenu(children: actions)
+        chevronButton.showsMenuAsPrimaryAction = true
+
+        rightContainer.addSubview(chevronButton)
+
+        instituteField.rightView = rightContainer
+        instituteField.rightViewMode = .always
+    }
+
     private func setupBackButton() {
         let backButton = UIButton(type: .system)
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
@@ -94,4 +144,15 @@ class MSignUpViewController: UIViewController {
         navigationController?.popViewController(animated: false)
     }
 
+}
+extension MSignUpViewController: UITextFieldDelegate {
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if textField == instituteField { return false }
+        return true
+    }
+
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+        if textField == instituteField { return false } // prevents keyboard
+        return true
+    }
 }

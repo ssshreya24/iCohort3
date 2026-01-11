@@ -4,7 +4,12 @@
 //
 
 import UIKit
-internal import UniformTypeIdentifiers
+internal import UniformTypeIdentifiers//
+//  TaskDetailViewController.swift
+//  iCohort3
+//
+
+
 
 class TaskDetailViewController: UIViewController {
 
@@ -22,22 +27,43 @@ class TaskDetailViewController: UIViewController {
     @IBOutlet weak var assigneeImageView: UIImageView!
     @IBOutlet weak var assigneeNameLabel: UILabel!
 
+    // ✅ NEW: Assigned By (mentor) label outlet (connect this to the right-side label in "Assigned By")
+    @IBOutlet weak var assignedByNameLabel: UILabel!
+
     // MARK: - Attachment Card
     @IBOutlet weak var attachmentContainerView: UIView!
     @IBOutlet weak var attachmentIconButton: UIButton!
     @IBOutlet weak var attachmentsStackView: UIStackView!
+
+    // ✅ NEW: Submit To dropdown button outlet (connect this to your "Submit To" button)
+    @IBOutlet weak var submitToButton: UIButton!
+    @IBOutlet weak var assignedByContainerView: UIView!
+    @IBOutlet weak var submitToContainerView: UIView!
+
 
     // MARK: - Submit Button
     @IBOutlet weak var submitButton: UIButton!
 
     // MARK: - Task Model
     var task: DashboardTask?
-    
+
     // MARK: - Height Constraint for dynamic sizing
     @IBOutlet weak var attachmentContainerHeightConstraint: NSLayoutConstraint!
-    
+
     // MARK: - Submission State
     private var isSubmitted = false
+
+    // ✅ NEW: Mentor list + selected mentor
+    private let mentorOptions: [String] = [
+        "Dr. Arshad Shaikh",
+        "Dr. Paul T Sheeba",
+        "Dr. A. Murugan",
+        "Dr. Shashidhara H S",
+        "Dr. R Srinivasan"
+    ]
+
+    private let assignedMentorDisplayName = "Dr. Arshad Shaikh (mentor)"
+    private var selectedSubmitTo: String = "Dr. Arshad Shaikh (mentor)"
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -45,41 +71,40 @@ class TaskDetailViewController: UIViewController {
         setupUI()
         setupBackButton()
 
+        // ✅ NEW: set Assigned By + Submit To default mentor + dropdown
+        setupMentorUI()
+
         // Apply the task only AFTER outlets exist
         if let t = task {
             configure(with: t)
         }
     }
- 
 
-    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Hide the default navigation back button
         navigationController?.navigationBar.isHidden = true
     }
-    
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        // Show navigation bar when leaving
         navigationController?.navigationBar.isHidden = false
     }
 
     private func setupBackButton() {
         let backButton = UIButton(type: .system)
         backButton.translatesAutoresizingMaskIntoConstraints = false
-        
+
         backButton.backgroundColor = UIColor(white: 1.0, alpha: 0.8)
         backButton.layer.cornerRadius = 22
-        
+
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
         let arrowImage = UIImage(systemName: "chevron.left", withConfiguration: config)
         backButton.setImage(arrowImage, for: .normal)
         backButton.tintColor = .black
-        
+
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         view.addSubview(backButton)
-        
+
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -91,6 +116,37 @@ class TaskDetailViewController: UIViewController {
     @objc private func backButtonTapped() {
         self.dismiss(animated: true, completion: nil)
     }
+
+    // ✅ NEW: Mentor UI setup (Assigned By label + Submit To dropdown button)
+    private func setupMentorUI() {
+        // Assigned By
+        assignedByNameLabel.text = assignedMentorDisplayName
+        assignedByNameLabel.textColor = .darkGray
+        assignedByNameLabel.font = UIFont.systemFont(ofSize: 16)
+
+        // Submit To default
+        selectedSubmitTo = assignedMentorDisplayName
+        submitToButton.setTitle(selectedSubmitTo, for: .normal)
+        submitToButton.setTitleColor(.darkGray, for: .normal)
+        submitToButton.titleLabel?.font = UIFont.systemFont(ofSize: 16)
+
+        // Make it look like a dropdown
+        submitToButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
+        submitToButton.semanticContentAttribute = .forceRightToLeft
+        submitToButton.contentHorizontalAlignment = .trailing
+
+        // Dropdown menu
+        let actions = mentorOptions.map { name in
+            UIAction(title: name) { _ in
+                self.selectedSubmitTo = name
+                self.submitToButton.setTitle(name, for: .normal)
+            }
+        }
+
+        submitToButton.menu = UIMenu(children: actions)
+        submitToButton.showsMenuAsPrimaryAction = true
+    }
+
     // MARK: - UI SETUP
     private func setupUI() {
 
@@ -99,8 +155,10 @@ class TaskDetailViewController: UIViewController {
         // Style all card containers
         let cards = [
             dueDateContainerView,
-            assignedToContainerView,
-            attachmentContainerView
+                assignedToContainerView,
+                attachmentContainerView,
+                assignedByContainerView,
+                submitToContainerView
         ]
 
         cards.forEach { card in
@@ -164,26 +222,23 @@ class TaskDetailViewController: UIViewController {
         for file in task.attachmentNames {
             addAttachmentLabel(file)
         }
-        
+
         // Update container height
         updateAttachmentContainerHeight()
     }
 
     // MARK: - Helper: Add attachments dynamically
     private func addAttachmentLabel(_ name: String) {
-        // Create container for each attachment
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
         containerView.backgroundColor = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
         containerView.layer.cornerRadius = 12
-        
-        // File icon
+
         let iconImageView = UIImageView()
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
         iconImageView.contentMode = .scaleAspectFit
         iconImageView.tintColor = .systemBlue
-        
-        // Determine icon based on file extension
+
         let fileExtension = (name as NSString).pathExtension.lowercased()
         let iconName: String
         switch fileExtension {
@@ -197,58 +252,50 @@ class TaskDetailViewController: UIViewController {
             iconName = "doc.fill"
         }
         iconImageView.image = UIImage(systemName: iconName)
-        
-        // File name label
+
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.text = name
         lbl.font = UIFont.systemFont(ofSize: 16)
         lbl.textColor = .darkGray
         lbl.numberOfLines = 1
-        
-        // Delete button (only show if not submitted)
+
         let deleteButton = UIButton(type: .system)
         deleteButton.translatesAutoresizingMaskIntoConstraints = false
         deleteButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
         deleteButton.tintColor = .systemRed
         deleteButton.isHidden = isSubmitted
         deleteButton.addTarget(self, action: #selector(deleteAttachment(_:)), for: .touchUpInside)
-        
-        // Add subviews
+
         containerView.addSubview(iconImageView)
         containerView.addSubview(lbl)
         containerView.addSubview(deleteButton)
-        
-        // Constraints
+
         NSLayoutConstraint.activate([
             containerView.heightAnchor.constraint(equalToConstant: 50),
-            
+
             iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
             iconImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             iconImageView.widthAnchor.constraint(equalToConstant: 28),
             iconImageView.heightAnchor.constraint(equalToConstant: 28),
-            
+
             lbl.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 16),
             lbl.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
             lbl.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            
+
             deleteButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
             deleteButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             deleteButton.widthAnchor.constraint(equalToConstant: 24),
             deleteButton.heightAnchor.constraint(equalToConstant: 24)
         ])
-        
+
         attachmentsStackView.addArrangedSubview(containerView)
-        
-        // Update the container height after adding
         updateAttachmentContainerHeight()
     }
-    
-    // MARK: - Delete Attachment
+
     @objc private func deleteAttachment(_ sender: UIButton) {
         guard let containerView = sender.superview else { return }
-        
-        // Animate removal
+
         UIView.animate(withDuration: 0.3, animations: {
             containerView.alpha = 0
         }) { _ in
@@ -256,37 +303,30 @@ class TaskDetailViewController: UIViewController {
             self.updateAttachmentContainerHeight()
         }
     }
-    
-    // MARK: - Update Attachment Container Height
+
     private func updateAttachmentContainerHeight() {
-        // Force layout update
         attachmentsStackView.layoutIfNeeded()
-        
-        // Calculate required height based on number of attachments
         let numberOfAttachments = attachmentsStackView.arrangedSubviews.count
-        
+
         if numberOfAttachments == 0 {
-            // No attachments - use minimum height (title + button area)
             attachmentContainerHeightConstraint.constant = 50
         } else {
-            // Calculate height: base height + (attachment height * count) + spacing
-            // Base height: 70 (title + button padding)
-            // Each attachment: 50 (item height) + 8 (spacing)
             let baseHeight: CGFloat = 70
             let attachmentHeight: CGFloat = 50
             let spacing: CGFloat = 8
-            
-            let totalAttachmentsHeight = (attachmentHeight * CGFloat(numberOfAttachments)) + (spacing * CGFloat(numberOfAttachments - 1))
-            attachmentContainerHeightConstraint.constant = baseHeight + totalAttachmentsHeight + 20 // Extra padding
+
+            let totalAttachmentsHeight =
+                (attachmentHeight * CGFloat(numberOfAttachments)) +
+                (spacing * CGFloat(numberOfAttachments - 1))
+
+            attachmentContainerHeightConstraint.constant = baseHeight + totalAttachmentsHeight + 20
         }
-        
-        // Animate the height change
+
         UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
             self.view.layoutIfNeeded()
         }
     }
 
-    // MARK: - Placeholder Circle Image
     private func placeholderImage(for name: String) -> UIImage {
         let size = CGSize(width: 40, height: 40)
         UIGraphicsBeginImageContextWithOptions(size, false, 0)
@@ -318,15 +358,13 @@ class TaskDetailViewController: UIViewController {
 
     // MARK: - Actions
     @IBAction func attachmentButtonTapped(_ sender: UIButton) {
-        // Don't allow adding attachments if already submitted
         guard !isSubmitted else {
             showAlert(title: "Already Submitted", message: "You cannot add attachments after submission. Please use 'Redo Submission' to modify.")
             return
         }
-        
+
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
-        // Camera action with icon
         let cameraAction = UIAlertAction(title: "Camera", style: .default, handler: { _ in
             self.openCamera()
         })
@@ -335,7 +373,6 @@ class TaskDetailViewController: UIViewController {
         }
         alert.addAction(cameraAction)
 
-        // Gallery action with icon
         let galleryAction = UIAlertAction(title: "Photo Library", style: .default, handler: { _ in
             self.openPhotoLibrary()
         })
@@ -344,7 +381,6 @@ class TaskDetailViewController: UIViewController {
         }
         alert.addAction(galleryAction)
 
-        // Documents action with icon
         let documentsAction = UIAlertAction(title: "Documents", style: .default, handler: { _ in
             self.openDocumentPicker()
         })
@@ -353,10 +389,8 @@ class TaskDetailViewController: UIViewController {
         }
         alert.addAction(documentsAction)
 
-        // Cancel action
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
-        // For iPad support
         if let popover = alert.popoverPresentationController {
             popover.sourceView = sender
             popover.sourceRect = sender.bounds
@@ -364,8 +398,7 @@ class TaskDetailViewController: UIViewController {
 
         present(alert, animated: true)
     }
-    
-    // MARK: - Open Camera
+
     private func openCamera() {
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
             let picker = UIImagePickerController()
@@ -377,8 +410,7 @@ class TaskDetailViewController: UIViewController {
             showAlert(title: "Camera Not Available", message: "Camera is not available on this device.")
         }
     }
-    
-    // MARK: - Open Photo Library
+
     private func openPhotoLibrary() {
         if UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
             let picker = UIImagePickerController()
@@ -390,8 +422,7 @@ class TaskDetailViewController: UIViewController {
             showAlert(title: "Photo Library Not Available", message: "Photo library is not available on this device.")
         }
     }
-    
-    // MARK: - Open Document Picker
+
     private func openDocumentPicker() {
         let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [.pdf, .text, .data])
         documentPicker.delegate = self
@@ -401,38 +432,32 @@ class TaskDetailViewController: UIViewController {
 
     @IBAction func submitButtonTapped(_ sender: UIButton) {
         if isSubmitted {
-            // Redo submission
             let alert = UIAlertController(
                 title: "Redo Submission",
                 message: "Are you sure you want to redo your submission? This will allow you to modify and resubmit.",
                 preferredStyle: .alert
             )
-            
+
             alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
             alert.addAction(UIAlertAction(title: "Redo", style: .destructive) { _ in
                 self.redoSubmission()
             })
-            
+
             present(alert, animated: true)
         } else {
-            // First time submission
             submitTask()
         }
     }
-    
-    // MARK: - Submit Task
+
     private func submitTask() {
         isSubmitted = true
-        
-        // Update button appearance
+
         submitButton.setTitle("Redo Submission", for: .normal)
         submitButton.backgroundColor = .systemOrange
-        
-        // Disable attachment button
+
         attachmentIconButton.isEnabled = false
         attachmentIconButton.alpha = 0.5
-        
-        // Hide delete buttons on all attachments
+
         attachmentsStackView.arrangedSubviews.forEach { containerView in
             containerView.subviews.forEach { subview in
                 if let deleteButton = subview as? UIButton,
@@ -445,24 +470,19 @@ class TaskDetailViewController: UIViewController {
                 }
             }
         }
-        
-        // Show success message
+
         showAlert(title: "Success", message: "Your task has been submitted for review!")
     }
-    
-    // MARK: - Redo Submission
+
     private func redoSubmission() {
         isSubmitted = false
-        
-        // Update button appearance
+
         submitButton.setTitle("Submit for review", for: .normal)
         submitButton.backgroundColor = .systemBlue
-        
-        // Enable attachment button
+
         attachmentIconButton.isEnabled = true
         attachmentIconButton.alpha = 1.0
-        
-        // Show delete buttons on all attachments
+
         attachmentsStackView.arrangedSubviews.forEach { containerView in
             containerView.subviews.forEach { subview in
                 if let deleteButton = subview as? UIButton,
@@ -474,11 +494,10 @@ class TaskDetailViewController: UIViewController {
                 }
             }
         }
-        
+
         showAlert(title: "Ready to Edit", message: "You can now modify your attachments and resubmit.")
     }
-    
-    // MARK: - Helper: Show Alert
+
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -486,47 +505,76 @@ class TaskDetailViewController: UIViewController {
     }
 }
 
-// MARK: - UIImagePickerControllerDelegate & UINavigationControllerDelegate
 extension TaskDetailViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-    
+
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         picker.dismiss(animated: true)
-        
-        // Get the image
+
         if info[.originalImage] is UIImage {
-            // Generate filename based on source
             let fileName: String
             if picker.sourceType == .camera {
                 fileName = "Camera_\(Date().timeIntervalSince1970).jpeg"
             } else {
                 fileName = "Photo_\(Date().timeIntervalSince1970).jpeg"
             }
-            
-            // Add the attachment
             addAttachmentLabel(fileName)
         }
     }
-    
+
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
     }
 }
 
-// MARK: - UIDocumentPickerDelegate
 extension TaskDetailViewController: UIDocumentPickerDelegate {
-    
+
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         guard let url = urls.first else { return }
-        
-        // Get the filename
         let fileName = url.lastPathComponent
-        
-        // Add the attachment
         addAttachmentLabel(fileName)
     }
-    
+
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         controller.dismiss(animated: true)
     }
 }
 
+#if DEBUG
+import SwiftUI
+
+struct TaskDetailViewControllerPreview: UIViewControllerRepresentable {
+
+    func makeUIViewController(context: Context) -> TaskDetailViewController {
+        // If using Storyboard
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        let vc = storyboard.instantiateViewController(
+            withIdentifier: "TaskDetailViewController"
+        ) as! TaskDetailViewController
+
+        // Mock data for preview
+        vc.task = DashboardTask(
+            title: "Submit Project Documentation",
+            dueDate: "25 Jan 2026",
+            assigneeName: "Shreya Singh",
+            assigneeImage: nil,
+            attachmentNames: [
+                "Design_Doc.pdf",
+                "Wireframe.png"
+            ]
+        )
+
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: TaskDetailViewController, context: Context) { }
+}
+
+@available(iOS 13.0, *)
+struct TaskDetailViewController_PreviewProvider: PreviewProvider {
+    static var previews: some View {
+        TaskDetailViewControllerPreview()
+            .previewDevice("iPhone 14 Pro")
+            .ignoresSafeArea()
+    }
+}
+#endif
