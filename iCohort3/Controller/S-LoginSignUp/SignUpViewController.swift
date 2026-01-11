@@ -67,7 +67,7 @@ class SignUpViewController: UIViewController {
         
         backButton.tintColor = UIColor.black
         backButton.backgroundColor = UIColor.white
-        backButton.layer.cornerRadius = 20
+        backButton.layer.cornerRadius = 22
         backButton.layer.masksToBounds = true
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
         view.addSubview(backButton)
