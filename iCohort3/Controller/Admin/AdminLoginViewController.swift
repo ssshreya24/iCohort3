@@ -83,30 +83,68 @@ class AdminLoginViewController: UIViewController,
         toolbar.items = [space, doneButton]
         universityTextField.inputAccessoryView = toolbar
     }
+    
+    // MARK: - Navigation
+    private func navigateToSignUp() {
+        // Check if AdminSignUpViewController is XIB-based or Storyboard-based
+        
+        // For XIB-based (most likely based on your setup)
+        let signUpVC = AdminSignUpViewController(nibName: "AdminSignUpViewController", bundle: nil)
+        navigationController?.pushViewController(signUpVC, animated: true)
+        
+        // For Storyboard-based (uncomment if using storyboard)
+        // let sb = UIStoryboard(name: "Main", bundle: nil)
+        // guard let signUpVC = sb.instantiateViewController(withIdentifier: "AdminSignUpVC") as? AdminSignUpViewController else {
+        //     print("ERROR: Couldn't instantiate AdminSignUpViewController")
+        //     return
+        // }
+        // navigationController?.pushViewController(signUpVC, animated: true)
+    }
+    
     // MARK: - Picker View DataSource
-        func numberOfComponents(in pickerView: UIPickerView) -> Int {
-            return 1
-        }
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
+    }
 
-        func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-            return universities.count
-        }
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        return universities.count
+    }
 
-        // MARK: - Picker View Delegate
-        func pickerView(_ pickerView: UIPickerView,
-                        titleForRow row: Int,
-                        forComponent component: Int) -> String? {
-            return universities[row]
-        }
+    // MARK: - Picker View Delegate
+    func pickerView(_ pickerView: UIPickerView,
+                    titleForRow row: Int,
+                    forComponent component: Int) -> String? {
+        return universities[row]
+    }
 
-        func pickerView(_ pickerView: UIPickerView,
-                        didSelectRow row: Int,
-                        inComponent component: Int) {
-            universityTextField.text = universities[row]
-        }
+    func pickerView(_ pickerView: UIPickerView,
+                    didSelectRow row: Int,
+                    inComponent component: Int) {
+        universityTextField.text = universities[row]
+    }
 
-        // MARK: - Actions
-        @objc func doneTapped() {
-            universityTextField.resignFirstResponder()
+    // MARK: - Actions
+    @objc func doneTapped() {
+        universityTextField.resignFirstResponder()
+    }
+    
+    
+    @IBAction func registerTapped(_ sender: Any) {
+        print("Register button tapped. Navigating to AdminSignUpViewController.")
+        navigateToSignUp()
+    }
+    
+    @IBAction func backButton(_ sender: Any) {
+        // Navigate back to UserSelectionViewController
+        if let navigationController = navigationController {
+            // Pop back to previous view controller (UserSelectionViewController)
+            navigationController.popViewController(animated: true)
+        } else {
+            // Dismiss if presented modally
+            dismiss(animated: true, completion: nil)
         }
     }
+    
+    
+    
+}

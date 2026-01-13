@@ -67,7 +67,26 @@ class UserSelectionViewController: UIViewController {
         }
     }
     
+    // ✅ Navigate to Admin Login (XIB-based)
+    private func navigateToAdminLogin() {
+        let adminLoginVC = AdminLoginViewController(nibName: "AdminLoginViewController", bundle: nil)
+        
+        if let nav = navigationController {
+            nav.pushViewController(adminLoginVC, animated: true)
+        } else {
+            let nav = UINavigationController(rootViewController: adminLoginVC)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
+    }
+    
     // MARK: - Actions
+    
+    @IBAction func adminTapped(_ sender: Any) {
+        print("Admin button selected. Proceeding to admin login.")
+        navigateToAdminLogin()
+    }
+    
     
     @IBAction func studentCardTapped(_ sender: UIButton) {
         print("Student card selected. Proceeding to student login.")

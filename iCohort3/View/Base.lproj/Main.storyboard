@@ -3,6 +3,7 @@
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <capability name="Image references" minToolsVersion="12.0"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
@@ -109,18 +110,36 @@
                                     <constraint firstAttribute="height" constant="130" id="Ubo-BC-cq5"/>
                                 </constraints>
                             </stackView>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Uau-sm-U1t">
+                                <rect key="frame" x="342.66666666666669" y="75" width="34.333333333333314" height="50"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="50" id="9kf-wb-WE1"/>
+                                </constraints>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="plain" cornerStyle="capsule">
+                                    <imageReference key="image" image="person.fill" catalog="system" symbolScale="large"/>
+                                    <preferredSymbolConfiguration key="preferredSymbolConfigurationForImage" scale="large" weight="bold"/>
+                                    <color key="baseForegroundColor" systemColor="labelColor"/>
+                                </buttonConfiguration>
+                                <connections>
+                                    <action selector="adminTapped:" destination="1zl-02-hFV" eventType="touchUpInside" id="E8i-0b-whN"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="M9O-2G-LNp"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
                             <constraint firstItem="PhX-V3-QQv" firstAttribute="leading" secondItem="27R-kD-tN1" secondAttribute="leading" id="0V8-V3-VZL"/>
                             <constraint firstItem="W1K-pG-YH5" firstAttribute="centerX" secondItem="PhX-V3-QQv" secondAttribute="centerX" id="0gS-NF-ePg"/>
+                            <constraint firstAttribute="trailing" secondItem="Uau-sm-U1t" secondAttribute="trailing" constant="16" id="1bo-bt-imh"/>
                             <constraint firstItem="PhX-V3-QQv" firstAttribute="top" secondItem="27R-kD-tN1" secondAttribute="top" id="2sk-FL-SLd"/>
                             <constraint firstAttribute="trailing" secondItem="PhX-V3-QQv" secondAttribute="trailing" id="2yE-Cp-LuY"/>
                             <constraint firstItem="W1K-pG-YH5" firstAttribute="leading" secondItem="M9O-2G-LNp" secondAttribute="leading" constant="40" id="Joy-lb-8mH"/>
                             <constraint firstItem="M9O-2G-LNp" firstAttribute="bottom" secondItem="W1K-pG-YH5" secondAttribute="bottom" constant="73" id="QlG-xW-G4J"/>
                             <constraint firstAttribute="bottom" secondItem="PhX-V3-QQv" secondAttribute="bottom" id="eTc-ND-cyK"/>
+                            <constraint firstItem="Uau-sm-U1t" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="27R-kD-tN1" secondAttribute="leading" constant="20" symbolic="YES" id="lqV-Ja-3CV"/>
                             <constraint firstItem="M9O-2G-LNp" firstAttribute="trailing" secondItem="W1K-pG-YH5" secondAttribute="trailing" constant="40" id="n71-rg-IBV"/>
+                            <constraint firstItem="Uau-sm-U1t" firstAttribute="top" secondItem="27R-kD-tN1" secondAttribute="top" constant="75" id="uE5-PI-Au1"/>
                         </constraints>
                     </view>
                     <navigationItem key="navigationItem" id="yH2-9f-YT2"/>
@@ -650,6 +669,7 @@
         <image name="envelope" catalog="system" width="128" height="85"/>
         <image name="eye" catalog="system" width="128" height="79"/>
         <image name="lock" catalog="system" width="111" height="128"/>
+        <image name="person.fill" catalog="system" width="128" height="120"/>
         <image name="square" catalog="system" width="128" height="114"/>
         <namedColor name="Background Color">
             <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
@@ -660,6 +680,9 @@
         <namedColor name="Color">
             <color red="0.75686274509803919" green="0.75294117647058822" blue="0.75686274509803919" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
+        <systemColor name="labelColor">
+            <color white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
