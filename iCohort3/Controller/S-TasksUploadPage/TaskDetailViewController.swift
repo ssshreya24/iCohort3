@@ -24,6 +24,7 @@ class TaskDetailViewController: UIViewController {
 
     // MARK: - Assigned To Card
     @IBOutlet weak var assignedToContainerView: UIView!
+    @IBOutlet weak var resourcesContainerView: UIView!
     @IBOutlet weak var assigneeImageView: UIImageView!
     @IBOutlet weak var assigneeNameLabel: UILabel!
 
@@ -158,7 +159,8 @@ class TaskDetailViewController: UIViewController {
                 assignedToContainerView,
                 attachmentContainerView,
                 assignedByContainerView,
-                submitToContainerView
+                submitToContainerView,
+            resourcesContainerView
         ]
 
         cards.forEach { card in

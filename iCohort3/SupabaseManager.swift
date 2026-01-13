@@ -279,3 +279,64 @@ final class SupabaseManager {
             .execute()
     }
 }
+extension SupabaseManager {
+
+    struct TeamRow: Decodable {
+        let id: String
+        let team_no: Int
+        let mentor_id: String
+    }
+
+    struct TeamTaskRow: Decodable {
+        let team_id: String
+        let total_task: Int?
+        let ongoing_task: Int?
+        let assigned_task: Int?
+        let for_review_task: Int?
+        let completed_task: Int?
+        let rejected_task: Int?
+    }
+
+    func fetchTeamsForMentor(mentorId: String) async throws -> [TeamRow] {
+        let rows: [TeamRow] = try await client
+            .from("teams")
+            .select("id, team_no, mentor_id")
+            .eq("mentor_id", value: mentorId)
+            .order("team_no", ascending: true)
+            .execute()
+            .value
+
+        return rows
+    }
+
+    func fetchTeamTasks(teamIds: [String]) async throws -> [TeamTaskRow] {
+        guard !teamIds.isEmpty else { return [] }
+
+        let rows: [TeamTaskRow] = try await client
+            .from("team_task")
+            .select("team_id, total_task, ongoing_task, assigned_task, for_review_task, completed_task, rejected_task")
+            .in("team_id", values: teamIds)
+            .execute()
+            .value
+
+        return rows
+    }
+}
+extension SupabaseManager {
+    struct TeamStudentNameRow: Decodable {
+        let team_id: String
+        let full_name: String
+    }
+
+    func fetchStudentNamesForTeam(teamId: String) async throws -> [String] {
+        let rows: [TeamStudentNameRow] = try await client
+            .from("team_student_names")
+            .select("team_id, full_name")
+            .eq("team_id", value: teamId)
+            .execute()
+            .value
+
+        return rows.map { $0.full_name }
+    }
+}
+

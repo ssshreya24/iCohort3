@@ -3,7 +3,12 @@ import SafariServices
 
 class ReviewViewController: UIViewController, UITextViewDelegate  {
     
-    // MARK: - Properties to receive data from dashboard
+    // MARK: - Properties to receive data from dashboard (DB / Navigation)
+    var teamId: String = ""        // ✅ added
+    var teamNo: Int = 0            // ✅ added
+    var taskId: String = ""        // ✅ added
+    
+    // Existing ones (keep)
     var taskTitle: String?
     var teamName: String?
     
@@ -22,7 +27,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     @IBOutlet weak var statusCardView: UIView!       // Status
     
     // MARK: - Inside cards
-    @IBOutlet weak var taskTitleLabel: UILabel!          // Task title label (add this outlet)
+    @IBOutlet weak var taskTitleLabel: UILabel!          // Task title label
     @IBOutlet weak var dueDateValueLabel: UILabel!       // right side of "Due Date"
     @IBOutlet weak var remarkTextView: UITextView!       // description / remark
     @IBOutlet weak var assigneeNameLabel: UILabel!       // "Shreya Singh"
@@ -42,10 +47,12 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         super.viewDidLoad()
         
         print("✅ ReviewViewController loaded")
+        print("✅ teamId: \(teamId)")
+        print("✅ teamNo: \(teamNo)")
+        print("✅ taskId: \(taskId)")
         print("✅ Task Title: \(taskTitle ?? "nil")")
         print("✅ Team Name: \(teamName ?? "nil")")
 
-        
         view.backgroundColor = UIColor(
             red: 0xEF/255.0,
             green: 0xEF/255.0,
@@ -71,19 +78,21 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     
     // MARK: - Display Task Data
     private func displayTaskData() {
-        // If task title was passed, display it
-        if let title = taskTitle {
-            taskTitleLabel?.text = title
+        // Prefer DB-driven teamNo if available, else fallback to teamName
+        if teamNo != 0 {
+            print("✅ Team No passed: \(teamNo)")
+        }
+        
+        if let title = taskTitle, !title.isEmpty {
+            taskTitleLabel.text = title
             print("✅ Task title set to: \(title)")
         } else {
-            taskTitleLabel?.text = "No Task Title"
+            taskTitleLabel.text = "No Task Title"
             print("⚠️ No task title provided")
         }
         
-        // If team name was passed, you could display it somewhere
         if let team = teamName {
             print("✅ Reviewing task from: \(team)")
-            // You could add a team label if you want to display it
         }
     }
     
@@ -126,7 +135,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     // MARK: - Specific UI elements
     
     private func setupDueDateLabel() {
-        // Set any date you want here
         dueDateValueLabel.text = "25 Sep 2025"
         dueDateValueLabel.textColor = .systemGray
     }
@@ -153,31 +161,23 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     @IBAction func backButtonTapped(_ sender: UIButton) {
         print("✅ Back button tapped")
         
-        // Check if we're in a navigation controller
         if navigationController != nil {
-            print("✅ Popping view controller")
             navigationController?.popViewController(animated: true)
         } else {
-            // If presented modally
-            print("✅ Dismissing modally")
             dismiss(animated: true)
         }
     }
     
     @IBAction func attachmentButtonTapped(_ sender: UIButton) {
         guard let url = URL(string: attachmentURLString) else { return }
-
         let safariVC = SFSafariViewController(url: url)
-        safariVC.modalPresentationStyle = .pageSheet    // or .fullScreen if you want
+        safariVC.modalPresentationStyle = .pageSheet
         present(safariVC, animated: true)
     }
-    
-    
     
     @IBAction func rejectButtonTapped(_ sender: UIButton) {
         print("Reject tapped for task: \(taskTitle ?? "Unknown")")
         
-        // Show confirmation alert
         let alert = UIAlertController(
             title: "Reject Task",
             message: "Are you sure you want to reject this task?",
@@ -186,7 +186,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Reject", style: .destructive) { [weak self] _ in
-            // Handle rejection logic here
             self?.handleRejection()
         })
         
@@ -196,7 +195,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     @IBAction func completeButtonTapped(_ sender: UIButton) {
         print("Complete tapped for task: \(taskTitle ?? "Unknown")")
         
-        // Show confirmation alert
         let alert = UIAlertController(
             title: "Complete Task",
             message: "Mark this task as complete?",
@@ -205,7 +203,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Complete", style: .default) { [weak self] _ in
-            // Handle completion logic here
             self?.handleCompletion()
         })
         
@@ -215,9 +212,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     // MARK: - Helper Methods
     
     private func handleRejection() {
-        // Add your rejection logic here
-        // e.g., update backend, show success message, navigate back
-        
         let successAlert = UIAlertController(
             title: "Task Rejected",
             message: "The task has been rejected successfully.",
@@ -225,7 +219,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         )
         
         successAlert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
-            // Navigate back to dashboard
             if self?.navigationController != nil {
                 self?.navigationController?.popViewController(animated: true)
             } else {
@@ -237,9 +230,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     }
     
     private func handleCompletion() {
-        // Add your completion logic here
-        // e.g., update backend, show success message, navigate back
-        
         let successAlert = UIAlertController(
             title: "Task Completed",
             message: "The task has been marked as complete.",
@@ -247,7 +237,6 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         )
         
         successAlert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
-            // Navigate back to dashboard
             if self?.navigationController != nil {
                 self?.navigationController?.popViewController(animated: true)
             } else {
@@ -270,8 +259,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
     
     func textViewDidEndEditing(_ textView: UITextView) {
         if textView == remarkTextView {
-            let trimmed = textView.text
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmed = textView.text.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty {
                 textView.text = remarkPlaceholder
                 textView.textColor = .systemGray3
@@ -279,5 +267,3 @@ class ReviewViewController: UIViewController, UITextViewDelegate  {
         }
     }
 }
-
-

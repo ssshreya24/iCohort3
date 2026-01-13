@@ -12,8 +12,6 @@ class TeamProfileRowCell: UICollectionViewCell {
 
     override func awakeFromNib() {
         super.awakeFromNib()
-        
-
 
         [img1, img2, img3].forEach { img in
             img?.layer.cornerRadius = 35
@@ -22,18 +20,23 @@ class TeamProfileRowCell: UICollectionViewCell {
         }
     }
 
-    func configureProfiles(images: [UIImage], names: [String]) {
-
-      
+    func configureProfiles(images: [UIImage], names: [String], teamNo: Int) {
 
         let imageViews = [img1, img2, img3]
         let labels = [name1, name2, name3]
 
+        // ✅ Remove "Team 9 - " etc from names
+        let cleanedNames: [String] = names.map { raw in
+            raw
+                .replacingOccurrences(of: "Team \(teamNo) - ", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
         for i in 0..<3 {
             imageViews[i]?.image = (i < images.count) ? images[i] : UIImage(named: "Student")
-            labels[i]?.text = (i < names.count) ? names[i] : "Member \(i+1)"
+            labels[i]?.text = (i < cleanedNames.count) ? cleanedNames[i] : "Member \(i + 1)"
         }
     }
 
-}
+    }
 
