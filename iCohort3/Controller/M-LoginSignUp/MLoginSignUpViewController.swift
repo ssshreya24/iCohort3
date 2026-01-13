@@ -17,8 +17,8 @@ class MLoginSignUpViewController: UIViewController {
     @IBOutlet weak var emailTextField: UITextField!
     
     // MARK: - Temporary hardcoded credentials (DELETE LATER)
-    private let TEMP_EMAIL = "abc@srmist.edu.in"
-    private let TEMP_PASSWORD = "abc123"
+    private let TEMP_EMAIL = "cc"
+    private let TEMP_PASSWORD = "cc"
 
     override func viewDidLoad() {
         super.viewDidLoad()
