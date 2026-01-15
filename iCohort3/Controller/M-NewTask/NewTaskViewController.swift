@@ -48,6 +48,12 @@ class NewTaskViewController: UIViewController {
     var attachments: [UIImage] = []
     var attachmentFilenames: [String] = []
     
+    var teamId: String = ""
+    var mentorId: String = ""
+    var existingTaskId: String?
+
+
+    
     override func viewDidLoad() {
         super.viewDidLoad()
 

@@ -1,3 +1,8 @@
+//
+//  TaskSeeAllViewController.swift
+//  iCohort3
+//
+
 import UIKit
 
 // Protocol to notify parent about changes
@@ -17,6 +22,10 @@ class TaskSeeAllViewController: UIViewController {
     // Store team member data for editing
     var teamMemberImages: [UIImage] = []
     var teamMemberNames: [String] = []
+    
+    // NEW: Store teamId and mentorId for editing
+    var teamId: String = ""
+    var mentorId: String = ""
 
     // UI Elements
     private let backButton = UIButton()
@@ -151,7 +160,7 @@ class TaskSeeAllViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    // MARK: - Present Edit Task
+    // MARK: - Present Edit Task (FIXED)
     private func presentEditTask(at index: Int) {
         let task = tasks[index]
         
@@ -162,14 +171,20 @@ class TaskSeeAllViewController: UIViewController {
         newTaskVC.teamMemberImages = teamMemberImages
         newTaskVC.teamMemberNames = teamMemberNames
         
+        // Pass teamId and mentorId
+        newTaskVC.teamId = self.teamId
+        newTaskVC.mentorId = self.mentorId
+        
         // Configure for edit mode
         newTaskVC.isEditMode = true
+        newTaskVC.existingTaskId = task.id
         newTaskVC.existingTitle = task.title
         newTaskVC.existingDescription = task.desc
         newTaskVC.existingDate = task.assignedDate
         newTaskVC.selectedMemberName = task.name
         newTaskVC.existingAttachments = task.attachments ?? []
         newTaskVC.editingTaskIndex = index
+        newTaskVC.editingCategory = category
         
         newTaskVC.modalPresentationStyle = .pageSheet
         if let sheet = newTaskVC.sheetPresentationController {
@@ -201,6 +216,7 @@ extension TaskSeeAllViewController: NewTaskDelegate {
         
         // Update local task
         let updatedTask = TaskModel(
+            id: tasks[index].id,
             name: memberName,
             desc: description,
             date: dateString,
@@ -208,7 +224,8 @@ extension TaskSeeAllViewController: NewTaskDelegate {
             remarkDesc: tasks[index].remarkDesc,
             title: title,
             attachments: attachments,
-            assignedDate: date
+            assignedDate: date,
+            status: tasks[index].status
         )
         
         tasks[index] = updatedTask
