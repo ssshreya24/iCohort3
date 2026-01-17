@@ -2,8 +2,6 @@
 //  InProgressViewController.swift
 //  iCohort3
 //
-//  Created by user@56 on 12/11/25.
-//
 
 import UIKit
 
@@ -15,12 +13,16 @@ struct DashboardTask {
     let attachmentNames: [String]
 }
 
-class InProgressViewController: UIViewController {
+final class InProgressViewController: UIViewController {
 
     @IBOutlet weak var collectionView: UICollectionView!
-    var tasks: [[String: String]] = []
 
-    private var emptyLabel: UILabel = {
+    var teamId: String = "2e64ae77-8e03-43af-90f1-341838ebbd8a"
+    var teamNo: Int = 9
+
+    private var tasks: [SupabaseManager.TaskRow] = []
+
+    private let emptyLabel: UILabel = {
         let label = UILabel()
         label.text = "No tasks in progress"
         label.textAlignment = .center
@@ -32,6 +34,7 @@ class InProgressViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
         setupBackButton()
         applyBackgroundGradient()
 
@@ -48,21 +51,71 @@ class InProgressViewController: UIViewController {
         collectionView.delegate = self
         collectionView.backgroundColor = .clear
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            self.loadTasks()
+        Task { await loadOngoingTasksFromSupabase() }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        Task { await loadOngoingTasksFromSupabase() }
+    }
+
+    // MARK: - Fetch
+
+    private func loadOngoingTasksFromSupabase() async {
+        do {
+            let fetched = try await SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "ongoing")
+
+            await MainActor.run {
+                self.tasks = fetched
+                self.emptyLabel.isHidden = !fetched.isEmpty
+                self.collectionView.isHidden = fetched.isEmpty
+                self.collectionView.reloadData()
+            }
+        } catch {
+            print("❌ Failed to load ongoing tasks:", error)
+            await MainActor.run {
+                self.tasks = []
+                self.emptyLabel.isHidden = false
+                self.collectionView.isHidden = true
+                self.collectionView.reloadData()
+            }
         }
     }
 
-    // MARK: - OPEN TASK DETAIL (Shared function)
-    private func openTaskDetail(for task: [String: String]) {
+    // MARK: - Submit to For Review
+
+    private func submitTaskToForReview(taskId: String) async {
+        do {
+            let updated = try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "for_review")
+            print("✅ Task status updated:", updated.id, updated.status)
+
+            // ✅ Counter update should NOT block the main status update
+            do {
+                try await SupabaseManager.shared.moveTeamTaskCounter(teamId: teamId, from: "ongoing", to: "for_review")
+                print("✅ team_task counters updated")
+            } catch {
+                print("⚠️ Counter update failed (but status changed):", error)
+            }
+
+            await loadOngoingTasksFromSupabase()
+
+        } catch {
+            print("❌ Status update failed:", error)
+        }
+    }
+
+
+    // MARK: - OPEN TASK DETAIL
+
+    private func openTaskDetail(for task: SupabaseManager.TaskRow) {
         let vc = TaskDetailViewController(nibName: "TaskDetailViewController", bundle: nil)
 
         let model = DashboardTask(
-            title: task["title"] ?? "",
-            dueDate: "25 Sep 2025",
-            assigneeName: "Shreya",
+            title: task.title,
+            dueDate: formatDate(task.assigned_date),
+            assigneeName: "Team \(teamNo)",
             assigneeImage: nil,
-            attachmentNames: ["UIFlow.pdf", "Design.png"]
+            attachmentNames: []
         )
 
         vc.task = model
@@ -70,7 +123,29 @@ class InProgressViewController: UIViewController {
         present(vc, animated: true)
     }
 
+    private func formatDate(_ isoString: String) -> String {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        if let date = iso.date(from: isoString) {
+            let df = DateFormatter()
+            df.dateFormat = "dd MMM yyyy"
+            return df.string(from: date)
+        }
+
+        let iso2 = ISO8601DateFormatter()
+        iso2.formatOptions = [.withInternetDateTime]
+        if let date2 = iso2.date(from: isoString) {
+            let df = DateFormatter()
+            df.dateFormat = "dd MMM yyyy"
+            return df.string(from: date2)
+        }
+
+        return isoString
+    }
+
     // MARK: - BACK BUTTON
+
     private func setupBackButton() {
         let backButton = UIButton(type: .system)
         backButton.translatesAutoresizingMaskIntoConstraints = false
@@ -94,7 +169,7 @@ class InProgressViewController: UIViewController {
     }
 
     @objc private func backButtonTapped() {
-        dismiss(animated: true, completion: nil)
+        dismiss(animated: true)
     }
 
     private func applyBackgroundGradient() {
@@ -115,23 +190,14 @@ class InProgressViewController: UIViewController {
             g.frame = view.bounds
         }
     }
-
-    private func loadTasks() {
-        self.tasks = [
-            ["title": "Task A", "desc": "Work on Home Page UI"],
-            ["title": "Task B", "desc": "API Integration for Dashboard"]
-        ]
-
-        emptyLabel.isHidden = true
-        collectionView.reloadData()
-    }
 }
 
 // MARK: - COLLECTION VIEW
+
 extension InProgressViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return tasks.count
+        tasks.count
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
@@ -144,38 +210,41 @@ extension InProgressViewController: UICollectionViewDataSource, UICollectionView
         let task = tasks[indexPath.row]
 
         cell.configure(
-            title: task["title"] ?? "",
-            desc: task["desc"] ?? "",
+            title: task.title,
+            desc: task.description ?? "",
             image: UIImage(named: "logo"),
-            name: "Shreya"
+            name: "Team \(teamNo)"
         )
 
-        // 🔵 BUTTON TAP
+        // prevent stacking targets due to cell reuse
+        cell.circleButton.removeTarget(nil, action: nil, for: .allEvents)
         cell.circleButton.tag = indexPath.row
         cell.circleButton.addTarget(self, action: #selector(submitTask(_:)), for: .touchUpInside)
-
-        // 🟢 CARD TAP
-        cell.tag = indexPath.row
-        let tap = UITapGestureRecognizer(target: self, action: #selector(cardTapped(_:)))
-        cell.addGestureRecognizer(tap)
-        cell.isUserInteractionEnabled = true
 
         return cell
     }
 
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        openTaskDetail(for: tasks[indexPath.row])
+    }
+
     @objc private func submitTask(_ sender: UIButton) {
         let index = sender.tag
-        openTaskDetail(for: tasks[index])
+        guard index < tasks.count else { return }
+
+        let taskId = tasks[index].id
+
+        let alert = UIAlertController(title: "Submit for Review?", message: nil, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Submit", style: .default, handler: { _ in
+            Task { await self.submitTaskToForReview(taskId: taskId) }
+        }))
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
     }
 
-    // Card tap → same action as the button
-    @objc private func cardTapped(_ gesture: UITapGestureRecognizer) {
-        guard let cell = gesture.view else { return }
-        openTaskDetail(for: tasks[cell.tag])
-    }
-
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        return CGSize(width: collectionView.frame.width - 40, height: 160)
+    func collectionView(_ collectionView: UICollectionView,
+                        layout collectionViewLayout: UICollectionViewLayout,
+                        sizeForItemAt indexPath: IndexPath) -> CGSize {
+        CGSize(width: collectionView.frame.width - 40, height: 160)
     }
 }
-

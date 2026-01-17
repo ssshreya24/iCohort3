@@ -2,18 +2,22 @@
 //  NotStartedViewController.swift
 //  iCohort3
 //
-//  Created by user@56 on 09/11/25.
-//
 
 import UIKit
 
-class NotStartedViewController: UIViewController {
+final class NotStartedViewController: UIViewController {
 
     @IBOutlet weak var collectionView: UICollectionView!
-    var tasks: [[String: String]] = [] // Start empty
+
+    // ✅ TEMP: later you will pass these from previous screen
+    var teamId: String = "2e64ae77-8e03-43af-90f1-341838ebbd8a"
+    var teamNo: Int = 9
+
+    // ✅ Real tasks from Supabase
+    private var tasks: [SupabaseManager.TaskRow] = []
 
     // Label for empty state
-    var emptyLabel: UILabel = {
+    private let emptyLabel: UILabel = {
         let label = UILabel()
         label.text = "No tasks have been assigned yet"
         label.textAlignment = .center
@@ -28,14 +32,12 @@ class NotStartedViewController: UIViewController {
         setupBackButton()
         applyBackgroundGradient()
 
-        // Add empty label
         view.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
 
-        // Register the custom cell
         let nib = UINib(nibName: "TaskCollectionViewCell", bundle: nil)
         collectionView.register(nib, forCellWithReuseIdentifier: "TaskCollectionViewCell")
 
@@ -43,9 +45,32 @@ class NotStartedViewController: UIViewController {
         collectionView.delegate = self
         collectionView.backgroundColor = .clear
 
-        // Show task after 2 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            self.loadTasks()
+        Task { await loadAssignedTasksFromSupabase() }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        Task { await loadAssignedTasksFromSupabase() }
+    }
+
+    private func loadAssignedTasksFromSupabase() async {
+        do {
+            // ✅ “Not Started” = status 'assigned'
+            let fetched = try await SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "assigned")
+
+            await MainActor.run {
+                self.tasks = fetched
+                self.emptyLabel.isHidden = !fetched.isEmpty
+                self.collectionView.reloadData()
+            }
+
+        } catch {
+            print("❌ Failed to load assigned tasks:", error)
+            await MainActor.run {
+                self.tasks = []
+                self.emptyLabel.isHidden = false
+                self.collectionView.reloadData()
+            }
         }
     }
 
@@ -62,7 +87,6 @@ class NotStartedViewController: UIViewController {
         backButton.tintColor = UIColor.black
 
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
-
         view.addSubview(backButton)
 
         NSLayoutConstraint.activate([
@@ -74,7 +98,7 @@ class NotStartedViewController: UIViewController {
     }
 
     @objc private func backButtonTapped() {
-        self.dismiss(animated: true, completion: nil)
+        dismiss(animated: true)
     }
 
     private func applyBackgroundGradient() {
@@ -96,52 +120,55 @@ class NotStartedViewController: UIViewController {
         }
     }
 
-    func loadTasks() {
-        self.tasks = [
-            ["title": "Task 1", "desc": "Design on-Boarding Flow"]
-        ]
+    // MARK: - Move assigned -> ongoing (updates tasks table; trigger updates team_task)
 
-        self.emptyLabel.isHidden = true
-        self.collectionView.reloadData()
+    private func moveTaskToInProgress(taskId: String) async {
+        do {
+            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "ongoing")
+            await loadAssignedTasksFromSupabase()
+        } catch {
+            print("❌ Failed to move task:", error)
+        }
     }
 
-    // MARK: Unified move function for both card tap & button
-    func moveTaskFromIndex(_ index: Int) {
+    // Unified move function for both card tap & button
+    private func moveTaskFromIndex(_ index: Int) {
+        guard index < tasks.count else { return }
+        let task = tasks[index]
+
         let alert = UIAlertController(title: "Move to In Progress?", message: nil, preferredStyle: .alert)
 
         alert.addAction(UIAlertAction(title: "Move", style: .destructive, handler: { _ in
-            self.tasks.remove(at: index)
-            self.collectionView.reloadData()
-
-            if self.tasks.isEmpty {
-                self.emptyLabel.isHidden = false
-            }
+            Task { await self.moveTaskToInProgress(taskId: task.id) }
         }))
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-
         present(alert, animated: true)
     }
 }
 
 // MARK: - Collection View
+
 extension NotStartedViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return tasks.count
+        tasks.count
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
 
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "TaskCollectionViewCell", for: indexPath) as! TaskCollectionViewCell
+        let cell = collectionView.dequeueReusableCell(
+            withReuseIdentifier: "TaskCollectionViewCell",
+            for: indexPath
+        ) as! TaskCollectionViewCell
 
         let task = tasks[indexPath.row]
 
         cell.configure(
-            title: task["title"] ?? "",
-            desc: task["desc"] ?? "",
+            title: task.title,
+            desc: task.description ?? "",
             image: UIImage(named: "logo"),
-            name: "Shreya"
+            name: "Team \(teamNo)"
         )
 
         // Button click
@@ -157,17 +184,18 @@ extension NotStartedViewController: UICollectionViewDataSource, UICollectionView
         return cell
     }
 
-    @objc func moveButtonTapped(_ sender: UIButton) {
+    @objc private func moveButtonTapped(_ sender: UIButton) {
         moveTaskFromIndex(sender.tag)
     }
 
-    @objc func cardTapped(_ gesture: UITapGestureRecognizer) {
+    @objc private func cardTapped(_ gesture: UITapGestureRecognizer) {
         guard let cell = gesture.view else { return }
         moveTaskFromIndex(cell.tag)
     }
 
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        return CGSize(width: collectionView.frame.width - 40, height: 160)
+    func collectionView(_ collectionView: UICollectionView,
+                        layout collectionViewLayout: UICollectionViewLayout,
+                        sizeForItemAt indexPath: IndexPath) -> CGSize {
+        CGSize(width: collectionView.frame.width - 40, height: 160)
     }
 }
-

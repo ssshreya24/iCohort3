@@ -5,7 +5,7 @@ import UIKit
 struct OngoingTeam {
     let teamId: String
     let teamNo: Int
-    let badgeCount: Int   // 🔴 ongoing_task
+    let activeTaskCount: Int   // 🔴 ongoing_task
 }
 
 struct ReviewTask {
@@ -145,12 +145,23 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
             // 3) Map to Ongoing Teams section
             let mappedOngoing: [OngoingTeam] = teams.map { team in
                 let counts = taskMap[team.id]
+
+                let assigned = counts?.assigned_task ?? 0
+                let ongoing  = counts?.ongoing_task ?? 0
+                let review   = counts?.for_review_task ?? 0
+                let prepared = counts?.prepared_task ?? 0
+                let approved = counts?.approved_task ?? 0
+
+                let active = assigned + ongoing + review + prepared + approved
+  // ✅ excludes completed + rejected
+
                 return OngoingTeam(
                     teamId: team.id,
                     teamNo: team.team_no,
-                    badgeCount: counts?.ongoing_task ?? 0
+                    activeTaskCount: active
                 )
             }
+
 
             // 4) Pending review total (card)
             let pendingReviewTotal = teams.reduce(0) { sum, team in

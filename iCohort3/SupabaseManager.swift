@@ -699,6 +699,8 @@ extension SupabaseManager {
         let for_review_task: Int?
         let completed_task: Int?
         let rejected_task: Int?
+        let prepared_task: Int?     // ✅ NEW
+        let approved_task: Int?
     }
 
     func fetchTeamsForMentor(mentorId: String) async throws -> [TeamRow] {
@@ -718,7 +720,8 @@ extension SupabaseManager {
 
         let rows: [TeamTaskRow] = try await client
             .from("team_task")
-            .select("team_id, total_task, ongoing_task, assigned_task, for_review_task, completed_task, rejected_task")
+            .select("team_id, total_task, ongoing_task, assigned_task, for_review_task, prepared_task, approved_task, completed_task, rejected_task")
+
             .in("team_id", values: teamIds)
             .execute()
             .value
@@ -782,7 +785,9 @@ extension SupabaseManager {
         let status: String?
         let remark: String?
         let remark_description: String?
+        let assigned_date: String?   // ✅ ADD THIS
     }
+
     
     struct TaskAssigneeRow: Codable, Sendable {
         let task_id: String
@@ -804,7 +809,13 @@ extension SupabaseManager {
         let filename: String
         let file_url: String?
         let file_type: String?
+
+        let mentor_id: String?
+        let team_id: String?
+        let student_id: String?
+        let mentor_attachment: Bool
     }
+
     
     // MARK: - Create Task
     
@@ -866,7 +877,15 @@ extension SupabaseManager {
         
         // Upload attachments if any
         if !attachments.isEmpty {
-            try await uploadTaskAttachments(taskId: taskId, images: attachments)
+            try await uploadTaskAttachments(
+                taskId: taskId,
+                teamId: teamId,
+                mentorId: mentorId,
+                studentId: nil,
+                isMentorAttachment: true,
+                images: attachments
+            )
+
         }
         
         return taskId
@@ -979,7 +998,91 @@ extension SupabaseManager {
     }
     
     // MARK: - Update Task
-    
+    struct TeamTaskCounterUpdate: Encodable {
+        let ongoing_task: Int?
+        let for_review_task: Int?
+        let assigned_task: Int?
+        let prepared_task: Int?
+        let approved_task: Int?
+        let completed_task: Int?
+        let rejected_task: Int?
+    }
+
+    func moveTeamTaskCounter(teamId: String, from: String, to: String) async throws {
+
+            struct TeamTaskRowMini: Decodable {
+                let team_id: String
+                let ongoing_task: Int?
+                let for_review_task: Int?
+                let assigned_task: Int?
+                let prepared_task: Int?
+                let approved_task: Int?
+                let completed_task: Int?
+                let rejected_task: Int?
+            }
+
+            let rows: [TeamTaskRowMini] = try await client
+                .from("team_task")
+                .select("team_id, ongoing_task, for_review_task, assigned_task, prepared_task, approved_task, completed_task, rejected_task")
+                .eq("team_id", value: teamId)
+                .limit(1)
+                .execute()
+                .value
+
+            guard let r = rows.first else { return }
+
+            func dec(_ v: Int?) -> Int { max((v ?? 0) - 1, 0) }
+            func inc(_ v: Int?) -> Int { (v ?? 0) + 1 }
+
+            var newOngoing = r.ongoing_task
+            var newForReview = r.for_review_task
+            var newAssigned = r.assigned_task
+            var newPrepared = r.prepared_task
+            var newApproved = r.approved_task
+            var newCompleted = r.completed_task
+            var newRejected = r.rejected_task
+
+            // decrement old
+            switch from {
+            case "ongoing": newOngoing = dec(r.ongoing_task)
+            case "for_review": newForReview = dec(r.for_review_task)
+            case "assigned": newAssigned = dec(r.assigned_task)
+            case "prepared": newPrepared = dec(r.prepared_task)
+            case "approved": newApproved = dec(r.approved_task)
+            case "completed": newCompleted = dec(r.completed_task)
+            case "rejected": newRejected = dec(r.rejected_task)
+            default: break
+            }
+
+            // increment new
+            switch to {
+            case "ongoing": newOngoing = inc(newOngoing)
+            case "for_review": newForReview = inc(newForReview)
+            case "assigned": newAssigned = inc(newAssigned)
+            case "prepared": newPrepared = inc(newPrepared)
+            case "approved": newApproved = inc(newApproved)
+            case "completed": newCompleted = inc(newCompleted)
+            case "rejected": newRejected = inc(newRejected)
+            default: break
+            }
+
+            let payload = TeamTaskCounterUpdate(
+                ongoing_task: newOngoing,
+                for_review_task: newForReview,
+                assigned_task: newAssigned,
+                prepared_task: newPrepared,
+                approved_task: newApproved,
+                completed_task: newCompleted,
+                rejected_task: newRejected
+            )
+
+            _ = try await client
+                .from("team_task")
+                .update(payload)
+                .eq("team_id", value: teamId)
+                .execute()
+        }
+
     /// Update task with full attachment and assignee support
     func updateTask(
         taskId: String,
@@ -993,6 +1096,7 @@ extension SupabaseManager {
         updateAssignees: Bool = false,
         assignToAll: Bool = false,
         teamId: String? = nil,
+        mentorId: String?,
         specificStudentId: String? = nil
     ) async throws {
         // Update basic task info
@@ -1009,13 +1113,15 @@ extension SupabaseManager {
         }
         
         if !updateDict.isEmpty {
-            let update = TaskUpdate(
-                title: title,
-                description: description,
-                status: status,
-                remark: remark,
-                remark_description: remarkDescription
-            )
+       
+                let update = TaskUpdate(
+                    title: title,
+                    description: description,
+                    status: status,
+                    remark: remark,
+                    remark_description: remarkDescription,
+                    assigned_date: assignedDate.map { formatter.string(from: $0) }
+                )
             
             _ = try await client
                 .from("tasks")
@@ -1057,8 +1163,19 @@ extension SupabaseManager {
         
         // Upload new attachments if provided
         if let attachments = attachments, !attachments.isEmpty {
-            try await uploadTaskAttachments(taskId: taskId, images: attachments)
+            guard let teamId = teamId, let mentorId = mentorId else { return }
+
+            try await uploadTaskAttachments(
+                taskId: taskId,
+                teamId: teamId,
+                mentorId: mentorId,
+                studentId: nil,
+                isMentorAttachment: true,
+                images: attachments
+            )
         }
+
+
     }
     
     /// Simple update (original version for backwards compatibility)
@@ -1075,8 +1192,10 @@ extension SupabaseManager {
             description: description,
             status: status,
             remark: remark,
-            remark_description: remarkDescription
+            remark_description: remarkDescription,
+            assigned_date: nil
         )
+
         
         _ = try await client
             .from("tasks")
@@ -1086,21 +1205,29 @@ extension SupabaseManager {
     }
     
     /// Update task status
-    func updateTaskStatus(taskId: String, status: String) async throws {
+    func updateTaskStatus(taskId: String, status: String) async throws -> TaskRow {
         let update = TaskUpdate(
             title: nil,
             description: nil,
             status: status,
             remark: nil,
-            remark_description: nil
+            remark_description: nil,
+            assigned_date: nil
         )
-        
-        _ = try await client
+
+
+        let updated: TaskRow = try await client
             .from("tasks")
             .update(update)
             .eq("id", value: taskId)
+            .select()
+            .single()
             .execute()
+            .value
+
+        return updated
     }
+
     
     // MARK: - Delete Task
     
@@ -1163,49 +1290,47 @@ extension SupabaseManager {
     // MARK: - Task Attachments
     
     /// Upload task attachments to Supabase Storage and save metadata
-    private func uploadTaskAttachments(taskId: String, images: [UIImage]) async throws {
+    private func uploadTaskAttachments(
+        taskId: String,
+        teamId: String,
+        mentorId: String?,
+        studentId: String?,
+        isMentorAttachment: Bool,
+        images: [UIImage]
+    ) async throws {
         for (index, image) in images.enumerated() {
-            // Convert image to JPEG data
-            guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-                print("⚠️ Failed to convert image \(index) to data")
-                continue
-            }
-            
-            // Generate unique filename
+
+            guard let imageData = image.jpegData(compressionQuality: 0.8) else { continue }
+
             let timestamp = Int(Date().timeIntervalSince1970)
             let filename = "task_\(taskId)_\(timestamp)_\(index).jpg"
             let filePath = "\(taskId)/\(filename)"
-            
-            do {
-                // Upload to Supabase Storage
-                _ = try await client.storage
-                    .from("task-attachments")
-                    .upload(
-                        path: filePath,
-                        file: imageData,
-                        options: .init(contentType: "image/jpeg")
-                    )
-                
-                // Get public URL
-                let publicURL = try client.storage
-                    .from("task-attachments")
-                    .getPublicURL(path: filePath)
-                
-                // Save metadata to database
-                _ = try await addTaskAttachment(
-                    taskId: taskId,
-                    filename: filename,
-                    fileUrl: publicURL.absoluteString,
-                    fileType: "image/jpeg"
+
+            _ = try await client.storage
+                .from("task-attachments")
+                .upload(
+                    path: filePath,
+                    file: imageData,
+                    options: .init(contentType: "image/jpeg")
                 )
-                
-                print("✅ Uploaded attachment: \(filename)")
-            } catch {
-                print("❌ Failed to upload attachment \(index): \(error)")
-                // Continue with other attachments even if one fails
-            }
+
+            let publicURL = try client.storage
+                .from("task-attachments")
+                .getPublicURL(path: filePath)
+
+            _ = try await addTaskAttachment(
+                taskId: taskId,
+                filename: filename,
+                fileUrl: publicURL.absoluteString,
+                fileType: "image/jpeg",
+                mentorId: mentorId,
+                teamId: teamId,
+                studentId: studentId,
+                isMentorAttachment: isMentorAttachment
+            )
         }
     }
+
     
     /// Download attachment images from URLs
     func downloadTaskAttachmentImages(taskId: String) async throws -> [UIImage] {
@@ -1236,15 +1361,24 @@ extension SupabaseManager {
         taskId: String,
         filename: String,
         fileUrl: String?,
-        fileType: String?
+        fileType: String?,
+        mentorId: String?,
+        teamId: String?,
+        studentId: String?,
+        isMentorAttachment: Bool
     ) async throws -> TaskAttachmentRow {
+
         let attachment = TaskAttachmentInsert(
             task_id: taskId,
             filename: filename,
             file_url: fileUrl,
-            file_type: fileType
+            file_type: fileType,
+            mentor_id: mentorId,
+            team_id: teamId,
+            student_id: studentId,
+            mentor_attachment: isMentorAttachment
         )
-        
+
         let response: TaskAttachmentRow = try await client
             .from("task_attachments")
             .insert(attachment)
@@ -1252,9 +1386,10 @@ extension SupabaseManager {
             .single()
             .execute()
             .value
-        
+
         return response
     }
+
     
     /// Fetch attachments for a task
     func fetchTaskAttachments(taskId: String) async throws -> [TaskAttachmentRow] {
@@ -1353,3 +1488,6 @@ extension SupabaseManager {
         return (task, assigneeName)
     }
 }
+
+
+

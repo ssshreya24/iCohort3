@@ -41,16 +41,15 @@ final class OngoingCollectionViewCell: UICollectionViewCell {
     }
 
     func configure(with team: OngoingTeam) {
-        
-        // ✅ Display Team No from DB
         titleLabel.text = "Team \(team.teamNo)"
 
-        // ✅ Badge = ongoing_task from DB
-        if team.badgeCount > -1 {
-            badgeLabel.text = "\(team.badgeCount)"
+        if team.activeTaskCount > -1 {
+            badgeLabel.text = "\(team.activeTaskCount)"
             badgeLabel.isHidden = false
         } else {
             badgeLabel.isHidden = true
         }
     }
+
+
 }

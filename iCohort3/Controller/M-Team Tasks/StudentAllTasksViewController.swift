@@ -19,9 +19,14 @@ class StudentAllTasksViewController: UIViewController {
 
     var teamMemberNames: [String] = []
     var teamMemberImages: [UIImage] = []
+    var ongoingTasks: [TaskModel] = []
+
 
     // Task storage by category
     var assignedTasks: [TaskModel] = []
+    var mentorId: String = ""
+    
+
     var reviewTasks: [TaskModel] = []
     var completedTasks: [TaskModel] = []
     var rejectedTasks: [TaskModel] = []
@@ -29,6 +34,7 @@ class StudentAllTasksViewController: UIViewController {
     let items: [TaskSectionWrapper] = [
         .teamProfile,
         .category(.assigned),
+        
         .category(.review),
         .category(.completed),
         .category(.rejected)
@@ -127,19 +133,20 @@ class StudentAllTasksViewController: UIViewController {
             let allTasks = try await SupabaseManager.shared.fetchTasksForTeam(teamId: teamId)
 
             var assigned: [TaskModel] = []
+            var ongoing: [TaskModel] = []
             var review: [TaskModel] = []
             var completed: [TaskModel] = []
             var rejected: [TaskModel] = []
 
-            // Convert TaskRows to TaskModels with downloaded attachments
             for taskRow in allTasks {
                 let task = await TaskModel.from(taskRow: taskRow)
+                let s = taskRow.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-                switch taskRow.status {
+                switch s {
                 case "assigned":
                     assigned.append(task)
                 case "ongoing":
-                    assigned.append(task)
+                    ongoing.append(task)        // ✅ FIXED
                 case "for_review":
                     review.append(task)
                 case "completed":
@@ -153,13 +160,16 @@ class StudentAllTasksViewController: UIViewController {
 
             await MainActor.run {
                 self.assignedTasks = assigned
+                self.ongoingTasks = ongoing     // ✅
                 self.reviewTasks = review
                 self.completedTasks = completed
                 self.rejectedTasks = rejected
                 self.verticalCollectionView.reloadData()
             }
 
-        } catch {
+            }
+
+         catch {
             print("❌ Failed to load tasks:", error)
         }
     }
@@ -222,6 +232,7 @@ class StudentAllTasksViewController: UIViewController {
     private func getTasksArray(for category: TaskCategory) -> [TaskModel] {
         switch category {
         case .assigned: return assignedTasks
+    
         case .review: return reviewTasks
         case .completed: return completedTasks
         case .rejected: return rejectedTasks
@@ -416,7 +427,10 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                     updateAssignees: true,
                     assignToAll: assignToAll,
                     teamId: teamId,
+                    mentorId: mentorId,                 // ✅ ADD THIS
                     specificStudentId: specificStudentId
+                
+
                 )
                 
                 print("✅ Task updated successfully")
