@@ -9,9 +9,29 @@ class TeamProfileRowCell: UICollectionViewCell {
     @IBOutlet weak var name1: UILabel!
     @IBOutlet weak var name2: UILabel!
     @IBOutlet weak var name3: UILabel!
+    private let emptyTeamLabel: UILabel = {
+        let label = UILabel()
+        label.text = "No team assigned yet"
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .secondaryLabel
+        label.isHidden = true
+        return label
+    }()
+
 
     override func awakeFromNib() {
         super.awakeFromNib()
+        contentView.addSubview(emptyTeamLabel)
+           emptyTeamLabel.translatesAutoresizingMaskIntoConstraints = false
+
+           NSLayoutConstraint.activate([
+               emptyTeamLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+               emptyTeamLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+               emptyTeamLabel.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 16),
+               emptyTeamLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -16)
+           ])
 
         // Style all profile images
         [img1, img2, img3].forEach { img in
@@ -30,6 +50,17 @@ class TeamProfileRowCell: UICollectionViewCell {
     }
 
     func configureProfiles(images: [UIImage], names: [String], teamNo: Int) {
+        if names.isEmpty {
+            emptyTeamLabel.isHidden = false
+
+            [img1, img2, img3].forEach { $0?.isHidden = true }
+            [name1, name2, name3].forEach { $0?.isHidden = true }
+
+            return
+        } else {
+            emptyTeamLabel.isHidden = true
+        }
+
 
         let imageViews = [img1, img2, img3]
         let labels = [name1, name2, name3]
