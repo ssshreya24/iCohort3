@@ -21,12 +21,10 @@ class StudentAllTasksViewController: UIViewController {
     var teamMemberImages: [UIImage] = []
     var ongoingTasks: [TaskModel] = []
 
-
     // Task storage by category
     var assignedTasks: [TaskModel] = []
     var mentorId: String = ""
     
-
     var reviewTasks: [TaskModel] = []
     var completedTasks: [TaskModel] = []
     var rejectedTasks: [TaskModel] = []
@@ -34,7 +32,6 @@ class StudentAllTasksViewController: UIViewController {
     let items: [TaskSectionWrapper] = [
         .teamProfile,
         .category(.assigned),
-        
         .category(.review),
         .category(.completed),
         .category(.rejected)
@@ -115,10 +112,11 @@ class StudentAllTasksViewController: UIViewController {
         }
 
         do {
-            let names = try await SupabaseManager.shared.fetchStudentNamesForTeam(teamId: teamId)
+            let names = try await SupabaseManager.shared.getStudentNamesInTeam(teamId: teamId)
 
             await MainActor.run {
                 self.teamMemberNames = names
+                print("✅ Loaded \(names.count) team members")
                 self.verticalCollectionView.reloadData()
             }
         } catch {
@@ -127,10 +125,14 @@ class StudentAllTasksViewController: UIViewController {
     }
 
     private func loadTasksFromSupabase() async {
-        guard !teamId.isEmpty else { return }
+        guard !teamId.isEmpty else {
+            print("⚠️ teamId is empty, cannot load tasks.")
+            return
+        }
 
         do {
             let allTasks = try await SupabaseManager.shared.fetchTasksForTeam(teamId: teamId)
+            print("✅ Loaded \(allTasks.count) tasks from Supabase")
 
             var assigned: [TaskModel] = []
             var ongoing: [TaskModel] = []
@@ -142,11 +144,13 @@ class StudentAllTasksViewController: UIViewController {
                 let task = await TaskModel.from(taskRow: taskRow)
                 let s = taskRow.status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
+                print("📋 Task: \(taskRow.title) - Status: '\(s)'")
+
                 switch s {
                 case "assigned":
                     assigned.append(task)
                 case "ongoing":
-                    ongoing.append(task)        // ✅ FIXED
+                    ongoing.append(task)
                 case "for_review":
                     review.append(task)
                 case "completed":
@@ -154,22 +158,24 @@ class StudentAllTasksViewController: UIViewController {
                 case "rejected":
                     rejected.append(task)
                 default:
+                    print("⚠️ Unknown status: \(s)")
                     break
                 }
             }
 
             await MainActor.run {
                 self.assignedTasks = assigned
-                self.ongoingTasks = ongoing     // ✅
+                self.ongoingTasks = ongoing
                 self.reviewTasks = review
                 self.completedTasks = completed
                 self.rejectedTasks = rejected
+                
+                print("✅ Categorized tasks - Assigned: \(assigned.count), Ongoing: \(ongoing.count), Review: \(review.count), Completed: \(completed.count), Rejected: \(rejected.count)")
+                
                 self.verticalCollectionView.reloadData()
             }
 
-            }
-
-         catch {
+        } catch {
             print("❌ Failed to load tasks:", error)
         }
     }
@@ -208,6 +214,11 @@ class StudentAllTasksViewController: UIViewController {
             newTaskVC.existingAttachments = task.attachments ?? []
             newTaskVC.editingTaskIndex = taskIndex
             newTaskVC.editingCategory = category
+            
+            // Load existing filenames
+            if let filenames = task.attachmentFilenames {
+                newTaskVC.attachmentFilenames = filenames
+            }
         }
 
         newTaskVC.modalPresentationStyle = .pageSheet
@@ -220,8 +231,11 @@ class StudentAllTasksViewController: UIViewController {
 
     // MARK: - Attachment Viewer
 
-    func presentAttachmentViewer(attachments: [UIImage]) {
-        let viewerVC = AttachmentViewerViewController(attachments: attachments)
+    func presentAttachmentViewer(attachments: [UIImage], filenames: [String] = []) {
+        let viewerVC = AttachmentViewerViewController(
+            attachments: attachments,
+            attachmentFilenames: filenames
+        )
         viewerVC.modalPresentationStyle = .fullScreen
         viewerVC.modalTransitionStyle = .crossDissolve
         present(viewerVC, animated: true)
@@ -232,7 +246,6 @@ class StudentAllTasksViewController: UIViewController {
     private func getTasksArray(for category: TaskCategory) -> [TaskModel] {
         switch category {
         case .assigned: return assignedTasks
-    
         case .review: return reviewTasks
         case .completed: return completedTasks
         case .rejected: return rejectedTasks
@@ -263,19 +276,12 @@ class StudentAllTasksViewController: UIViewController {
                 do {
                     if let taskId = task.id {
                         try await SupabaseManager.shared.deleteTask(taskId: taskId)
+                        print("✅ Task deleted: \(taskId)")
                     }
 
+                    await self.loadTasksFromSupabase()
+
                     await MainActor.run {
-                        var tasks = self.getTasksArray(for: category)
-                        guard index >= 0 && index < tasks.count else { return }
-
-                        tasks.remove(at: index)
-                        self.updateTasksArray(for: category, with: tasks)
-
-                        UIView.animate(withDuration: 0.3) {
-                            self.verticalCollectionView.reloadData()
-                        }
-
                         let successAlert = UIAlertController(
                             title: "Task Deleted",
                             message: "Task successfully deleted",
@@ -317,22 +323,24 @@ extension StudentAllTasksViewController: TaskSeeAllDelegate {
     }
 }
 
-// MARK: - NewTaskDelegate (FIXED)
+// MARK: - NewTaskDelegate
 
 extension StudentAllTasksViewController: NewTaskDelegate {
-
-    func didAssignTask(to memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
+    
+    func didAssignTask(to memberName: String, description: String, date: Date, title: String, attachments: [UIImage], attachmentFilenames: [String]) {
         Task {
             do {
                 print("🔄 Creating task for: \(memberName)")
+                print("📎 Attachments: \(attachments.count)")
+                print("📝 Filenames: \(attachmentFilenames)")
                 
                 // Determine if assigning to all or specific student
-                let assignToAll = (memberName == "All Members")
+                let assignToAll = (memberName == "All Members" || memberName == "Team Task")
                 var specificStudentId: String? = nil
                 
                 if !assignToAll {
                     // Get the student ID for the selected member
-                    specificStudentId = try await SupabaseManager.shared.fetchStudentId(
+                    specificStudentId = try await SupabaseManager.shared.getStudentIdByName(
                         teamId: teamId,
                         studentName: memberName
                     )
@@ -345,16 +353,18 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                     print("✅ Found student ID: \(specificStudentId!) for \(memberName)")
                 }
                 
-                // Create task with attachments
+                // Create task with attachments and filenames
                 let taskId = try await SupabaseManager.shared.createTask(
                     teamId: teamId,
                     mentorId: currentMentorId,
                     title: title,
                     description: description,
+                    status: "assigned",
                     assignedDate: date,
                     assignToAll: assignToAll,
                     specificStudentId: specificStudentId,
-                    attachments: attachments
+                    attachments: attachments,
+                    attachmentFilenames: attachmentFilenames
                 )
 
                 print("✅ Task created with ID: \(taskId)")
@@ -388,7 +398,7 @@ extension StudentAllTasksViewController: NewTaskDelegate {
         }
     }
 
-    func didUpdateTask(at index: Int, memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
+    func didUpdateTask(at index: Int, memberName: String, description: String, date: Date, title: String, attachments: [UIImage], attachmentFilenames: [String]) {
         Task {
             do {
                 // Find the task being edited from all categories
@@ -400,11 +410,11 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                 print("🔄 Updating task: \(taskId)")
                 
                 // Determine assignee updates
-                let assignToAll = (memberName == "All Members")
+                let assignToAll = (memberName == "All Members" || memberName == "Team Task")
                 var specificStudentId: String? = nil
                 
                 if !assignToAll {
-                    specificStudentId = try await SupabaseManager.shared.fetchStudentId(
+                    specificStudentId = try await SupabaseManager.shared.getStudentIdByName(
                         teamId: teamId,
                         studentName: memberName
                     )
@@ -417,20 +427,19 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                     print("✅ Found student ID: \(specificStudentId!) for \(memberName)")
                 }
                 
-                // Update task with assignees and attachments
+                // Update task with assignees, attachments, and filenames
                 try await SupabaseManager.shared.updateTask(
                     taskId: taskId,
                     title: title,
                     description: description,
                     assignedDate: date,
                     attachments: attachments,
+                    attachmentFilenames: attachmentFilenames,
                     updateAssignees: true,
                     assignToAll: assignToAll,
                     teamId: teamId,
-                    mentorId: mentorId,                 // ✅ ADD THIS
+                    mentorId: currentMentorId,
                     specificStudentId: specificStudentId
-                
-
                 )
                 
                 print("✅ Task updated successfully")
@@ -513,9 +522,9 @@ extension StudentAllTasksViewController: UICollectionViewDelegate, UICollectionV
                 self.presentNewTaskViewController(isEditMode: true, task: task, category: category, taskIndex: taskIndex)
             }
 
-            cell.onViewAttachments = { [weak self] attachments in
+            cell.onViewAttachments = { [weak self] attachments, filenames in
                 guard let self = self else { return }
-                self.presentAttachmentViewer(attachments: attachments)
+                self.presentAttachmentViewer(attachments: attachments, filenames: filenames)
             }
 
             cell.onDeleteTask = { [weak self] taskIndex in

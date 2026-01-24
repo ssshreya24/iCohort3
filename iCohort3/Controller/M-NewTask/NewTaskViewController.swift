@@ -3,8 +3,24 @@ import PhotosUI
 
 // Protocol to pass data back
 protocol NewTaskDelegate: AnyObject {
-    func didAssignTask(to memberName: String, description: String, date: Date, title: String, attachments: [UIImage])
-    func didUpdateTask(at index: Int, memberName: String, description: String, date: Date, title: String, attachments: [UIImage])
+    func didAssignTask(
+        to memberName: String,
+        description: String,
+        date: Date,
+        title: String,
+        attachments: [UIImage],
+        attachmentFilenames: [String]
+    )
+    
+    func didUpdateTask(
+        at index: Int,
+        memberName: String,
+        description: String,
+        date: Date,
+        title: String,
+        attachments: [UIImage],
+        attachmentFilenames: [String]
+    )
 }
 
 class NewTaskViewController: UIViewController {
@@ -52,8 +68,6 @@ class NewTaskViewController: UIViewController {
     var mentorId: String = ""
     var existingTaskId: String?
 
-
-    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -62,10 +76,8 @@ class NewTaskViewController: UIViewController {
         assignView.layer.cornerRadius = 20
         attachmentView.layer.cornerRadius = 20
         
-        // Initially hide confirm button or disable it
         confirmAssign.isHidden = true
         
-        // Set up for edit mode if needed
         if isEditMode {
             newTaskLabel.text = "Edit Task"
             confirmAssign.setTitle("Update Task", for: .normal)
@@ -84,7 +96,6 @@ class NewTaskViewController: UIViewController {
         }
         
         if let memberName = selectedMemberName {
-            // Check if it's "All Members"
             if memberName == "All Members" {
                 isAllMembersSelected = true
                 selectedMemberIndex = nil
@@ -96,7 +107,6 @@ class NewTaskViewController: UIViewController {
         
         attachments = existingAttachments
         
-        // Generate filenames for existing attachments
         for (index, _) in existingAttachments.enumerated() {
             attachmentFilenames.append("Image_\(index + 1).jpg")
         }
@@ -127,7 +137,6 @@ class NewTaskViewController: UIViewController {
             return
         }
         
-        // FIXED: Create only ONE task regardless of selection
         let memberName: String
         if isAllMembersSelected {
             memberName = "All Members"
@@ -136,27 +145,26 @@ class NewTaskViewController: UIViewController {
         }
         
         if isEditMode, let index = editingTaskIndex {
-            // Update existing task
             delegate?.didUpdateTask(
                 at: index,
                 memberName: memberName,
                 description: description,
                 date: selectedDate,
                 title: title,
-                attachments: attachments
+                attachments: attachments,
+                attachmentFilenames: attachmentFilenames
             )
         } else {
-            // Create new task - ONLY ONE CALL
             delegate?.didAssignTask(
                 to: memberName,
                 description: description,
                 date: selectedDate,
                 title: title,
-                attachments: attachments
+                attachments: attachments,
+                attachmentFilenames: attachmentFilenames
             )
         }
         
-        // Dismiss the view controller
         self.dismiss(animated: true)
     }
     
@@ -167,7 +175,6 @@ class NewTaskViewController: UIViewController {
     func showAttachmentOptions() {
         let alert = UIAlertController(title: "Add Attachment", message: "Choose an option", preferredStyle: .actionSheet)
         
-        // Camera option with icon
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
             let cameraAction = UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
                 self?.presentImagePicker(sourceType: .camera)
@@ -178,7 +185,6 @@ class NewTaskViewController: UIViewController {
             alert.addAction(cameraAction)
         }
         
-        // Photo Library option (iOS 14+) with icon
         if #available(iOS 14, *) {
             let photoAction = UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
                 self?.presentPHPicker()
@@ -197,7 +203,6 @@ class NewTaskViewController: UIViewController {
             alert.addAction(photoAction)
         }
         
-        // Files option with icon
         let filesAction = UIAlertAction(title: "Files", style: .default) { [weak self] _ in
             self?.presentDocumentPicker()
         }
@@ -206,7 +211,6 @@ class NewTaskViewController: UIViewController {
         }
         alert.addAction(filesAction)
         
-        // Add Link option with icon
         let linkAction = UIAlertAction(title: "Add Link", style: .default) { [weak self] _ in
             self?.showAddLinkDialog()
         }
@@ -218,7 +222,6 @@ class NewTaskViewController: UIViewController {
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
         alert.addAction(cancelAction)
         
-        // For iPad support
         if let popoverController = alert.popoverPresentationController {
             popoverController.sourceView = attachmentButton
             popoverController.sourceRect = attachmentButton.bounds
@@ -253,7 +256,6 @@ class NewTaskViewController: UIViewController {
         present(documentPicker, animated: true)
     }
     
-    // MARK: - Add Link Dialog
     func showAddLinkDialog() {
         let alert = UIAlertController(title: "Add Link", message: "Enter a URL", preferredStyle: .alert)
         
@@ -272,29 +274,24 @@ class NewTaskViewController: UIViewController {
                 return
             }
             
-            // Validate URL
             if let url = URL(string: urlString), UIApplication.shared.canOpenURL(url) {
-                // Create a placeholder image for the link
                 let linkImage = self?.createLinkPlaceholderImage() ?? UIImage()
                 self?.attachments.append(linkImage)
                 self?.attachmentFilenames.append(urlString)
                 self?.updateAttachmentUI()
                 
-                print("Link attached: \(urlString)")
+                print("✅ Link attached: \(urlString)")
             } else {
                 self?.showAlert(message: "The URL you entered is not valid.")
             }
         }
         
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
-        
         alert.addAction(addAction)
         alert.addAction(cancelAction)
-        
         present(alert, animated: true)
     }
     
-    // Create a simple placeholder image for links
     func createLinkPlaceholderImage() -> UIImage {
         let size = CGSize(width: 100, height: 100)
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -311,9 +308,9 @@ class NewTaskViewController: UIViewController {
         return image
     }
     
-    // MARK: - Update Attachment UI (AddTaskViewController Style)
+    // MARK: - Updated Attachment UI Methods
+    
     func updateAttachmentUI() {
-        // Clear existing attachment views
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         if attachments.isEmpty {
@@ -322,87 +319,24 @@ class NewTaskViewController: UIViewController {
             return
         }
         
-        // Add attachment cards (like AddTaskViewController)
         for (index, _) in attachments.enumerated() {
-            let containerView = UIView()
-            containerView.translatesAutoresizingMaskIntoConstraints = false
-            containerView.backgroundColor = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
-            containerView.layer.cornerRadius = 12
-            
-            // File icon
-            let iconImageView = UIImageView()
-            iconImageView.translatesAutoresizingMaskIntoConstraints = false
-            iconImageView.contentMode = .scaleAspectFit
-            iconImageView.tintColor = .systemBlue
-            
-            // Determine icon based on filename
             let filename = index < attachmentFilenames.count ? attachmentFilenames[index] : "Image_\(index).jpg"
-            let fileExtension = (filename as NSString).pathExtension.lowercased()
+            let isLink = filename.hasPrefix("http://") || filename.hasPrefix("https://")
             
-            let iconName: String
-            if filename.hasPrefix("http://") || filename.hasPrefix("https://") {
-                iconName = "link"
+            if isLink {
+                // Create link attachment view
+                let linkView = createLinkAttachmentView(url: filename, index: index)
+                stackView.addArrangedSubview(linkView)
             } else {
-                switch fileExtension {
-                case "pdf":
-                    iconName = "doc.text.fill"
-                case "jpg", "jpeg", "png", "heic":
-                    iconName = "photo.fill"
-                case "doc", "docx":
-                    iconName = "doc.text.fill"
-                default:
-                    iconName = "photo.fill"
-                }
+                // Create image attachment view
+                let imageView = createImageAttachmentView(filename: filename, index: index)
+                stackView.addArrangedSubview(imageView)
             }
-            iconImageView.image = UIImage(systemName: iconName)
-            
-            // File name label
-            let nameLabel = UILabel()
-            nameLabel.translatesAutoresizingMaskIntoConstraints = false
-            nameLabel.text = filename
-            nameLabel.font = UIFont.systemFont(ofSize: 16)
-            nameLabel.textColor = .darkGray
-            nameLabel.numberOfLines = 1
-            
-            // Delete button
-            let deleteButton = UIButton(type: .system)
-            deleteButton.translatesAutoresizingMaskIntoConstraints = false
-            deleteButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
-            deleteButton.tintColor = .systemRed
-            deleteButton.tag = index
-            deleteButton.addTarget(self, action: #selector(removeAttachment(_:)), for: .touchUpInside)
-            
-            // Add subviews
-            containerView.addSubview(iconImageView)
-            containerView.addSubview(nameLabel)
-            containerView.addSubview(deleteButton)
-            
-            // Constraints
-            NSLayoutConstraint.activate([
-                containerView.heightAnchor.constraint(equalToConstant: 50),
-                
-                iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-                iconImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-                iconImageView.widthAnchor.constraint(equalToConstant: 28),
-                iconImageView.heightAnchor.constraint(equalToConstant: 28),
-                
-                nameLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 16),
-                nameLabel.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
-                nameLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-                
-                deleteButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
-                deleteButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-                deleteButton.widthAnchor.constraint(equalToConstant: 24),
-                deleteButton.heightAnchor.constraint(equalToConstant: 24)
-            ])
-            
-            stackView.addArrangedSubview(containerView)
         }
         
-        // Update height constraints
         let numberOfAttachments = attachments.count
         let baseHeight: CGFloat = 70
-        let attachmentHeight: CGFloat = 50
+        let attachmentHeight: CGFloat = 60 // Increased for link views
         let spacing: CGFloat = 8
         
         let totalAttachmentsHeight = (attachmentHeight * CGFloat(numberOfAttachments)) + (spacing * CGFloat(numberOfAttachments - 1))
@@ -414,28 +348,150 @@ class NewTaskViewController: UIViewController {
         }
     }
     
+    private func createLinkAttachmentView(url: String, index: Int) -> UIView {
+        let containerView = UIView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.1)
+        containerView.layer.cornerRadius = 12
+        containerView.layer.borderWidth = 1
+        containerView.layer.borderColor = UIColor.systemBlue.withAlphaComponent(0.3).cgColor
+        
+        // Link icon
+        let iconImageView = UIImageView()
+        iconImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconImageView.contentMode = .scaleAspectFit
+        iconImageView.tintColor = .systemBlue
+        let iconConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+        iconImageView.image = UIImage(systemName: "link", withConfiguration: iconConfig)
+        
+        // URL label
+        let urlLabel = UILabel()
+        urlLabel.translatesAutoresizingMaskIntoConstraints = false
+        if let urlObj = URL(string: url) {
+            urlLabel.text = urlObj.host ?? url
+        } else {
+            urlLabel.text = url
+        }
+        urlLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
+        urlLabel.textColor = .systemBlue
+        urlLabel.numberOfLines = 2
+        
+        // Delete button
+        let deleteButton = UIButton(type: .system)
+        deleteButton.translatesAutoresizingMaskIntoConstraints = false
+        deleteButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        deleteButton.tintColor = .systemRed
+        deleteButton.tag = index
+        deleteButton.addTarget(self, action: #selector(removeAttachment(_:)), for: .touchUpInside)
+        
+        containerView.addSubview(iconImageView)
+        containerView.addSubview(urlLabel)
+        containerView.addSubview(deleteButton)
+        
+        NSLayoutConstraint.activate([
+            containerView.heightAnchor.constraint(equalToConstant: 60),
+            
+            iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            iconImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: 28),
+            iconImageView.heightAnchor.constraint(equalToConstant: 28),
+            
+            urlLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 12),
+            urlLabel.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
+            urlLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            
+            deleteButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            deleteButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            deleteButton.widthAnchor.constraint(equalToConstant: 24),
+            deleteButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+        
+        return containerView
+    }
+    
+    private func createImageAttachmentView(filename: String, index: Int) -> UIView {
+        let containerView = UIView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.backgroundColor = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+        containerView.layer.cornerRadius = 12
+        
+        let iconImageView = UIImageView()
+        iconImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconImageView.contentMode = .scaleAspectFit
+        iconImageView.tintColor = .systemBlue
+        
+        let fileExtension = (filename as NSString).pathExtension.lowercased()
+        let iconName: String
+        switch fileExtension {
+        case "pdf":
+            iconName = "doc.text.fill"
+        case "jpg", "jpeg", "png", "heic":
+            iconName = "photo.fill"
+        case "doc", "docx":
+            iconName = "doc.text.fill"
+        default:
+            iconName = "photo.fill"
+        }
+        iconImageView.image = UIImage(systemName: iconName)
+        
+        let nameLabel = UILabel()
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        nameLabel.text = filename
+        nameLabel.font = UIFont.systemFont(ofSize: 16)
+        nameLabel.textColor = .darkGray
+        nameLabel.numberOfLines = 1
+        
+        let deleteButton = UIButton(type: .system)
+        deleteButton.translatesAutoresizingMaskIntoConstraints = false
+        deleteButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        deleteButton.tintColor = .systemRed
+        deleteButton.tag = index
+        deleteButton.addTarget(self, action: #selector(removeAttachment(_:)), for: .touchUpInside)
+        
+        containerView.addSubview(iconImageView)
+        containerView.addSubview(nameLabel)
+        containerView.addSubview(deleteButton)
+        
+        NSLayoutConstraint.activate([
+            containerView.heightAnchor.constraint(equalToConstant: 50),
+            
+            iconImageView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
+            iconImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            iconImageView.widthAnchor.constraint(equalToConstant: 28),
+            iconImageView.heightAnchor.constraint(equalToConstant: 28),
+            
+            nameLabel.leadingAnchor.constraint(equalTo: iconImageView.trailingAnchor, constant: 16),
+            nameLabel.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
+            nameLabel.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            
+            deleteButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            deleteButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            deleteButton.widthAnchor.constraint(equalToConstant: 24),
+            deleteButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
+        
+        return containerView
+    }
+    
     @objc func removeAttachment(_ sender: UIButton) {
         let index = sender.tag
         
         guard index >= 0 && index < attachments.count else {
-            print("Invalid index: \(index)")
+            print("⚠️ Invalid index: \(index)")
             return
         }
         
-        // Remove from both arrays
         attachments.remove(at: index)
         if index < attachmentFilenames.count {
             attachmentFilenames.remove(at: index)
         }
         
-        // Update UI
         updateAttachmentUI()
     }
     
     func showTeamMemberPicker() {
         let alert = UIAlertController(title: "Assign To", message: "Select a team member", preferredStyle: .actionSheet)
         
-        // Add "All Members" option
         let allMembersAction = UIAlertAction(title: "All Members", style: .default) { [weak self] _ in
             guard let self = self else { return }
             self.isAllMembersSelected = true
@@ -446,7 +502,6 @@ class NewTaskViewController: UIViewController {
         }
         alert.addAction(allMembersAction)
         
-        // Add individual team members
         for (index, name) in teamMemberNames.enumerated() {
             let action = UIAlertAction(title: name, style: .default) { [weak self] _ in
                 guard let self = self else { return }
@@ -462,7 +517,6 @@ class NewTaskViewController: UIViewController {
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
         alert.addAction(cancelAction)
         
-        // For iPad support
         if let popoverController = alert.popoverPresentationController {
             popoverController.sourceView = assignButton
             popoverController.sourceRect = assignButton.bounds
@@ -484,7 +538,6 @@ extension NewTaskViewController: UIImagePickerControllerDelegate, UINavigationCo
         if let image = info[.originalImage] as? UIImage {
             attachments.append(image)
             
-            // Generate a filename
             let timestamp = Date().timeIntervalSince1970
             let filename = "Image_\(Int(timestamp)).jpg"
             attachmentFilenames.append(filename)
@@ -511,7 +564,6 @@ extension NewTaskViewController: PHPickerViewControllerDelegate {
                     DispatchQueue.main.async {
                         self?.attachments.append(image)
                         
-                        // Generate a filename
                         let timestamp = Date().timeIntervalSince1970
                         let filename = "Image_\(Int(timestamp)).jpg"
                         self?.attachmentFilenames.append(filename)

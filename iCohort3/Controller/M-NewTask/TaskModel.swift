@@ -41,6 +41,7 @@ struct TaskModel {
     var remarkDesc: String?      // Actual remark text
     var title: String?           // Task title
     var attachments: [UIImage]?  // Local images (downloaded from storage)
+    var attachmentFilenames: [String]? // Filenames including URLs for links
     var assignedDate: Date?      // Actual Date object
     var status: String           // "assigned", "ongoing", "for_review", "completed", "rejected"
     
@@ -52,6 +53,7 @@ struct TaskModel {
          remarkDesc: String? = nil,
          title: String? = nil,
          attachments: [UIImage]? = nil,
+         attachmentFilenames: [String]? = nil,
          assignedDate: Date? = nil,
          status: String = "assigned") {
         self.id = id
@@ -62,6 +64,7 @@ struct TaskModel {
         self.remarkDesc = remarkDesc
         self.title = title
         self.attachments = attachments
+        self.attachmentFilenames = attachmentFilenames
         self.assignedDate = assignedDate
         self.status = status
     }
@@ -77,8 +80,27 @@ struct TaskModel {
         
         // Download attachments asynchronously
         var attachmentImages: [UIImage] = []
+        var attachmentFilenames: [String] = []
+        
         do {
-            attachmentImages = try await SupabaseManager.shared.downloadTaskAttachmentImages(taskId: taskRow.id)
+            let attachmentRows = try await SupabaseManager.shared.fetchTaskAttachments(taskId: taskRow.id)
+            
+            for attachmentRow in attachmentRows {
+                attachmentFilenames.append(attachmentRow.filename)
+                
+                // Check if it's a link
+                if attachmentRow.file_type == "link" {
+                    // Create placeholder for link
+                    let linkPlaceholder = createLinkPlaceholderImage()
+                    attachmentImages.append(linkPlaceholder)
+                } else if let base64Data = attachmentRow.file_data,
+                          let imageData = Data(base64Encoded: base64Data),
+                          let image = UIImage(data: imageData) {
+                    attachmentImages.append(image)
+                }
+            }
+            
+            print("✅ Loaded \(attachmentImages.count) attachments for task \(taskRow.id)")
         } catch {
             print("⚠️ Failed to download attachments for task \(taskRow.id): \(error)")
         }
@@ -92,6 +114,7 @@ struct TaskModel {
             remarkDesc: taskRow.remark_description,
             title: taskRow.title,
             attachments: attachmentImages.isEmpty ? nil : attachmentImages,
+            attachmentFilenames: attachmentFilenames.isEmpty ? nil : attachmentFilenames,
             assignedDate: assignedDate,
             status: taskRow.status
         )
@@ -115,8 +138,26 @@ struct TaskModel {
             remarkDesc: taskRow.remark_description,
             title: taskRow.title,
             attachments: nil,
+            attachmentFilenames: nil,
             assignedDate: assignedDate,
             status: taskRow.status
         )
+    }
+    
+    // Helper to create link placeholder image
+    private static func createLinkPlaceholderImage() -> UIImage {
+        let size = CGSize(width: 100, height: 100)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        
+        let image = renderer.image { context in
+            UIColor.systemBlue.withAlphaComponent(0.1).setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            
+            let iconConfig = UIImage.SymbolConfiguration(pointSize: 40, weight: .regular)
+            let linkIcon = UIImage(systemName: "link", withConfiguration: iconConfig)
+            linkIcon?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal).draw(in: CGRect(x: 30, y: 30, width: 40, height: 40))
+        }
+        
+        return image
     }
 }

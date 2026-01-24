@@ -23,7 +23,7 @@ class TaskSeeAllViewController: UIViewController {
     var teamMemberImages: [UIImage] = []
     var teamMemberNames: [String] = []
     
-    // NEW: Store teamId and mentorId for editing
+    // Store teamId and mentorId for editing
     var teamId: String = ""
     var mentorId: String = ""
 
@@ -160,7 +160,7 @@ class TaskSeeAllViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    // MARK: - Present Edit Task (FIXED)
+    // MARK: - Present Edit Task
     private func presentEditTask(at index: Int) {
         let task = tasks[index]
         
@@ -186,6 +186,11 @@ class TaskSeeAllViewController: UIViewController {
         newTaskVC.editingTaskIndex = index
         newTaskVC.editingCategory = category
         
+        // Load existing filenames
+        if let filenames = task.attachmentFilenames {
+            newTaskVC.attachmentFilenames = filenames
+        }
+        
         newTaskVC.modalPresentationStyle = .pageSheet
         if let sheet = newTaskVC.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
@@ -195,8 +200,11 @@ class TaskSeeAllViewController: UIViewController {
     }
     
     // MARK: - Present Attachment Viewer
-    private func presentAttachmentViewer(attachments: [UIImage]) {
-        let viewerVC = AttachmentViewerViewController(attachments: attachments)
+    private func presentAttachmentViewer(attachments: [UIImage], filenames: [String] = []) {
+        let viewerVC = AttachmentViewerViewController(
+            attachments: attachments,
+            attachmentFilenames: filenames
+        )
         viewerVC.modalPresentationStyle = .fullScreen
         viewerVC.modalTransitionStyle = .crossDissolve
         present(viewerVC, animated: true)
@@ -205,11 +213,12 @@ class TaskSeeAllViewController: UIViewController {
 
 // MARK: - NewTaskDelegate
 extension TaskSeeAllViewController: NewTaskDelegate {
-    func didAssignTask(to memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
+    
+    func didAssignTask(to memberName: String, description: String, date: Date, title: String, attachments: [UIImage], attachmentFilenames: [String]) {
         // Not used in edit mode
     }
     
-    func didUpdateTask(at index: Int, memberName: String, description: String, date: Date, title: String, attachments: [UIImage]) {
+    func didUpdateTask(at index: Int, memberName: String, description: String, date: Date, title: String, attachments: [UIImage], attachmentFilenames: [String]) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd MMM yyyy"
         let dateString = dateFormatter.string(from: date)
@@ -224,6 +233,7 @@ extension TaskSeeAllViewController: NewTaskDelegate {
             remarkDesc: tasks[index].remarkDesc,
             title: title,
             attachments: attachments,
+            attachmentFilenames: attachmentFilenames,
             assignedDate: date,
             status: tasks[index].status
         )
@@ -275,10 +285,12 @@ extension TaskSeeAllViewController: UICollectionViewDelegate, UICollectionViewDa
             self.presentEditTask(at: indexPath.row)
         }
         
-        // Handle attachment viewer
+        // Handle attachment viewer with filenames
         cell.onAttachmentTapped = { [weak self] attachments in
             guard let self = self else { return }
-            self.presentAttachmentViewer(attachments: attachments)
+            let task = self.tasks[indexPath.row]
+            let filenames = task.attachmentFilenames ?? []
+            self.presentAttachmentViewer(attachments: attachments, filenames: filenames)
         }
         
         // Handle delete action
