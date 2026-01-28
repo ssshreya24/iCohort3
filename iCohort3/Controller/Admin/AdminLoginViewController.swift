@@ -2,132 +2,148 @@
 //  AdminLoginViewController.swift
 //  iCohort3
 //
-//  Created by user@56 on 11/01/26.
+//  SIMPLIFIED VERSION - Email and Password Only
 //
 
 import UIKit
+import FirebaseAuth
 
-class AdminLoginViewController: UIViewController,
-                                UIPickerViewDelegate,
-                                UIPickerViewDataSource{
+class AdminLoginViewController: UIViewController {
     
     @IBOutlet weak var registerButton: UIButton!
-    @IBOutlet weak var dropdownButton: UIButton!
-    @IBOutlet weak var universityTextField: UITextField!
-    @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var emailTextField: UITextField!
+    @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var signInButton: UIButton!
-    @IBOutlet weak var confirmPasswordTextField: UITextField!
-    // MARK: - Data
-    let universities = [
-        "SRM Institute of Science and Technology",
-        "Graphic Era",
-        "Galgotias",
-        "Chitkara"
-    ]
+    @IBOutlet weak var emailView: UIView!
+    @IBOutlet weak var passwordView: UIView!
     
-    let universityPicker = UIPickerView()
+    private var loadingIndicator: UIActivityIndicatorView?
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         
         setupUI()
-        setupUniversityDropdown()
+        
+        // Auto-login if admin is already authenticated
+        if Auth.auth().currentUser != nil {
+            print("✅ Admin already logged in, navigating to dashboard")
+            handleLoginSuccess()
+        }
     }
     
     // MARK: - UI Setup
     func setupUI() {
-        let radius: CGFloat = 23
+        let radius: CGFloat = 20
         
-        universityTextField.layer.cornerRadius = radius
-        emailTextField.layer.cornerRadius = radius
-        passwordTextField.layer.cornerRadius = radius
-        confirmPasswordTextField.layer.cornerRadius = radius
-        signInButton.layer.cornerRadius = radius
+        emailView?.layer.cornerRadius = radius
+        emailView?.clipsToBounds = true
         
-        universityTextField.clipsToBounds = true
-        emailTextField.clipsToBounds = true
-        passwordTextField.clipsToBounds = true
-        confirmPasswordTextField.clipsToBounds = true
-        signInButton.clipsToBounds = true
+        passwordView?.layer.cornerRadius = radius
+        passwordView?.clipsToBounds = true
         
-        // Disable typing cursor for dropdown field
-        universityTextField.tintColor = .clear
-    }
-    
-    // MARK: - Dropdown Setup
-    func setupUniversityDropdown() {
-        universityPicker.delegate = self
-        universityPicker.dataSource = self
+        signInButton?.layer.cornerRadius = radius
+        signInButton?.clipsToBounds = true
         
-        universityTextField.inputView = universityPicker
+        registerButton?.layer.cornerRadius = radius
+        registerButton?.clipsToBounds = true
         
-        // Toolbar with Done button
-        let toolbar = UIToolbar()
-        toolbar.sizeToFit()
-        
-        let space = UIBarButtonItem(
-            barButtonSystemItem: .flexibleSpace,
-            target: nil,
-            action: nil
-        )
-        
-        let doneButton = UIBarButtonItem(
-            title: "Done",
-            style: .prominent,
-            target: self,
-            action: #selector(doneTapped)
-        )
-        
-        toolbar.items = [space, doneButton]
-        universityTextField.inputAccessoryView = toolbar
+        emailTextField.placeholder = "Enter admin email"
+        passwordTextField.placeholder = "Enter password"
+        passwordTextField.isSecureTextEntry = true
     }
     
     // MARK: - Navigation
     private func navigateToSignUp() {
-        // Check if AdminSignUpViewController is XIB-based or Storyboard-based
-        
-        // For XIB-based (most likely based on your setup)
         let signUpVC = AdminSignUpViewController(nibName: "AdminSignUpViewController", bundle: nil)
         navigationController?.pushViewController(signUpVC, animated: true)
+    }
+    
+    func handleLoginSuccess() {
+        print("✅ Admin logged in successfully")
         
-        // For Storyboard-based (uncomment if using storyboard)
-        // let sb = UIStoryboard(name: "Main", bundle: nil)
-        // guard let signUpVC = sb.instantiateViewController(withIdentifier: "AdminSignUpVC") as? AdminSignUpViewController else {
-        //     print("ERROR: Couldn't instantiate AdminSignUpViewController")
-        //     return
-        // }
-        // navigationController?.pushViewController(signUpVC, animated: true)
+        // Navigate to Admin Approval Dashboard
+        let approvalVC = AdminApprovalViewController()
+        let navController = UINavigationController(rootViewController: approvalVC)
+        navController.modalPresentationStyle = .fullScreen
+        
+        let window = view.window ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+        
+        guard let window = window else { return }
+        
+        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
+            window.rootViewController = navController
+            window.makeKeyAndVisible()
+        }
     }
     
-    // MARK: - Picker View DataSource
-    func numberOfComponents(in pickerView: UIPickerView) -> Int {
-        return 1
-    }
-
-    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        return universities.count
-    }
-
-    // MARK: - Picker View Delegate
-    func pickerView(_ pickerView: UIPickerView,
-                    titleForRow row: Int,
-                    forComponent component: Int) -> String? {
-        return universities[row]
-    }
-
-    func pickerView(_ pickerView: UIPickerView,
-                    didSelectRow row: Int,
-                    inComponent component: Int) {
-        universityTextField.text = universities[row]
-    }
-
     // MARK: - Actions
-    @objc func doneTapped() {
-        universityTextField.resignFirstResponder()
+    @IBAction func signInTapped(_ sender: UIButton) {
+        print("\n===========================================")
+        print("🎯 ADMIN LOGIN STARTED")
+        print("===========================================")
+        
+        view.endEditing(true)
+        
+        guard let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
+            print("❌ Validation failed: Email is empty")
+            showAlert(title: "Error", message: "Please enter your email")
+            return
+        }
+        print("✅ Email:", email)
+        
+        guard let password = passwordTextField.text, !password.isEmpty else {
+            print("❌ Validation failed: Password is empty")
+            showAlert(title: "Error", message: "Please enter your password")
+            return
+        }
+        print("✅ Password provided")
+        
+        print("\n🚀 Starting Firebase Auth login...")
+        print("===========================================\n")
+        
+        signInButton.isEnabled = false
+        showLoadingIndicator()
+        
+        Auth.auth().signIn(withEmail: email, password: password) { [weak self] result, error in
+            guard let self = self else { return }
+            
+            self.hideLoadingIndicator()
+            self.signInButton.isEnabled = true
+            
+            if let error = error {
+                print("\n❌ Firebase Auth LOGIN FAILED")
+                print("Error code:", (error as NSError).code)
+                print("Error domain:", (error as NSError).domain)
+                print("Error description:", error.localizedDescription)
+                print("Full error:", error)
+                print("===========================================\n")
+                
+                self.showAlert(title: "Login Failed", message: error.localizedDescription)
+                return
+            }
+            
+            guard let user = result?.user else {
+                print("\n❌ Login succeeded but no user returned")
+                print("===========================================\n")
+                
+                self.showAlert(title: "Error", message: "Login failed")
+                return
+            }
+            
+            print("\n🎉 Firebase Auth LOGIN SUCCESS!")
+            print("User ID:", user.uid)
+            print("Email:", user.email ?? "N/A")
+            print("Email verified:", user.isEmailVerified)
+            print("===========================================\n")
+            
+            // Navigate to dashboard
+            self.handleLoginSuccess()
+        }
     }
-    
     
     @IBAction func registerTapped(_ sender: Any) {
         print("Register button tapped. Navigating to AdminSignUpViewController.")
@@ -135,16 +151,42 @@ class AdminLoginViewController: UIViewController,
     }
     
     @IBAction func backButton(_ sender: Any) {
-        // Navigate back to UserSelectionViewController
         if let navigationController = navigationController {
-            // Pop back to previous view controller (UserSelectionViewController)
             navigationController.popViewController(animated: true)
         } else {
-            // Dismiss if presented modally
             dismiss(animated: true, completion: nil)
         }
     }
     
+    // MARK: - Helper Methods
     
+    private func showLoadingIndicator() {
+        DispatchQueue.main.async {
+            let indicator = UIActivityIndicatorView(style: .large)
+            indicator.center = self.view.center
+            indicator.startAnimating()
+            self.view.addSubview(indicator)
+            self.view.isUserInteractionEnabled = false
+            self.loadingIndicator = indicator
+            print("🔄 Loading indicator shown")
+        }
+    }
     
+    private func hideLoadingIndicator() {
+        DispatchQueue.main.async {
+            self.loadingIndicator?.stopAnimating()
+            self.loadingIndicator?.removeFromSuperview()
+            self.view.isUserInteractionEnabled = true
+            self.loadingIndicator = nil
+            print("✋ Loading indicator hidden")
+        }
+    }
+    
+    func showAlert(title: String, message: String) {
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(alert, animated: true)
+        }
+    }
 }

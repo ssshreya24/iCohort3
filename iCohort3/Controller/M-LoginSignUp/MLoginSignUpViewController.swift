@@ -4,6 +4,7 @@
 //
 
 import UIKit
+import FirebaseAuth
 
 class MLoginSignUpViewController: UIViewController {
     
@@ -15,14 +16,15 @@ class MLoginSignUpViewController: UIViewController {
     @IBOutlet weak var rememberMeButton: UIButton!
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var emailTextField: UITextField!
-    
-    // MARK: - Temporary hardcoded credentials (DELETE LATER)
-    private let TEMP_EMAIL = "cc"
-    private let TEMP_PASSWORD = "cc"
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        
+        // Auto-login if user is already authenticated
+        if Auth.auth().currentUser != nil {
+            handleLoginSuccess()
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -106,26 +108,29 @@ class MLoginSignUpViewController: UIViewController {
     @IBAction func signInTapped(_ sender: UIButton) {
         print("Sign In button tapped")
         
-        // Get input
         guard let email = emailTextField.text, !email.isEmpty,
               let password = passwordTextField.text, !password.isEmpty else {
             showAlert(title: "Error", message: "Email or password cannot be empty")
             return
         }
         
-        // TEMPORARY: Validate against hardcoded credentials
-        if email.lowercased() == TEMP_EMAIL.lowercased() && password == TEMP_PASSWORD {
-            print("✅ Login successful for user:", email)
+        signInButton.isEnabled = false
+        
+        Auth.auth().signIn(withEmail: email, password: password) { [weak self] result, error in
+            self?.signInButton.isEnabled = true
             
-            if rememberMeButton.isSelected {
-                UserDefaults.standard.set(true, forKey: "isLoggedIn")
-                UserDefaults.standard.set(email, forKey: "userEmail")
+            if let error = error {
+                self?.showAlert(title: "Login Failed", message: error.localizedDescription)
+                return
             }
             
-            handleLoginSuccess()
-        } else {
-            print("❌ Invalid credentials")
-            showAlert(title: "Login Failed", message: "Invalid email or password. Please check and try again.")
+            print("✅ Firebase login success:", result?.user.email ?? "")
+            
+            if self?.rememberMeButton.isSelected == true {
+                UserDefaults.standard.set(true, forKey: "isLoggedIn")
+            }
+            
+            self?.handleLoginSuccess()
         }
     }
 

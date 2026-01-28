@@ -1,11 +1,12 @@
 //
 //  LoginViewController.swift
-//  Login Screen
+//  iCohort3
 //
-//  Created by user@51 on 03/11/25.
+//  FIXED VERSION - Better error handling and loading states
 //
 
 import UIKit
+import FirebaseAuth
 
 class LoginViewController: UIViewController {
     
@@ -18,9 +19,7 @@ class LoginViewController: UIViewController {
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var emailTextField: UITextField!
     
-    // MARK: - Temporary hardcoded credentials (DELETE LATER)
-    private let TEMP_EMAIL = "cc"
-    private let TEMP_PASSWORD = "cc"
+    private var loadingIndicator: UIActivityIndicatorView?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -30,96 +29,6 @@ class LoginViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
-    }
-    
-    @IBAction func forgotPasswordTapped(_ sender: UIButton) {
-        let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
-        
-        // Check if we have a navigation controller
-        if let nav = navigationController {
-            // Push onto navigation stack for proper back navigation
-            nav.pushViewController(otpVC, animated: true)
-        } else {
-            // Fallback to modal presentation
-            otpVC.modalPresentationStyle = .fullScreen
-            present(otpVC, animated: true, completion: nil)
-        }
-    }
-    
-    @IBAction func signUpButtonTapped(_ sender: UIButton) {
-        let signUpVC = SignUpViewController(nibName: "SignUpViewController", bundle: nil)
-        
-        if let nav = navigationController {
-            nav.pushViewController(signUpVC, animated: true)
-        } else {
-            signUpVC.modalPresentationStyle = .fullScreen
-            present(signUpVC, animated: true, completion: nil)
-        }
-    }
-    
-    @IBAction func togglePasswordVisibility(_ sender: UIButton) {
-        passwordTextField.isSecureTextEntry.toggle()
-        let imageName = passwordTextField.isSecureTextEntry ? "eye.slash.fill" : "eye.fill"
-        sender.setImage(UIImage(systemName: imageName), for: .normal)
-    }
-    
-    @IBAction func rememberMeTapped(_ sender: UIButton) {
-        sender.isSelected.toggle()
-        
-        if sender.isSelected {
-            print("Remember Me is now CHECKED.")
-        } else {
-            print("Remember Me is now UNCHECKED.")
-        }
-    }
-    
-    @IBAction func backButtonTapped(_ sender: UIButton) {
-        print("Login back button tapped, nav:", navigationController as Any)
-        
-        // Try to pop from navigation stack
-        if let nav = navigationController, nav.viewControllers.count > 1 {
-            nav.popViewController(animated: true)
-            return
-        }
-        
-        // If we're at root or no nav controller, go back to UserSelection
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        if let userSelection = storyboard.instantiateViewController(withIdentifier: "UserSelectionVC") as? UserSelectionViewController {
-            let navRoot = UINavigationController(rootViewController: userSelection)
-            navRoot.modalPresentationStyle = .fullScreen
-            
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
-                window.rootViewController = navRoot
-                window.makeKeyAndVisible()
-            } else if let window = view.window {
-                window.rootViewController = navRoot
-                window.makeKeyAndVisible()
-            } else {
-                present(navRoot, animated: true, completion: nil)
-            }
-        }
-    }
-    
-    @IBAction func confirmButtonTapped(_ sender: UIButton) {
-        let loginVC = LoginViewController(nibName: "LoginViewController", bundle: nil)
-        loginVC.modalPresentationStyle = .fullScreen
-        present(loginVC, animated: true, completion: nil)
-    }
-    
-    func handleLoginSuccess() {
-        let tab = MainTabBarViewController()
-        
-        let win = view.window ?? UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }
-        
-        guard let window = win else { return }
-        
-        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-            window.rootViewController = tab
-        }
     }
     
     func setupUI() {
@@ -147,38 +56,221 @@ class LoginViewController: UIViewController {
         containerView2.layer.masksToBounds = true
     }
     
-    @IBAction func signInTapped(_ sender: UIButton) {
-        print("Sign In button tapped")
+    @IBAction func forgotPasswordTapped(_ sender: UIButton) {
+        let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
         
-        // Get input
-        guard let email = emailTextField.text, !email.isEmpty,
-              let password = passwordTextField.text, !password.isEmpty else {
-            showAlert(title: "Error", message: "Email or password cannot be empty")
-            return
-        }
-        
-        // TEMPORARY: Validate against hardcoded credentials
-        if email.lowercased() == TEMP_EMAIL.lowercased() && password == TEMP_PASSWORD {
-            print("✅ Login successful for user:", email)
-            
-            // Optionally store remember-me preference
-            if rememberMeButton.isSelected {
-                print("Remember Me is checked. Saving credentials/state.")
-                UserDefaults.standard.set(true, forKey: "isLoggedIn")
-                UserDefaults.standard.set(email, forKey: "userEmail")
-            }
-            
-            handleLoginSuccess()
+        if let nav = navigationController {
+            nav.pushViewController(otpVC, animated: true)
         } else {
-            print("❌ Invalid credentials")
-            showAlert(title: "Login Failed", message: "Invalid email or password. Please check and try again.")
+            otpVC.modalPresentationStyle = .fullScreen
+            present(otpVC, animated: true, completion: nil)
         }
     }
     
-    // MARK: - Helper to show alerts
+    @IBAction func signUpButtonTapped(_ sender: UIButton) {
+        let signUpVC = SignUpViewController(nibName: "SignUpViewController", bundle: nil)
+        
+        if let nav = navigationController {
+            nav.pushViewController(signUpVC, animated: true)
+        } else {
+            signUpVC.modalPresentationStyle = .fullScreen
+            present(signUpVC, animated: true, completion: nil)
+        }
+    }
+    
+    @IBAction func togglePasswordVisibility(_ sender: UIButton) {
+        passwordTextField.isSecureTextEntry.toggle()
+        let imageName = passwordTextField.isSecureTextEntry ? "eye.slash.fill" : "eye.fill"
+        sender.setImage(UIImage(systemName: imageName), for: .normal)
+    }
+    
+    @IBAction func rememberMeTapped(_ sender: UIButton) {
+        sender.isSelected.toggle()
+    }
+    
+    @IBAction func backButtonTapped(_ sender: UIButton) {
+        if let nav = navigationController, nav.viewControllers.count > 1 {
+            nav.popViewController(animated: true)
+            return
+        }
+        
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        if let userSelection = storyboard.instantiateViewController(withIdentifier: "UserSelectionVC") as? UserSelectionViewController {
+            let navRoot = UINavigationController(rootViewController: userSelection)
+            navRoot.modalPresentationStyle = .fullScreen
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
+                window.rootViewController = navRoot
+                window.makeKeyAndVisible()
+            } else if let window = view.window {
+                window.rootViewController = navRoot
+                window.makeKeyAndVisible()
+            } else {
+                present(navRoot, animated: true, completion: nil)
+            }
+        }
+    }
+    
+    @IBAction func signInTapped(_ sender: UIButton) {
+        print("🔐 Sign In button tapped")
+        
+        guard let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
+            showAlert(title: "Error", message: "Please enter your email address")
+            return
+        }
+        
+        guard let password = passwordTextField.text, !password.isEmpty else {
+            showAlert(title: "Error", message: "Please enter your password")
+            return
+        }
+        
+        signInButton.isEnabled = false
+        showLoadingIndicator()
+        
+        performLogin(email: email, password: password)
+    }
+    
+    private func performLogin(email: String, password: String) {
+        Task {
+            do {
+                print("📝 Checking approval status for:", email)
+                
+                // First check if student is approved in Firestore
+                let approvalStatus = try await FirebaseManager.shared.checkStudentApproval(email: email)
+                
+                print("📊 Approval status:", approvalStatus)
+                
+                switch approvalStatus {
+                case .pending:
+                    await MainActor.run {
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        showAlert(title: "Pending Approval", message: "Your registration is still pending approval from your institute. Please wait for confirmation.")
+                    }
+                    return
+                    
+                case .declined:
+                    await MainActor.run {
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        showAlert(title: "Access Denied", message: "Your registration was declined by the institute. Please contact your administrator.")
+                    }
+                    return
+                    
+                case .approved:
+                    print("✅ Student is approved, verifying password")
+                    
+                    // Verify password matches
+                    let isValidPassword = try await FirebaseManager.shared.verifyApprovedStudent(email: email, password: password)
+                    
+                    guard isValidPassword else {
+                        await MainActor.run {
+                            hideLoadingIndicator()
+                            signInButton.isEnabled = true
+                            showAlert(title: "Login Failed", message: "Invalid email or password")
+                        }
+                        return
+                    }
+                    
+                    print("✅ Password verified, logging in")
+                    
+                    await MainActor.run {
+                        print("✅ Student login success (approved):", email)
+                        
+                        if rememberMeButton.isSelected {
+                            UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                            UserDefaults.standard.set(email, forKey: "userEmail")
+                        }
+                        
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        handleLoginSuccess()
+                    }
+                }
+                
+            } catch FirebaseManagerError.studentNotFound {
+                print("❌ Error: Student not found")
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    showAlert(title: "Not Registered", message: "This email is not registered. Please sign up first.")
+                }
+                
+            } catch {
+                print("❌ Login error:", error.localizedDescription)
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    showAlert(title: "Login Failed", message: "An error occurred: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    func handleLoginSuccess() {
+        let tab = MainTabBarViewController()
+        
+        let win = view.window ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+        
+        guard let window = win else { return }
+        
+        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
+            window.rootViewController = tab
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func showLoadingIndicator() {
+        // Remove any existing indicator first
+        hideLoadingIndicator()
+        
+        DispatchQueue.main.async {
+            let indicator = UIActivityIndicatorView(style: .large)
+            indicator.color = .systemBlue
+            indicator.center = self.view.center
+            indicator.startAnimating()
+            
+            // Add backdrop
+            let backdrop = UIView(frame: self.view.bounds)
+            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+            backdrop.tag = 9999
+            backdrop.addSubview(indicator)
+            
+            self.view.addSubview(backdrop)
+            self.view.isUserInteractionEnabled = false
+            
+            self.loadingIndicator = indicator
+            
+            print("🔄 Loading indicator shown")
+        }
+    }
+    
+    private func hideLoadingIndicator() {
+        DispatchQueue.main.async {
+            // Remove backdrop
+            self.view.viewWithTag(9999)?.removeFromSuperview()
+            
+            // Remove indicator
+            self.loadingIndicator?.stopAnimating()
+            self.loadingIndicator?.removeFromSuperview()
+            self.loadingIndicator = nil
+            
+            self.view.isUserInteractionEnabled = true
+            
+            print("✋ Loading indicator hidden")
+        }
+    }
+    
     func showAlert(title: String, message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(alert, animated: true)
+        }
     }
 }
