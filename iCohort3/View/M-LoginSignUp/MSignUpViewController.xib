@@ -40,7 +40,7 @@
                     <rect key="frame" x="0.0" y="118" width="393" height="1014"/>
                     <subviews>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="mEo-hE-ur1" userLabel="contentView">
-                            <rect key="frame" x="0.0" y="0.0" width="393" height="1200"/>
+                            <rect key="frame" x="0.0" y="0.0" width="393" height="1000"/>
                             <subviews>
                                 <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="logo" translatesAutoresizingMaskIntoConstraints="NO" id="CiW-DB-Xyl">
                                     <rect key="frame" x="106" y="60" width="181" height="120"/>
@@ -357,6 +357,7 @@
                                 <constraint firstItem="J5F-vZ-n3n" firstAttribute="leading" secondItem="8BH-aC-4Fh" secondAttribute="leading" id="cYd-mh-E6L"/>
                                 <constraint firstItem="ckT-14-GBq" firstAttribute="trailing" secondItem="aVL-kD-bgl" secondAttribute="trailing" id="cgq-fd-srt"/>
                                 <constraint firstItem="J5F-vZ-n3n" firstAttribute="trailing" secondItem="8BH-aC-4Fh" secondAttribute="trailing" id="cr6-mi-Vp9"/>
+                                <constraint firstAttribute="height" constant="1000" id="dhA-gd-lmx"/>
                                 <constraint firstItem="itF-mb-fpM" firstAttribute="leading" secondItem="aVL-kD-bgl" secondAttribute="leading" id="e1E-Ty-O5q"/>
                                 <constraint firstItem="8BH-aC-4Fh" firstAttribute="top" secondItem="5Ce-jT-22a" secondAttribute="bottom" constant="15" id="e2y-Ku-aqN"/>
                                 <constraint firstItem="oDK-s3-RoQ" firstAttribute="top" secondItem="RSQ-21-BvM" secondAttribute="bottom" constant="10" id="gTX-ep-mRO"/>
@@ -401,7 +402,6 @@
                 <constraint firstItem="mEo-hE-ur1" firstAttribute="width" secondItem="cG0-a1-eDN" secondAttribute="width" id="nR2-v7-fh5"/>
                 <constraint firstItem="Bs6-MH-fVH" firstAttribute="top" secondItem="op6-be-gYx" secondAttribute="top" id="pAe-wi-fIv"/>
                 <constraint firstItem="Bs6-MH-fVH" firstAttribute="leading" secondItem="op6-be-gYx" secondAttribute="leading" id="rbi-q1-VtY"/>
-                <constraint firstItem="mEo-hE-ur1" firstAttribute="height" secondItem="cG0-a1-eDN" secondAttribute="height" id="tfF-o2-icb"/>
             </constraints>
             <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
             <point key="canvasLocation" x="0.76335877862595414" y="133.80281690140845"/>
