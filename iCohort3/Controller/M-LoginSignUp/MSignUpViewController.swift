@@ -2,7 +2,7 @@
 //  MSignUpViewController.swift
 //  iCohort3
 //
-//  Created by user@51 on 13/11/25.
+//  Updated to register mentors with pending approval status
 //
 
 import UIKit
@@ -165,24 +165,40 @@ class MSignUpViewController: UIViewController {
         
         signUpButton.isEnabled = false
         
-        Auth.auth().createUser(withEmail: email, password: password) { [weak self] result, error in
-            self?.signUpButton.isEnabled = true
-            
-            if let error = error {
-                self?.showAlert(title: "Signup Failed", message: error.localizedDescription)
-                return
-            }
-            
-            print("🎉 Firebase mentor user created:", result?.user.uid ?? "")
-            
-            // Optional: send verification email
-            result?.user.sendEmailVerification()
-            
-            // TODO: Store additional mentor data (name, employeeID, designation, department, institute)
-            // in Firestore database when you implement it
-            
-            self?.showAlert(title: "Success", message: "Mentor account created. Please login.") {
-                self?.navigationController?.popViewController(animated: true)
+        // Register mentor in Firestore with pending status
+        Task {
+            do {
+                let mentorId = try await FirebaseManager.shared.registerMentor(
+                    fullName: name,
+                    email: email,
+                    employeeId: employeeID,
+                    designation: designation,
+                    department: department,
+                    instituteName: institute,
+                    password: password
+                )
+                
+                await MainActor.run {
+                    self.signUpButton.isEnabled = true
+                    
+                    self.showAlert(
+                        title: "Registration Submitted",
+                        message: "Your mentor registration has been submitted and is pending admin approval. You will be able to login once approved."
+                    ) {
+                        self.navigationController?.popViewController(animated: true)
+                    }
+                }
+                
+            } catch FirebaseManagerError.alreadyRegistered {
+                await MainActor.run {
+                    self.signUpButton.isEnabled = true
+                    self.showAlert(title: "Error", message: "This email is already registered")
+                }
+            } catch {
+                await MainActor.run {
+                    self.signUpButton.isEnabled = true
+                    self.showAlert(title: "Error", message: "Registration failed: \(error.localizedDescription)")
+                }
             }
         }
     }

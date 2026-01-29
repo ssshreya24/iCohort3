@@ -2,7 +2,7 @@
 //  AdminApprovalViewController.swift
 //  iCohort3
 //
-//  Admin page to approve or decline student registrations
+//  Admin page to approve or decline student AND mentor registrations
 //
 
 import UIKit
@@ -16,6 +16,7 @@ class AdminApprovalViewController: UIViewController {
     private let greetingLabel = UILabel()
     private let nameLabel = UILabel()
     private let logoutButton = UIButton(type: .system)
+    private let segmentedControl = UISegmentedControl(items: ["Students", "Mentors"])
     private let requestsHeaderLabel = UILabel()
     private let pendingBadge = UILabel()
     private let cardsStackView = UIStackView()
@@ -24,9 +25,10 @@ class AdminApprovalViewController: UIViewController {
     
     // MARK: - Data
     private var pendingStudents: [StudentRegistration] = []
+    private var pendingMentors: [MentorRegistration] = []
     private var instituteDomain: String = "srmist.edu.in" // Default for SRM
-    private var adminEmail: String = ""
     private var instituteName: String = "SRM University"
+    private var adminEmail: String = ""
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -34,7 +36,7 @@ class AdminApprovalViewController: UIViewController {
         
         setupUI()
         getAdminInfo()
-        loadPendingStudents()
+        loadPendingData()
     }
     
     // MARK: - Setup
@@ -78,6 +80,12 @@ class AdminApprovalViewController: UIViewController {
         logoutButton.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
         logoutButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(logoutButton)
+        
+        // Setup segmented control
+        segmentedControl.selectedSegmentIndex = 0
+        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
+        contentView.addSubview(segmentedControl)
         
         // Setup requests header
         requestsHeaderLabel.text = "Requests"
@@ -128,12 +136,16 @@ class AdminApprovalViewController: UIViewController {
             nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -100),
             
-            // Logout button positioned relative to view and nameLabel's top
             logoutButton.topAnchor.constraint(equalTo: nameLabel.topAnchor, constant: -4),
             logoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             logoutButton.heightAnchor.constraint(equalToConstant: 40),
             
-            requestsHeaderLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 24),
+            segmentedControl.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 24),
+            segmentedControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            segmentedControl.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            segmentedControl.heightAnchor.constraint(equalToConstant: 32),
+            
+            requestsHeaderLabel.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 20),
             requestsHeaderLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
             pendingBadge.centerYAnchor.constraint(equalTo: requestsHeaderLabel.centerYAnchor),
@@ -179,7 +191,7 @@ class AdminApprovalViewController: UIViewController {
                     await MainActor.run {
                         self.instituteDomain = institute.domain
                         self.instituteName = institute.name
-                        loadPendingStudents()
+                        loadPendingData()
                     }
                 }
             } catch {
@@ -188,49 +200,68 @@ class AdminApprovalViewController: UIViewController {
         }
     }
     
+    // MARK: - Segmented Control
+    @objc private func segmentChanged() {
+        updateUI()
+    }
+    
     // MARK: - Data Loading
-    private func loadPendingStudents() {
+    private func loadPendingData() {
         showLoadingIndicator()
         
         Task {
             do {
-                let students = try await FirebaseManager.shared.getPendingStudents(forDomain: instituteDomain)
+                // Load both students and mentors
+                async let students = FirebaseManager.shared.getPendingStudents(forDomain: instituteDomain)
+                async let mentors = FirebaseManager.shared.getPendingMentors(forInstituteName: instituteName)
+                
+                let (loadedStudents, loadedMentors) = try await (students, mentors)
                 
                 await MainActor.run {
-                    self.pendingStudents = students
+                    self.pendingStudents = loadedStudents
+                    self.pendingMentors = loadedMentors
                     self.updateUI()
                     self.hideLoadingIndicator()
                 }
             } catch {
                 await MainActor.run {
                     self.hideLoadingIndicator()
-                    self.showAlert(title: "Error", message: "Failed to load students: \(error.localizedDescription)")
+                    self.showAlert(title: "Error", message: "Failed to load data: \(error.localizedDescription)")
                 }
             }
         }
     }
     
     private func updateUI() {
-        // Update pending badge
-        let count = pendingStudents.count
+        // Get current count based on selected segment
+        let count = segmentedControl.selectedSegmentIndex == 0 ? pendingStudents.count : pendingMentors.count
         pendingBadge.text = "\(count) Pending"
         
         // Clear existing cards
         cardsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        if pendingStudents.isEmpty {
+        if count == 0 {
             showEmptyState()
         } else {
             hideEmptyState()
             
-            // Add cards for each student
-            for (index, student) in pendingStudents.enumerated() {
-                let card = createStudentCard(for: student, at: index)
-                cardsStackView.addArrangedSubview(card)
+            if segmentedControl.selectedSegmentIndex == 0 {
+                // Show student cards
+                for (index, student) in pendingStudents.enumerated() {
+                    let card = createStudentCard(for: student, at: index)
+                    cardsStackView.addArrangedSubview(card)
+                }
+            } else {
+                // Show mentor cards
+                for (index, mentor) in pendingMentors.enumerated() {
+                    let card = createMentorCard(for: mentor, at: index)
+                    cardsStackView.addArrangedSubview(card)
+                }
             }
         }
     }
     
+    // MARK: - Student Card
     private func createStudentCard(for student: StudentRegistration, at index: Int) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
@@ -270,79 +301,13 @@ class AdminApprovalViewController: UIViewController {
         regInstLabel.translatesAutoresizingMaskIntoConstraints = false
         
         // Email with icon
-        let emailStack = UIStackView()
-        emailStack.axis = .horizontal
-        emailStack.spacing = 8
-        emailStack.alignment = .center
-        emailStack.translatesAutoresizingMaskIntoConstraints = false
-        
-        let emailIcon = UIImageView(image: UIImage(systemName: "envelope.fill"))
-        emailIcon.tintColor = .systemGray2
-        emailIcon.translatesAutoresizingMaskIntoConstraints = false
-        emailIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        emailIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        
-        let emailLabel = UILabel()
-        emailLabel.text = student.email
-        emailLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        emailLabel.textColor = .label
-        
-        emailStack.addArrangedSubview(emailIcon)
-        emailStack.addArrangedSubview(emailLabel)
+        let emailStack = createInfoStack(icon: "envelope.fill", text: student.email)
         
         // Date with icon
-        let dateStack = UIStackView()
-        dateStack.axis = .horizontal
-        dateStack.spacing = 8
-        dateStack.alignment = .center
-        dateStack.translatesAutoresizingMaskIntoConstraints = false
-        
-        let clockIcon = UIImageView(image: UIImage(systemName: "clock"))
-        clockIcon.tintColor = .systemGray2
-        clockIcon.translatesAutoresizingMaskIntoConstraints = false
-        clockIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        clockIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        
-        let dateLabel = UILabel()
-        if let date = student.createdAt {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "d MMM • h:mm a"
-            dateLabel.text = "Applied \(formatter.string(from: date))"
-        } else {
-            dateLabel.text = "Applied recently"
-        }
-        dateLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        dateLabel.textColor = .systemGray
-        
-        dateStack.addArrangedSubview(clockIcon)
-        dateStack.addArrangedSubview(dateLabel)
+        let dateStack = createDateStack(date: student.createdAt)
         
         // Buttons
-        let approveButton = UIButton(type: .system)
-        approveButton.setTitle("Approve", for: .normal)
-        approveButton.setTitleColor(.systemGreen, for: .normal)
-        approveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        approveButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.15)
-        approveButton.layer.cornerRadius = 12
-        approveButton.translatesAutoresizingMaskIntoConstraints = false
-        approveButton.tag = index
-        approveButton.addTarget(self, action: #selector(approveButtonTapped(_:)), for: .touchUpInside)
-        
-        let declineButton = UIButton(type: .system)
-        declineButton.setTitle("Decline", for: .normal)
-        declineButton.setTitleColor(.systemRed, for: .normal)
-        declineButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)
-        declineButton.layer.cornerRadius = 12
-        declineButton.translatesAutoresizingMaskIntoConstraints = false
-        declineButton.tag = index
-        declineButton.addTarget(self, action: #selector(declineButtonTapped(_:)), for: .touchUpInside)
-        
-        let buttonStack = UIStackView(arrangedSubviews: [approveButton, declineButton])
-        buttonStack.axis = .horizontal
-        buttonStack.spacing = 12
-        buttonStack.distribution = .fillEqually
-        buttonStack.translatesAutoresizingMaskIntoConstraints = false
+        let buttonStack = createButtonStack(approveTag: index, declineTag: index, type: .student)
         
         // Add all subviews to card
         card.addSubview(avatarView)
@@ -389,6 +354,203 @@ class AdminApprovalViewController: UIViewController {
         return card
     }
     
+    // MARK: - Mentor Card
+    private func createMentorCard(for mentor: MentorRegistration, at index: Int) -> UIView {
+        let card = UIView()
+        card.backgroundColor = .white
+        card.layer.cornerRadius = 16
+        card.layer.shadowColor = UIColor.black.cgColor
+        card.layer.shadowOffset = CGSize(width: 0, height: 2)
+        card.layer.shadowRadius = 8
+        card.layer.shadowOpacity = 0.08
+        card.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Avatar circle
+        let avatarView = UIView()
+        avatarView.backgroundColor = getAvatarColor(for: mentor.fullName)
+        avatarView.layer.cornerRadius = 30
+        avatarView.translatesAutoresizingMaskIntoConstraints = false
+        
+        let avatarLabel = UILabel()
+        avatarLabel.text = String(mentor.fullName.prefix(1)).uppercased()
+        avatarLabel.font = .systemFont(ofSize: 24, weight: .semibold)
+        avatarLabel.textColor = getAvatarTextColor(for: mentor.fullName)
+        avatarLabel.textAlignment = .center
+        avatarLabel.translatesAutoresizingMaskIntoConstraints = false
+        avatarView.addSubview(avatarLabel)
+        
+        // Mentor name
+        let nameLabel = UILabel()
+        nameLabel.text = mentor.fullName
+        nameLabel.font = .systemFont(ofSize: 20, weight: .semibold)
+        nameLabel.textColor = .label
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Employee ID and designation
+        let empDesigLabel = UILabel()
+        empDesigLabel.text = "\(mentor.employeeId) • \(mentor.designation)"
+        empDesigLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        empDesigLabel.textColor = .systemGray
+        empDesigLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Email with icon
+        let emailStack = createInfoStack(icon: "envelope.fill", text: mentor.email)
+        
+        // Department with icon
+        let departmentStack = createInfoStack(icon: "building.2.fill", text: mentor.department)
+        
+        // Date with icon
+        let dateStack = createDateStack(date: mentor.createdAt)
+        
+        // Buttons
+        let buttonStack = createButtonStack(approveTag: index, declineTag: index, type: .mentor)
+        
+        // Add all subviews to card
+        card.addSubview(avatarView)
+        card.addSubview(avatarLabel)
+        card.addSubview(nameLabel)
+        card.addSubview(empDesigLabel)
+        card.addSubview(emailStack)
+        card.addSubview(departmentStack)
+        card.addSubview(dateStack)
+        card.addSubview(buttonStack)
+        
+        // Constraints
+        NSLayoutConstraint.activate([
+            avatarView.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
+            avatarView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            avatarView.widthAnchor.constraint(equalToConstant: 60),
+            avatarView.heightAnchor.constraint(equalToConstant: 60),
+            
+            avatarLabel.centerXAnchor.constraint(equalTo: avatarView.centerXAnchor),
+            avatarLabel.centerYAnchor.constraint(equalTo: avatarView.centerYAnchor),
+            
+            nameLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
+            nameLabel.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 16),
+            nameLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            
+            empDesigLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
+            empDesigLabel.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 16),
+            empDesigLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            
+            emailStack.topAnchor.constraint(equalTo: avatarView.bottomAnchor, constant: 16),
+            emailStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            emailStack.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -20),
+            
+            departmentStack.topAnchor.constraint(equalTo: emailStack.bottomAnchor, constant: 8),
+            departmentStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            departmentStack.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -20),
+            
+            dateStack.topAnchor.constraint(equalTo: departmentStack.bottomAnchor, constant: 8),
+            dateStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            dateStack.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -20),
+            
+            buttonStack.topAnchor.constraint(equalTo: dateStack.bottomAnchor, constant: 20),
+            buttonStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            buttonStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            buttonStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -20),
+            buttonStack.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        return card
+    }
+    
+    // MARK: - Helper Methods for Card Creation
+    private func createInfoStack(icon: String, text: String) -> UIStackView {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 8
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let iconView = UIImageView(image: UIImage(systemName: icon))
+        iconView.tintColor = .systemGray2
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconView.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        iconView.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        
+        let label = UILabel()
+        label.text = text
+        label.font = .systemFont(ofSize: 14, weight: .regular)
+        label.textColor = .label
+        
+        stack.addArrangedSubview(iconView)
+        stack.addArrangedSubview(label)
+        
+        return stack
+    }
+    
+    private func createDateStack(date: Date?) -> UIStackView {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 8
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let clockIcon = UIImageView(image: UIImage(systemName: "clock"))
+        clockIcon.tintColor = .systemGray2
+        clockIcon.translatesAutoresizingMaskIntoConstraints = false
+        clockIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        clockIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        
+        let dateLabel = UILabel()
+        if let date = date {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMM • h:mm a"
+            dateLabel.text = "Applied \(formatter.string(from: date))"
+        } else {
+            dateLabel.text = "Applied recently"
+        }
+        dateLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        dateLabel.textColor = .systemGray
+        
+        stack.addArrangedSubview(clockIcon)
+        stack.addArrangedSubview(dateLabel)
+        
+        return stack
+    }
+    
+    enum CardType {
+        case student
+        case mentor
+    }
+    
+    private func createButtonStack(approveTag: Int, declineTag: Int, type: CardType) -> UIStackView {
+        let approveButton = UIButton(type: .system)
+        approveButton.setTitle("Approve", for: .normal)
+        approveButton.setTitleColor(.systemGreen, for: .normal)
+        approveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        approveButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.15)
+        approveButton.layer.cornerRadius = 12
+        approveButton.translatesAutoresizingMaskIntoConstraints = false
+        approveButton.tag = approveTag
+        
+        let declineButton = UIButton(type: .system)
+        declineButton.setTitle("Decline", for: .normal)
+        declineButton.setTitleColor(.systemRed, for: .normal)
+        declineButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)
+        declineButton.layer.cornerRadius = 12
+        declineButton.translatesAutoresizingMaskIntoConstraints = false
+        declineButton.tag = declineTag
+        
+        if type == .student {
+            approveButton.addTarget(self, action: #selector(approveStudentButtonTapped(_:)), for: .touchUpInside)
+            declineButton.addTarget(self, action: #selector(declineStudentButtonTapped(_:)), for: .touchUpInside)
+        } else {
+            approveButton.addTarget(self, action: #selector(approveMentorButtonTapped(_:)), for: .touchUpInside)
+            declineButton.addTarget(self, action: #selector(declineMentorButtonTapped(_:)), for: .touchUpInside)
+        }
+        
+        let buttonStack = UIStackView(arrangedSubviews: [approveButton, declineButton])
+        buttonStack.axis = .horizontal
+        buttonStack.spacing = 12
+        buttonStack.distribution = .fillEqually
+        buttonStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        return buttonStack
+    }
+    
     private func getAvatarColor(for name: String) -> UIColor {
         let colors: [UIColor] = [
             UIColor.systemBlue.withAlphaComponent(0.15),
@@ -418,10 +580,14 @@ class AdminApprovalViewController: UIViewController {
     @objc private func refreshData() {
         Task {
             do {
-                let students = try await FirebaseManager.shared.getPendingStudents(forDomain: instituteDomain)
+                async let students = FirebaseManager.shared.getPendingStudents(forDomain: instituteDomain)
+                async let mentors = FirebaseManager.shared.getPendingMentors(forInstituteName: instituteName)
+                
+                let (loadedStudents, loadedMentors) = try await (students, mentors)
                 
                 await MainActor.run {
-                    self.pendingStudents = students
+                    self.pendingStudents = loadedStudents
+                    self.pendingMentors = loadedMentors
                     self.updateUI()
                     self.refreshControl.endRefreshing()
                 }
@@ -434,29 +600,13 @@ class AdminApprovalViewController: UIViewController {
         }
     }
     
-    // MARK: - Actions
-    @objc private func approveButtonTapped(_ sender: UIButton) {
+    // MARK: - Actions - Students
+    @objc private func approveStudentButtonTapped(_ sender: UIButton) {
         approveStudent(at: sender.tag)
     }
     
-    @objc private func declineButtonTapped(_ sender: UIButton) {
+    @objc private func declineStudentButtonTapped(_ sender: UIButton) {
         declineStudent(at: sender.tag)
-    }
-    
-    @objc private func logoutTapped() {
-        let alert = UIAlertController(title: "Logout", message: "Are you sure you want to logout?", preferredStyle: .alert)
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Logout", style: .destructive) { _ in
-            do {
-                try Auth.auth().signOut()
-                self.navigateToLogin()
-            } catch {
-                self.showAlert(title: "Error", message: "Failed to logout: \(error.localizedDescription)")
-            }
-        })
-        
-        present(alert, animated: true)
     }
     
     private func approveStudent(at index: Int) {
@@ -470,13 +620,13 @@ class AdminApprovalViewController: UIViewController {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Approve", style: .default) { _ in
-            self.performApproval(student: student, at: index)
+            self.performStudentApproval(student: student, at: index)
         })
         
         present(alert, animated: true)
     }
     
-    private func performApproval(student: StudentRegistration, at index: Int) {
+    private func performStudentApproval(student: StudentRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
@@ -510,13 +660,13 @@ class AdminApprovalViewController: UIViewController {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Decline", style: .destructive) { _ in
-            self.performDecline(student: student, at: index)
+            self.performStudentDecline(student: student, at: index)
         })
         
         present(alert, animated: true)
     }
     
-    private func performDecline(student: StudentRegistration, at index: Int) {
+    private func performStudentDecline(student: StudentRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
@@ -537,6 +687,111 @@ class AdminApprovalViewController: UIViewController {
                 }
             }
         }
+    }
+    
+    // MARK: - Actions - Mentors
+    @objc private func approveMentorButtonTapped(_ sender: UIButton) {
+        approveMentor(at: sender.tag)
+    }
+    
+    @objc private func declineMentorButtonTapped(_ sender: UIButton) {
+        declineMentor(at: sender.tag)
+    }
+    
+    private func approveMentor(at index: Int) {
+        let mentor = pendingMentors[index]
+        
+        let alert = UIAlertController(
+            title: "Approve Mentor",
+            message: "Approve registration for \(mentor.fullName)?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Approve", style: .default) { _ in
+            self.performMentorApproval(mentor: mentor, at: index)
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    private func performMentorApproval(mentor: MentorRegistration, at index: Int) {
+        showLoadingIndicator()
+        
+        Task {
+            do {
+                try await FirebaseManager.shared.approveMentor(mentorId: mentor.id, adminEmail: adminEmail)
+                
+                await MainActor.run {
+                    self.pendingMentors.remove(at: index)
+                    self.updateUI()
+                    self.hideLoadingIndicator()
+                    
+                    self.showAlert(title: "Success", message: "\(mentor.fullName) has been approved and can now login.")
+                }
+            } catch {
+                await MainActor.run {
+                    self.hideLoadingIndicator()
+                    self.showAlert(title: "Error", message: "Failed to approve mentor: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func declineMentor(at index: Int) {
+        let mentor = pendingMentors[index]
+        
+        let alert = UIAlertController(
+            title: "Decline Mentor",
+            message: "Decline registration for \(mentor.fullName)?",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Decline", style: .destructive) { _ in
+            self.performMentorDecline(mentor: mentor, at: index)
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    private func performMentorDecline(mentor: MentorRegistration, at index: Int) {
+        showLoadingIndicator()
+        
+        Task {
+            do {
+                try await FirebaseManager.shared.declineMentor(mentorId: mentor.id, adminEmail: adminEmail)
+                
+                await MainActor.run {
+                    self.pendingMentors.remove(at: index)
+                    self.updateUI()
+                    self.hideLoadingIndicator()
+                    
+                    self.showAlert(title: "Declined", message: "\(mentor.fullName)'s registration has been declined.")
+                }
+            } catch {
+                await MainActor.run {
+                    self.hideLoadingIndicator()
+                    self.showAlert(title: "Error", message: "Failed to decline mentor: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    @objc private func logoutTapped() {
+        let alert = UIAlertController(title: "Logout", message: "Are you sure you want to logout?", preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Logout", style: .destructive) { _ in
+            do {
+                try Auth.auth().signOut()
+                self.navigateToLogin()
+            } catch {
+                self.showAlert(title: "Error", message: "Failed to logout: \(error.localizedDescription)")
+            }
+        })
+        
+        present(alert, animated: true)
     }
     
     // MARK: - Navigation
