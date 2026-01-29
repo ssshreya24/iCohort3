@@ -2,6 +2,8 @@
 //  MLoginSignUpViewController.swift
 //  iCohort3
 //
+//  FIXED VERSION - Matches student login flow (Firestore only, no Firebase Auth)
+//
 
 import UIKit
 import FirebaseAuth
@@ -16,20 +18,16 @@ class MLoginSignUpViewController: UIViewController {
     @IBOutlet weak var rememberMeButton: UIButton!
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var emailTextField: UITextField!
+    
+    private var loadingIndicator: UIActivityIndicatorView?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        
-        // Auto-login if user is already authenticated
-        if Auth.auth().currentUser != nil {
-            handleLoginSuccess()
-        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // hide any system nav bar if design requires it
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
@@ -54,7 +52,7 @@ class MLoginSignUpViewController: UIViewController {
     @IBAction func togglePasswordVisibility(_ sender: UIButton) {
         passwordTextField.isSecureTextEntry.toggle()
         let imageName = passwordTextField.isSecureTextEntry ? "eye.slash.fill" : "eye.fill"
-        (sender as AnyObject).setImage(UIImage(systemName: imageName), for: .normal)
+        sender.setImage(UIImage(systemName: imageName), for: .normal)
     }
 
     @IBAction func rememberMeTapped(_ sender: UIButton) {
@@ -63,26 +61,21 @@ class MLoginSignUpViewController: UIViewController {
     }
 
     @IBAction func forgotPasswordTapped(_ sender: UIButton) {
-        // push the XIB OTP VC so nav stack is preserved
         let otpVC = MOTPViewController(nibName: "MOTPViewController", bundle: nil)
         navigationController?.pushViewController(otpVC, animated: true)
     }
 
     @IBAction func backButtonTapped(_ sender: UIButton) {
-        // If there is somewhere to pop to — pop.
         if let nav = navigationController, nav.viewControllers.count > 1 {
             nav.popViewController(animated: true)
             return
         }
 
-        // If this is the root (no previous VC), navigate to UserSelection (initial screen).
-        // Ensure your initial screen's storyboard ID is set to "UserSelectionVC"
         let sb = UIStoryboard(name: "Main", bundle: nil)
         if let userSelection = sb.instantiateViewController(withIdentifier: "UserSelectionVC") as? UserSelectionViewController {
             let navRoot = UINavigationController(rootViewController: userSelection)
             navRoot.modalPresentationStyle = .fullScreen
 
-            // replace the window root safely
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
                 window.rootViewController = navRoot
@@ -91,12 +84,8 @@ class MLoginSignUpViewController: UIViewController {
                 window.rootViewController = navRoot
                 window.makeKeyAndVisible()
             } else {
-                // fallback: present modally
                 present(navRoot, animated: true, completion: nil)
             }
-        } else {
-            // fallback: nothing found — print for debugging
-            print("Could not find UserSelectionVC in Main.storyboard. Set the storyboard ID.")
         }
     }
 
@@ -106,31 +95,98 @@ class MLoginSignUpViewController: UIViewController {
     }
 
     @IBAction func signInTapped(_ sender: UIButton) {
-        print("Sign In button tapped")
+        print("🔐 Mentor Sign In button tapped")
         
-        guard let email = emailTextField.text, !email.isEmpty,
-              let password = passwordTextField.text, !password.isEmpty else {
-            showAlert(title: "Error", message: "Email or password cannot be empty")
+        guard let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
+            showAlert(title: "Error", message: "Please enter your email address")
+            return
+        }
+        
+        guard let password = passwordTextField.text, !password.isEmpty else {
+            showAlert(title: "Error", message: "Please enter your password")
             return
         }
         
         signInButton.isEnabled = false
+        showLoadingIndicator()
         
-        Auth.auth().signIn(withEmail: email, password: password) { [weak self] result, error in
-            self?.signInButton.isEnabled = true
-            
-            if let error = error {
-                self?.showAlert(title: "Login Failed", message: error.localizedDescription)
-                return
+        performLogin(email: email, password: password)
+    }
+    
+    private func performLogin(email: String, password: String) {
+        Task {
+            do {
+                print("📝 Checking mentor approval status for:", email)
+                
+                // Check if mentor is approved in Firestore
+                let approvalStatus = try await FirebaseManager.shared.checkMentorApproval(email: email)
+                
+                print("📊 Mentor approval status:", approvalStatus)
+                
+                switch approvalStatus {
+                case .pending:
+                    await MainActor.run {
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        showAlert(title: "Pending Approval", message: "Your registration is still pending approval from your institute. Please wait for confirmation.")
+                    }
+                    return
+                    
+                case .declined:
+                    await MainActor.run {
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        showAlert(title: "Access Denied", message: "Your registration was declined by the institute. Please contact your administrator.")
+                    }
+                    return
+                    
+                case .approved:
+                    print("✅ Mentor is approved, verifying password")
+                    
+                    // Verify password matches
+                    let isValidPassword = try await FirebaseManager.shared.verifyApprovedMentor(email: email, password: password)
+                    
+                    guard isValidPassword else {
+                        await MainActor.run {
+                            hideLoadingIndicator()
+                            signInButton.isEnabled = true
+                            showAlert(title: "Login Failed", message: "Invalid email or password")
+                        }
+                        return
+                    }
+                    
+                    print("✅ Password verified, logging in mentor")
+                    
+                    await MainActor.run {
+                        print("✅ Mentor login success (approved):", email)
+                        
+                        if rememberMeButton.isSelected {
+                            UserDefaults.standard.set(true, forKey: "isMentorLoggedIn")
+                            UserDefaults.standard.set(email, forKey: "mentorEmail")
+                        }
+                        
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        handleLoginSuccess()
+                    }
+                }
+                
+            } catch FirebaseManagerError.mentorNotFound {
+                print("❌ Error: Mentor not found")
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    showAlert(title: "Not Registered", message: "This email is not registered. Please sign up first.")
+                }
+                
+            } catch {
+                print("❌ Login error:", error.localizedDescription)
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    showAlert(title: "Login Failed", message: "An error occurred: \(error.localizedDescription)")
+                }
             }
-            
-            print("✅ Firebase login success:", result?.user.email ?? "")
-            
-            if self?.rememberMeButton.isSelected == true {
-                UserDefaults.standard.set(true, forKey: "isLoggedIn")
-            }
-            
-            self?.handleLoginSuccess()
         }
     }
 
@@ -149,10 +205,48 @@ class MLoginSignUpViewController: UIViewController {
         }
     }
     
-    // MARK: - Helper to show alerts
+    // MARK: - Helper Methods
+    
+    private func showLoadingIndicator() {
+        hideLoadingIndicator()
+        
+        DispatchQueue.main.async {
+            let indicator = UIActivityIndicatorView(style: .large)
+            indicator.color = .systemBlue
+            indicator.center = self.view.center
+            indicator.startAnimating()
+            
+            let backdrop = UIView(frame: self.view.bounds)
+            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+            backdrop.tag = 9999
+            backdrop.addSubview(indicator)
+            
+            self.view.addSubview(backdrop)
+            self.view.isUserInteractionEnabled = false
+            
+            self.loadingIndicator = indicator
+            
+            print("🔄 Loading indicator shown")
+        }
+    }
+    
+    private func hideLoadingIndicator() {
+        DispatchQueue.main.async {
+            self.view.viewWithTag(9999)?.removeFromSuperview()
+            self.loadingIndicator?.stopAnimating()
+            self.loadingIndicator?.removeFromSuperview()
+            self.loadingIndicator = nil
+            self.view.isUserInteractionEnabled = true
+            
+            print("✋ Loading indicator hidden")
+        }
+    }
+    
     func showAlert(title: String, message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(alert, animated: true)
+        }
     }
 }
