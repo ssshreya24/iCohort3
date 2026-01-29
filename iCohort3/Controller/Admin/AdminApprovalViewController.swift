@@ -11,7 +11,14 @@ import FirebaseAuth
 class AdminApprovalViewController: UIViewController {
     
     // MARK: - UI Components
-    private let tableView = UITableView()
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+    private let greetingLabel = UILabel()
+    private let nameLabel = UILabel()
+    private let logoutButton = UIButton(type: .system)
+    private let requestsHeaderLabel = UILabel()
+    private let pendingBadge = UILabel()
+    private let cardsStackView = UIStackView()
     private let refreshControl = UIRefreshControl()
     private var loadingIndicator: UIActivityIndicatorView?
     
@@ -19,52 +26,140 @@ class AdminApprovalViewController: UIViewController {
     private var pendingStudents: [StudentRegistration] = []
     private var instituteDomain: String = "srmist.edu.in" // Default for SRM
     private var adminEmail: String = ""
+    private var instituteName: String = "SRM University"
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         
         setupUI()
-        setupTableView()
         getAdminInfo()
         loadPendingStudents()
     }
     
     // MARK: - Setup
     private func setupUI() {
-        view.backgroundColor = UIColor.systemGroupedBackground
-        title = "Student Approvals"
+        view.backgroundColor = UIColor(red: 239/255, green: 239/255, blue: 245/255, alpha: 1.0)
         
-        // Add logout button
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Logout",
-            style: .plain,
-            target: self,
-            action: #selector(logoutTapped)
-        )
+        // Hide navigation bar title since we have custom header
+        navigationItem.title = ""
         
-        // Setup table view
-        view.addSubview(tableView)
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-    }
-    
-    private func setupTableView() {
-        tableView.delegate = self
-        tableView.dataSource = self
-        tableView.register(StudentApprovalCell.self, forCellReuseIdentifier: "StudentApprovalCell")
-        tableView.rowHeight = UITableView.automaticDimension
-        tableView.estimatedRowHeight = 120
-        tableView.separatorStyle = .singleLine
+        // Setup scroll view
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = true
+        scrollView.alwaysBounceVertical = true
+        view.addSubview(scrollView)
+        
+        // Setup content view
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(contentView)
+        
+        // Setup greeting label
+        greetingLabel.text = getGreeting()
+        greetingLabel.font = .systemFont(ofSize: 16, weight: .regular)
+        greetingLabel.textColor = .systemGray
+        greetingLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(greetingLabel)
+        
+        // Setup name label
+        nameLabel.text = "Hello, Admin"
+        nameLabel.font = .systemFont(ofSize: 34, weight: .bold)
+        nameLabel.textColor = .label
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(nameLabel)
+        
+        // Setup logout button
+        logoutButton.setTitle("Logout", for: .normal)
+        logoutButton.setTitleColor(.systemBlue, for: .normal)
+        logoutButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        logoutButton.backgroundColor = .white
+        logoutButton.layer.cornerRadius = 20
+        logoutButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        logoutButton.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
+        logoutButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(logoutButton)
+        
+        // Setup requests header
+        requestsHeaderLabel.text = "Requests"
+        requestsHeaderLabel.font = .systemFont(ofSize: 24, weight: .semibold)
+        requestsHeaderLabel.textColor = .systemGray
+        requestsHeaderLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(requestsHeaderLabel)
+        
+        // Setup pending badge
+        pendingBadge.text = "0 Pending"
+        pendingBadge.font = .systemFont(ofSize: 14, weight: .semibold)
+        pendingBadge.textColor = .systemBlue
+        pendingBadge.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.15)
+        pendingBadge.layer.cornerRadius = 12
+        pendingBadge.clipsToBounds = true
+        pendingBadge.textAlignment = .center
+        pendingBadge.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(pendingBadge)
+        
+        // Setup cards stack view
+        cardsStackView.axis = .vertical
+        cardsStackView.spacing = 16
+        cardsStackView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(cardsStackView)
         
         // Add refresh control
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
-        tableView.refreshControl = refreshControl
+        scrollView.refreshControl = refreshControl
+        
+        // Layout constraints
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            
+            greetingLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            greetingLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            greetingLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            nameLabel.topAnchor.constraint(equalTo: greetingLabel.bottomAnchor, constant: 4),
+            nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -100),
+            
+            // Logout button positioned relative to view and nameLabel's top
+            logoutButton.topAnchor.constraint(equalTo: nameLabel.topAnchor, constant: -4),
+            logoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            logoutButton.heightAnchor.constraint(equalToConstant: 40),
+            
+            requestsHeaderLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 24),
+            requestsHeaderLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            
+            pendingBadge.centerYAnchor.constraint(equalTo: requestsHeaderLabel.centerYAnchor),
+            pendingBadge.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            pendingBadge.heightAnchor.constraint(equalToConstant: 28),
+            pendingBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 90),
+            
+            cardsStackView.topAnchor.constraint(equalTo: requestsHeaderLabel.bottomAnchor, constant: 20),
+            cardsStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            cardsStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            cardsStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
+        ])
+    }
+    
+    private func getGreeting() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12:
+            return "Good morning,"
+        case 12..<17:
+            return "Good afternoon,"
+        case 17..<24:
+            return "Good evening,"
+        default:
+            return "Hello,"
+        }
     }
     
     private func getAdminInfo() {
@@ -83,7 +178,7 @@ class AdminApprovalViewController: UIViewController {
                 if let institute = try await FirebaseManager.shared.getInstitute(byAdminEmail: adminEmail) {
                     await MainActor.run {
                         self.instituteDomain = institute.domain
-                        self.title = "\(institute.name) - Approvals"
+                        self.instituteName = institute.name
                         loadPendingStudents()
                     }
                 }
@@ -103,14 +198,8 @@ class AdminApprovalViewController: UIViewController {
                 
                 await MainActor.run {
                     self.pendingStudents = students
-                    self.tableView.reloadData()
+                    self.updateUI()
                     self.hideLoadingIndicator()
-                    
-                    if students.isEmpty {
-                        self.showEmptyState()
-                    } else {
-                        self.hideEmptyState()
-                    }
                 }
             } catch {
                 await MainActor.run {
@@ -121,6 +210,211 @@ class AdminApprovalViewController: UIViewController {
         }
     }
     
+    private func updateUI() {
+        // Update pending badge
+        let count = pendingStudents.count
+        pendingBadge.text = "\(count) Pending"
+        
+        // Clear existing cards
+        cardsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        
+        if pendingStudents.isEmpty {
+            showEmptyState()
+        } else {
+            hideEmptyState()
+            
+            // Add cards for each student
+            for (index, student) in pendingStudents.enumerated() {
+                let card = createStudentCard(for: student, at: index)
+                cardsStackView.addArrangedSubview(card)
+            }
+        }
+    }
+    
+    private func createStudentCard(for student: StudentRegistration, at index: Int) -> UIView {
+        let card = UIView()
+        card.backgroundColor = .white
+        card.layer.cornerRadius = 16
+        card.layer.shadowColor = UIColor.black.cgColor
+        card.layer.shadowOffset = CGSize(width: 0, height: 2)
+        card.layer.shadowRadius = 8
+        card.layer.shadowOpacity = 0.08
+        card.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Avatar circle
+        let avatarView = UIView()
+        avatarView.backgroundColor = getAvatarColor(for: student.fullName)
+        avatarView.layer.cornerRadius = 30
+        avatarView.translatesAutoresizingMaskIntoConstraints = false
+        
+        let avatarLabel = UILabel()
+        avatarLabel.text = String(student.fullName.prefix(1)).uppercased()
+        avatarLabel.font = .systemFont(ofSize: 24, weight: .semibold)
+        avatarLabel.textColor = getAvatarTextColor(for: student.fullName)
+        avatarLabel.textAlignment = .center
+        avatarLabel.translatesAutoresizingMaskIntoConstraints = false
+        avatarView.addSubview(avatarLabel)
+        
+        // Student name
+        let nameLabel = UILabel()
+        nameLabel.text = student.fullName
+        nameLabel.font = .systemFont(ofSize: 20, weight: .semibold)
+        nameLabel.textColor = .label
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Reg number and institute
+        let regInstLabel = UILabel()
+        regInstLabel.text = "\(student.regNumber) • \(instituteName)"
+        regInstLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        regInstLabel.textColor = .systemGray
+        regInstLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Email with icon
+        let emailStack = UIStackView()
+        emailStack.axis = .horizontal
+        emailStack.spacing = 8
+        emailStack.alignment = .center
+        emailStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let emailIcon = UIImageView(image: UIImage(systemName: "envelope.fill"))
+        emailIcon.tintColor = .systemGray2
+        emailIcon.translatesAutoresizingMaskIntoConstraints = false
+        emailIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        emailIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        
+        let emailLabel = UILabel()
+        emailLabel.text = student.email
+        emailLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        emailLabel.textColor = .label
+        
+        emailStack.addArrangedSubview(emailIcon)
+        emailStack.addArrangedSubview(emailLabel)
+        
+        // Date with icon
+        let dateStack = UIStackView()
+        dateStack.axis = .horizontal
+        dateStack.spacing = 8
+        dateStack.alignment = .center
+        dateStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        let clockIcon = UIImageView(image: UIImage(systemName: "clock"))
+        clockIcon.tintColor = .systemGray2
+        clockIcon.translatesAutoresizingMaskIntoConstraints = false
+        clockIcon.widthAnchor.constraint(equalToConstant: 16).isActive = true
+        clockIcon.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        
+        let dateLabel = UILabel()
+        if let date = student.createdAt {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "d MMM • h:mm a"
+            dateLabel.text = "Applied \(formatter.string(from: date))"
+        } else {
+            dateLabel.text = "Applied recently"
+        }
+        dateLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        dateLabel.textColor = .systemGray
+        
+        dateStack.addArrangedSubview(clockIcon)
+        dateStack.addArrangedSubview(dateLabel)
+        
+        // Buttons
+        let approveButton = UIButton(type: .system)
+        approveButton.setTitle("Approve", for: .normal)
+        approveButton.setTitleColor(.systemGreen, for: .normal)
+        approveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        approveButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.15)
+        approveButton.layer.cornerRadius = 12
+        approveButton.translatesAutoresizingMaskIntoConstraints = false
+        approveButton.tag = index
+        approveButton.addTarget(self, action: #selector(approveButtonTapped(_:)), for: .touchUpInside)
+        
+        let declineButton = UIButton(type: .system)
+        declineButton.setTitle("Decline", for: .normal)
+        declineButton.setTitleColor(.systemRed, for: .normal)
+        declineButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)
+        declineButton.layer.cornerRadius = 12
+        declineButton.translatesAutoresizingMaskIntoConstraints = false
+        declineButton.tag = index
+        declineButton.addTarget(self, action: #selector(declineButtonTapped(_:)), for: .touchUpInside)
+        
+        let buttonStack = UIStackView(arrangedSubviews: [approveButton, declineButton])
+        buttonStack.axis = .horizontal
+        buttonStack.spacing = 12
+        buttonStack.distribution = .fillEqually
+        buttonStack.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add all subviews to card
+        card.addSubview(avatarView)
+        card.addSubview(avatarLabel)
+        card.addSubview(nameLabel)
+        card.addSubview(regInstLabel)
+        card.addSubview(emailStack)
+        card.addSubview(dateStack)
+        card.addSubview(buttonStack)
+        
+        // Constraints
+        NSLayoutConstraint.activate([
+            avatarView.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
+            avatarView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            avatarView.widthAnchor.constraint(equalToConstant: 60),
+            avatarView.heightAnchor.constraint(equalToConstant: 60),
+            
+            avatarLabel.centerXAnchor.constraint(equalTo: avatarView.centerXAnchor),
+            avatarLabel.centerYAnchor.constraint(equalTo: avatarView.centerYAnchor),
+            
+            nameLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
+            nameLabel.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 16),
+            nameLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            
+            regInstLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
+            regInstLabel.leadingAnchor.constraint(equalTo: avatarView.trailingAnchor, constant: 16),
+            regInstLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            
+            emailStack.topAnchor.constraint(equalTo: avatarView.bottomAnchor, constant: 16),
+            emailStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            emailStack.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -20),
+            
+            dateStack.topAnchor.constraint(equalTo: emailStack.bottomAnchor, constant: 8),
+            dateStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            dateStack.trailingAnchor.constraint(lessThanOrEqualTo: card.trailingAnchor, constant: -20),
+            
+            buttonStack.topAnchor.constraint(equalTo: dateStack.bottomAnchor, constant: 20),
+            buttonStack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            buttonStack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            buttonStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -20),
+            buttonStack.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        return card
+    }
+    
+    private func getAvatarColor(for name: String) -> UIColor {
+        let colors: [UIColor] = [
+            UIColor.systemBlue.withAlphaComponent(0.15),
+            UIColor.systemPurple.withAlphaComponent(0.15),
+            UIColor.systemOrange.withAlphaComponent(0.15),
+            UIColor.systemGreen.withAlphaComponent(0.15),
+            UIColor.systemPink.withAlphaComponent(0.15),
+            UIColor.systemTeal.withAlphaComponent(0.15)
+        ]
+        let index = abs(name.hashValue) % colors.count
+        return colors[index]
+    }
+    
+    private func getAvatarTextColor(for name: String) -> UIColor {
+        let colors: [UIColor] = [
+            .systemBlue,
+            .systemPurple,
+            .systemOrange,
+            .systemGreen,
+            .systemPink,
+            .systemTeal
+        ]
+        let index = abs(name.hashValue) % colors.count
+        return colors[index]
+    }
+    
     @objc private func refreshData() {
         Task {
             do {
@@ -128,14 +422,8 @@ class AdminApprovalViewController: UIViewController {
                 
                 await MainActor.run {
                     self.pendingStudents = students
-                    self.tableView.reloadData()
+                    self.updateUI()
                     self.refreshControl.endRefreshing()
-                    
-                    if students.isEmpty {
-                        self.showEmptyState()
-                    } else {
-                        self.hideEmptyState()
-                    }
                 }
             } catch {
                 await MainActor.run {
@@ -147,6 +435,14 @@ class AdminApprovalViewController: UIViewController {
     }
     
     // MARK: - Actions
+    @objc private func approveButtonTapped(_ sender: UIButton) {
+        approveStudent(at: sender.tag)
+    }
+    
+    @objc private func declineButtonTapped(_ sender: UIButton) {
+        declineStudent(at: sender.tag)
+    }
+    
     @objc private func logoutTapped() {
         let alert = UIAlertController(title: "Logout", message: "Are you sure you want to logout?", preferredStyle: .alert)
         
@@ -189,14 +485,10 @@ class AdminApprovalViewController: UIViewController {
                 
                 await MainActor.run {
                     self.pendingStudents.remove(at: index)
-                    self.tableView.deleteRows(at: [IndexPath(row: index, section: 0)], with: .fade)
+                    self.updateUI()
                     self.hideLoadingIndicator()
                     
                     self.showAlert(title: "Success", message: "\(student.fullName) has been approved and can now login.")
-                    
-                    if self.pendingStudents.isEmpty {
-                        self.showEmptyState()
-                    }
                 }
             } catch {
                 await MainActor.run {
@@ -233,14 +525,10 @@ class AdminApprovalViewController: UIViewController {
                 
                 await MainActor.run {
                     self.pendingStudents.remove(at: index)
-                    self.tableView.deleteRows(at: [IndexPath(row: index, section: 0)], with: .fade)
+                    self.updateUI()
                     self.hideLoadingIndicator()
                     
                     self.showAlert(title: "Declined", message: "\(student.fullName)'s registration has been declined.")
-                    
-                    if self.pendingStudents.isEmpty {
-                        self.showEmptyState()
-                    }
                 }
             } catch {
                 await MainActor.run {
@@ -319,141 +607,5 @@ class AdminApprovalViewController: UIViewController {
             completion?()
         })
         present(alert, animated: true)
-    }
-}
-
-// MARK: - UITableViewDataSource
-extension AdminApprovalViewController: UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return pendingStudents.count
-    }
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "StudentApprovalCell", for: indexPath) as! StudentApprovalCell
-        
-        let student = pendingStudents[indexPath.row]
-        cell.configure(with: student)
-        
-        cell.onApprove = { [weak self] in
-            self?.approveStudent(at: indexPath.row)
-        }
-        
-        cell.onDecline = { [weak self] in
-            self?.declineStudent(at: indexPath.row)
-        }
-        
-        return cell
-    }
-}
-
-// MARK: - UITableViewDelegate
-extension AdminApprovalViewController: UITableViewDelegate {
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-    }
-}
-
-// MARK: - Custom Cell
-class StudentApprovalCell: UITableViewCell {
-    
-    var onApprove: (() -> Void)?
-    var onDecline: (() -> Void)?
-    
-    private let nameLabel = UILabel()
-    private let emailLabel = UILabel()
-    private let regNumberLabel = UILabel()
-    private let dateLabel = UILabel()
-    private let approveButton = UIButton(type: .system)
-    private let declineButton = UIButton(type: .system)
-    
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-        setupUI()
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    private func setupUI() {
-        // Name Label
-        nameLabel.font = .systemFont(ofSize: 17, weight: .semibold)
-        nameLabel.textColor = .label
-        
-        // Email Label
-        emailLabel.font = .systemFont(ofSize: 14)
-        emailLabel.textColor = .secondaryLabel
-        
-        // Reg Number Label
-        regNumberLabel.font = .systemFont(ofSize: 14, weight: .medium)
-        regNumberLabel.textColor = .label
-        
-        // Date Label
-        dateLabel.font = .systemFont(ofSize: 12)
-        dateLabel.textColor = .tertiaryLabel
-        
-        // Approve Button
-        approveButton.setTitle("Approve", for: .normal)
-        approveButton.setTitleColor(.white, for: .normal)
-        approveButton.backgroundColor = .systemGreen
-        approveButton.layer.cornerRadius = 8
-        approveButton.addTarget(self, action: #selector(approveTapped), for: .touchUpInside)
-        
-        // Decline Button
-        declineButton.setTitle("Decline", for: .normal)
-        declineButton.setTitleColor(.white, for: .normal)
-        declineButton.backgroundColor = .systemRed
-        declineButton.layer.cornerRadius = 8
-        declineButton.addTarget(self, action: #selector(declineTapped), for: .touchUpInside)
-        
-        // Stack Views
-        let infoStack = UIStackView(arrangedSubviews: [nameLabel, regNumberLabel, emailLabel, dateLabel])
-        infoStack.axis = .vertical
-        infoStack.spacing = 4
-        
-        let buttonStack = UIStackView(arrangedSubviews: [approveButton, declineButton])
-        buttonStack.axis = .horizontal
-        buttonStack.spacing = 12
-        buttonStack.distribution = .fillEqually
-        
-        let mainStack = UIStackView(arrangedSubviews: [infoStack, buttonStack])
-        mainStack.axis = .vertical
-        mainStack.spacing = 12
-        mainStack.translatesAutoresizingMaskIntoConstraints = false
-        
-        contentView.addSubview(mainStack)
-        
-        NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            mainStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            mainStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            mainStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
-            
-            approveButton.heightAnchor.constraint(equalToConstant: 40),
-            declineButton.heightAnchor.constraint(equalToConstant: 40)
-        ])
-    }
-    
-    func configure(with student: StudentRegistration) {
-        nameLabel.text = student.fullName
-        emailLabel.text = student.email
-        regNumberLabel.text = "Reg: \(student.regNumber)"
-        
-        if let date = student.createdAt {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .medium
-            formatter.timeStyle = .short
-            dateLabel.text = "Applied: \(formatter.string(from: date))"
-        } else {
-            dateLabel.text = ""
-        }
-    }
-    
-    @objc private func approveTapped() {
-        onApprove?()
-    }
-    
-    @objc private func declineTapped() {
-        onDecline?()
     }
 }
