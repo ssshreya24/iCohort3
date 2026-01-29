@@ -388,8 +388,8 @@
                     </subviews>
                     <constraints>
                         <constraint firstItem="mEo-hE-ur1" firstAttribute="leading" secondItem="Bs6-MH-fVH" secondAttribute="leading" id="Kgk-k1-eWu"/>
-                        <constraint firstAttribute="bottom" secondItem="mEo-hE-ur1" secondAttribute="bottom" id="LBv-hz-8YC"/>
                         <constraint firstAttribute="trailing" secondItem="mEo-hE-ur1" secondAttribute="trailing" id="SIa-ve-rfN"/>
+                        <constraint firstAttribute="bottom" secondItem="mEo-hE-ur1" secondAttribute="bottom" id="jj7-cH-15y"/>
                         <constraint firstItem="mEo-hE-ur1" firstAttribute="top" secondItem="Bs6-MH-fVH" secondAttribute="top" id="xwf-zL-BZ6"/>
                     </constraints>
                 </scrollView>
@@ -397,7 +397,7 @@
             <viewLayoutGuide key="safeArea" id="op6-be-gYx"/>
             <color key="backgroundColor" name="bg"/>
             <constraints>
-                <constraint firstItem="op6-be-gYx" firstAttribute="bottom" secondItem="Bs6-MH-fVH" secondAttribute="bottom" id="8Xg-vz-5dj"/>
+                <constraint firstItem="Bs6-MH-fVH" firstAttribute="bottom" secondItem="op6-be-gYx" secondAttribute="bottom" id="XQj-m3-rfs"/>
                 <constraint firstItem="op6-be-gYx" firstAttribute="trailing" secondItem="Bs6-MH-fVH" secondAttribute="trailing" id="ZtC-fj-ul0"/>
                 <constraint firstItem="mEo-hE-ur1" firstAttribute="width" secondItem="cG0-a1-eDN" secondAttribute="width" id="nR2-v7-fh5"/>
                 <constraint firstItem="Bs6-MH-fVH" firstAttribute="top" secondItem="op6-be-gYx" secondAttribute="top" id="pAe-wi-fIv"/>
