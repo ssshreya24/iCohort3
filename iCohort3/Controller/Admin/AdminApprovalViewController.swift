@@ -57,16 +57,16 @@ class AdminApprovalViewController: UIViewController {
         scrollView.addSubview(contentView)
         
         // Setup greeting label
-        greetingLabel.text = getGreeting()
-        greetingLabel.font = .systemFont(ofSize: 16, weight: .regular)
-        greetingLabel.textColor = .systemGray
+        greetingLabel.text = "Welcome back,"
+        greetingLabel.font = .systemFont(ofSize: 27, weight: .bold)
+        greetingLabel.textColor = .black
         greetingLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(greetingLabel)
         
         // Setup name label
-        nameLabel.text = "Hello, Admin"
-        nameLabel.font = .systemFont(ofSize: 34, weight: .bold)
-        nameLabel.textColor = .label
+        nameLabel.text = "Admin"
+        nameLabel.font = .systemFont(ofSize: 24, weight: .regular)
+        nameLabel.textColor = .systemGray
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(nameLabel)
         
@@ -136,7 +136,7 @@ class AdminApprovalViewController: UIViewController {
             nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -100),
             
-            logoutButton.topAnchor.constraint(equalTo: nameLabel.topAnchor, constant: -4),
+            logoutButton.topAnchor.constraint(equalTo: greetingLabel.topAnchor, constant: -4),
             logoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             logoutButton.heightAnchor.constraint(equalToConstant: 40),
             
@@ -161,17 +161,7 @@ class AdminApprovalViewController: UIViewController {
     }
     
     private func getGreeting() -> String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 0..<12:
-            return "Good morning,"
-        case 12..<17:
-            return "Good afternoon,"
-        case 17..<24:
-            return "Good evening,"
-        default:
-            return "Hello,"
-        }
+        return "Welcome back,"
     }
     
     private func getAdminInfo() {
@@ -265,11 +255,11 @@ class AdminApprovalViewController: UIViewController {
     private func createStudentCard(for student: StudentRegistration, at index: Int) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
-        card.layer.cornerRadius = 16
+        card.layer.cornerRadius = 20
         card.layer.shadowColor = UIColor.black.cgColor
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
-        card.layer.shadowRadius = 8
-        card.layer.shadowOpacity = 0.08
+        card.layer.shadowOffset = CGSize(width: 0, height: 4)
+        card.layer.shadowRadius = 12
+        card.layer.shadowOpacity = 0.06
         card.translatesAutoresizingMaskIntoConstraints = false
         
         // Avatar circle
@@ -358,11 +348,11 @@ class AdminApprovalViewController: UIViewController {
     private func createMentorCard(for mentor: MentorRegistration, at index: Int) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
-        card.layer.cornerRadius = 16
+        card.layer.cornerRadius = 20
         card.layer.shadowColor = UIColor.black.cgColor
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
-        card.layer.shadowRadius = 8
-        card.layer.shadowOpacity = 0.08
+        card.layer.shadowOffset = CGSize(width: 0, height: 4)
+        card.layer.shadowRadius = 12
+        card.layer.shadowOpacity = 0.06
         card.translatesAutoresizingMaskIntoConstraints = false
         
         // Avatar circle
