@@ -14,6 +14,7 @@ class StudentProfileViewController: UIViewController {
     @IBOutlet weak var backButton: UIButton!
     @IBOutlet weak var editButton: UIButton!
     @IBOutlet weak var greetingLabel: UILabel!
+    @IBOutlet weak var uploadButton: UIButton!
 
     @IBOutlet weak var firstNameField: UITextField!
     @IBOutlet weak var lastNameField: UITextField!
@@ -137,6 +138,10 @@ class StudentProfileViewController: UIViewController {
         
         greetingLabel?.text = "Hi User"
         greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
+        uploadButton.isHidden = true
+            uploadButton.alpha = 1.0
+            uploadButton.isUserInteractionEnabled = true
+            view.bringSubviewToFront(uploadButton)
     }
     
     // MARK: - Load Data from Supabase
@@ -253,31 +258,33 @@ class StudentProfileViewController: UIViewController {
     @IBAction func editButtonTapped(_ sender: UIButton) {
         isEditingProfile.toggle()
 
-        if isEditingProfile {
-            // Start editing
-            editButton.setTitle("Save", for: .normal)
-            editButton.backgroundColor = .systemGreen
-            
-            for tf in allTextFields.compactMap({ $0 }) {
-                tf.isEnabled = true
-                tf.textColor = .label
-                if tf.text?.isEmpty == true {
-                    tf.text = ""
+        // ✅ Always visible on edit toggle too
+            uploadButton.isHidden = false
+            uploadButton.alpha = 1.0
+            uploadButton.isUserInteractionEnabled = true
+            view.bringSubviewToFront(uploadButton)
+
+            if isEditingProfile {
+                editButton.setTitle("Save", for: .normal)
+                editButton.backgroundColor = .systemGreen
+
+                for tf in allTextFields.compactMap({ $0 }) {
+                    tf.isEnabled = true
+                    tf.textColor = .label
+                    if tf.text?.isEmpty == true { tf.text = "" }
                 }
-            }
-            
-            firstNameField?.becomeFirstResponder()
-        } else {
-            // Save changes
-            editButton.setTitle("Edit", for: .normal)
-            editButton.backgroundColor = .systemBlue
-            
-            view.endEditing(true)
-            saveProfileToSupabase()
-            
-            for tf in allTextFields.compactMap({ $0 }) {
-                tf.isEnabled = false
-            }
+                firstNameField?.becomeFirstResponder()
+            } else {
+                editButton.setTitle("Edit", for: .normal)
+                editButton.backgroundColor = .systemBlue
+
+                view.endEditing(true)
+                saveProfileToSupabase()
+
+                for tf in allTextFields.compactMap({ $0 }) {
+                    tf.isEnabled = false
+                }
+
         }
     }
 
@@ -411,3 +418,4 @@ extension UIStackView {
         insertSubview(backgroundLayer, at: 0)
     }
 }
+

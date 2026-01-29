@@ -24,6 +24,7 @@
                 <outlet property="profileCardView" destination="rBi-pP-RFc" id="Tt6-l7-39Q"/>
                 <outlet property="regNoField" destination="6ft-Bl-LGc" id="qTh-Ep-qB0"/>
                 <outlet property="srmMailField" destination="zS0-oS-9om" id="BP1-00-7bK"/>
+                <outlet property="uploadButton" destination="QnH-9Z-ROd" id="doX-mc-0Te"/>
                 <outlet property="view" destination="oXm-yZ-Bad" id="uX1-UZ-LYo"/>
             </connections>
         </placeholder>
@@ -399,6 +400,14 @@
                                         <constraint firstItem="80q-Sn-D1U" firstAttribute="leading" secondItem="ThP-ag-izu" secondAttribute="leading" id="vdT-Hu-Gu5"/>
                                     </constraints>
                                 </view>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="QnH-9Z-ROd">
+                                    <rect key="frame" x="156" y="120.66666666666664" width="81" height="34.333333333333329"/>
+                                    <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <state key="normal" title="Button"/>
+                                    <buttonConfiguration key="configuration" style="plain" title="Upload">
+                                        <fontDescription key="titleFontDescription" type="system" weight="semibold" pointSize="17"/>
+                                    </buttonConfiguration>
+                                </button>
                             </subviews>
                             <color key="backgroundColor" name="bg"/>
                             <constraints>
@@ -406,6 +415,7 @@
                                 <constraint firstItem="a0y-X9-vb2" firstAttribute="trailing" secondItem="rBi-pP-RFc" secondAttribute="trailing" id="5va-Rz-NWZ"/>
                                 <constraint firstItem="7bq-3F-N1a" firstAttribute="top" secondItem="a0y-X9-vb2" secondAttribute="bottom" constant="10" id="67d-0n-uHC"/>
                                 <constraint firstItem="S9W-hC-Znt" firstAttribute="centerX" secondItem="74N-Vx-PU3" secondAttribute="centerX" id="7sp-pc-qlz"/>
+                                <constraint firstItem="QnH-9Z-ROd" firstAttribute="centerX" secondItem="S9W-hC-Znt" secondAttribute="centerX" id="APT-Vn-Mfd"/>
                                 <constraint firstItem="7bq-3F-N1a" firstAttribute="trailing" secondItem="rBi-pP-RFc" secondAttribute="trailing" id="Bbd-Ni-G6t"/>
                                 <constraint firstItem="nMZ-Or-bCR" firstAttribute="top" secondItem="74N-Vx-PU3" secondAttribute="top" constant="35" id="D0K-7C-aCY"/>
                                 <constraint firstItem="ThP-ag-izu" firstAttribute="top" secondItem="IhH-fs-2sP" secondAttribute="bottom" constant="8" symbolic="YES" id="D38-eT-ICa"/>
@@ -423,6 +433,7 @@
                                 <constraint firstItem="7bq-3F-N1a" firstAttribute="leading" secondItem="rBi-pP-RFc" secondAttribute="leading" id="cjH-8x-Mqc"/>
                                 <constraint firstItem="rBi-pP-RFc" firstAttribute="centerX" secondItem="74N-Vx-PU3" secondAttribute="centerX" id="eF5-np-suS"/>
                                 <constraint firstItem="IhH-fs-2sP" firstAttribute="trailing" secondItem="rBi-pP-RFc" secondAttribute="trailing" id="fSW-gn-gZ4"/>
+                                <constraint firstItem="QnH-9Z-ROd" firstAttribute="bottom" secondItem="S9W-hC-Znt" secondAttribute="bottom" constant="-4" id="hcH-XP-r13"/>
                                 <constraint firstItem="a0y-X9-vb2" firstAttribute="top" secondItem="ThP-ag-izu" secondAttribute="bottom" constant="30" id="iTB-GN-hOY"/>
                                 <constraint firstItem="7bq-3F-N1a" firstAttribute="centerX" secondItem="rBi-pP-RFc" secondAttribute="centerX" id="iWy-Ai-LLo"/>
                                 <constraint firstItem="IhH-fs-2sP" firstAttribute="leading" secondItem="rBi-pP-RFc" secondAttribute="leading" id="qBX-Bt-E22"/>
