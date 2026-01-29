@@ -2,7 +2,7 @@
 //  FirebaseManager.swift
 //  iCohort3
 //
-//  Firebase Firestore manager for student approval system
+//  Firebase Firestore manager for student AND mentor approval system
 //
 
 import Foundation
@@ -21,6 +21,10 @@ class FirebaseManager {
         db.collection("student_registrations")
     }
     
+    private var mentorRegistrationsRef: CollectionReference {
+        db.collection("mentor_registrations")
+    }
+    
     private var institutesRef: CollectionReference {
         db.collection("institutes")
     }
@@ -29,7 +33,11 @@ class FirebaseManager {
         db.collection("approved_students")
     }
     
-    // MARK: - Student Registration
+    private var approvedMentorsRef: CollectionReference {
+        db.collection("approved_mentors")
+    }
+    
+    // MARK: - Student Registration (existing code)
     
     /// Register a new student with pending approval status
     func registerStudent(
@@ -68,6 +76,82 @@ class FirebaseManager {
         print("✅ Student registered with ID:", docRef.documentID)
         
         return docRef.documentID
+    }
+    
+    // MARK: - Mentor Registration (NEW)
+    
+    /// Register a new mentor with pending approval status
+    func registerMentor(
+        fullName: String,
+        email: String,
+        employeeId: String,
+        designation: String,
+        department: String,
+        instituteName: String,
+        password: String
+    ) async throws -> String {
+        
+        // Check if already registered
+        let existingQuery = mentorRegistrationsRef
+            .whereField("email", isEqualTo: email)
+            .limit(to: 1)
+        
+        let existingSnapshot = try await existingQuery.getDocuments()
+        if !existingSnapshot.documents.isEmpty {
+            throw FirebaseManagerError.alreadyRegistered
+        }
+        
+        // Hash password
+        let passwordHash = hashPassword(password)
+        
+        let data: [String: Any] = [
+            "fullName": fullName,
+            "email": email,
+            "employeeId": employeeId,
+            "designation": designation,
+            "department": department,
+            "instituteName": instituteName,
+            "passwordHash": passwordHash,
+            "approvalStatus": "pending",
+            "createdAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp()
+        ]
+        
+        let docRef = try await mentorRegistrationsRef.addDocument(data: data)
+        print("✅ Mentor registered with ID:", docRef.documentID)
+        
+        return docRef.documentID
+    }
+    
+    /// Check mentor approval status
+    func checkMentorApproval(email: String) async throws -> ApprovalStatus {
+        let query = mentorRegistrationsRef
+            .whereField("email", isEqualTo: email)
+            .limit(to: 1)
+        
+        let snapshot = try await query.getDocuments()
+        
+        guard let document = snapshot.documents.first else {
+            throw FirebaseManagerError.mentorNotFound
+        }
+        
+        let status = document.data()["approvalStatus"] as? String ?? "pending"
+        return ApprovalStatus(rawValue: status) ?? .pending
+    }
+    
+    /// Get mentor registration by email
+    func getMentorRegistration(email: String) async throws -> MentorRegistration? {
+        let query = mentorRegistrationsRef
+            .whereField("email", isEqualTo: email)
+            .limit(to: 1)
+        
+        let snapshot = try await query.getDocuments()
+        
+        guard let document = snapshot.documents.first else {
+            return nil
+        }
+        
+        return try parseMentorRegistration(document: document)
     }
     
     /// Check student approval status
@@ -117,6 +201,20 @@ class FirebaseManager {
         }
     }
     
+    /// Get all pending mentors for a specific institute (NEW)
+    func getPendingMentors(forInstituteName name: String) async throws -> [MentorRegistration] {
+        let query = mentorRegistrationsRef
+            .whereField("instituteName", isEqualTo: name)
+            .whereField("approvalStatus", isEqualTo: "pending")
+            .order(by: "createdAt", descending: true)
+        
+        let snapshot = try await query.getDocuments()
+        
+        return try snapshot.documents.compactMap { doc in
+            try parseMentorRegistration(document: doc)
+        }
+    }
+    
     /// Approve a student registration
     func approveStudent(studentId: String, adminEmail: String) async throws {
         let docRef = studentRegistrationsRef.document(studentId)
@@ -158,6 +256,51 @@ class FirebaseManager {
         print("✅ Student approved:", email)
     }
     
+    /// Approve a mentor registration (NEW)
+    func approveMentor(mentorId: String, adminEmail: String) async throws {
+        let docRef = mentorRegistrationsRef.document(mentorId)
+        
+        // Get mentor data
+        let document = try await docRef.getDocument()
+        guard document.exists else {
+            throw FirebaseManagerError.mentorNotFound
+        }
+        
+        let data = document.data()
+        guard let email = data?["email"] as? String,
+              let passwordHash = data?["passwordHash"] as? String,
+              let fullName = data?["fullName"] as? String,
+              let employeeId = data?["employeeId"] as? String,
+              let designation = data?["designation"] as? String,
+              let department = data?["department"] as? String else {
+            throw FirebaseManagerError.invalidData
+        }
+        
+        // Update approval status
+        try await docRef.updateData([
+            "approvalStatus": "approved",
+            "approvedBy": adminEmail,
+            "approvedAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp()
+        ])
+        
+        // Add to approved mentors collection (for login verification)
+        let approvedData: [String: Any] = [
+            "email": email,
+            "passwordHash": passwordHash,
+            "fullName": fullName,
+            "employeeId": employeeId,
+            "designation": designation,
+            "department": department,
+            "approvedAt": FieldValue.serverTimestamp(),
+            "approvedBy": adminEmail
+        ]
+        
+        try await approvedMentorsRef.document(email).setData(approvedData)
+        
+        print("✅ Mentor approved:", email)
+    }
+    
     /// Decline a student registration
     func declineStudent(studentId: String, adminEmail: String) async throws {
         let docRef = studentRegistrationsRef.document(studentId)
@@ -172,9 +315,38 @@ class FirebaseManager {
         print("✅ Student declined:", studentId)
     }
     
+    /// Decline a mentor registration (NEW)
+    func declineMentor(mentorId: String, adminEmail: String) async throws {
+        let docRef = mentorRegistrationsRef.document(mentorId)
+        
+        try await docRef.updateData([
+            "approvalStatus": "declined",
+            "declinedBy": adminEmail,
+            "declinedAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp()
+        ])
+        
+        print("✅ Mentor declined:", mentorId)
+    }
+    
     /// Verify if student is approved and can login
     func verifyApprovedStudent(email: String, password: String) async throws -> Bool {
         let docRef = approvedStudentsRef.document(email)
+        let document = try await docRef.getDocument()
+        
+        guard document.exists,
+              let data = document.data(),
+              let storedHash = data["passwordHash"] as? String else {
+            return false
+        }
+        
+        let inputHash = hashPassword(password)
+        return inputHash == storedHash
+    }
+    
+    /// Verify if mentor is approved and can login (NEW)
+    func verifyApprovedMentor(email: String, password: String) async throws -> Bool {
+        let docRef = approvedMentorsRef.document(email)
         let document = try await docRef.getDocument()
         
         guard document.exists,
@@ -279,6 +451,29 @@ class FirebaseManager {
         )
     }
     
+    private func parseMentorRegistration(document: DocumentSnapshot) throws -> MentorRegistration {
+        guard let data = document.data() else {
+            throw FirebaseManagerError.invalidData
+        }
+        
+        let statusString = data["approvalStatus"] as? String ?? "pending"
+        let status = ApprovalStatus(rawValue: statusString) ?? .pending
+        
+        return MentorRegistration(
+            id: document.documentID,
+            fullName: data["fullName"] as? String ?? "",
+            email: data["email"] as? String ?? "",
+            employeeId: data["employeeId"] as? String ?? "",
+            designation: data["designation"] as? String ?? "",
+            department: data["department"] as? String ?? "",
+            instituteName: data["instituteName"] as? String ?? "",
+            approvalStatus: status,
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue(),
+            approvedBy: data["approvedBy"] as? String,
+            approvedAt: (data["approvedAt"] as? Timestamp)?.dateValue()
+        )
+    }
+    
     private func hashPassword(_ password: String) -> String {
         let data = Data(password.utf8)
         let hashed = SHA256.hash(data: data)
@@ -300,6 +495,20 @@ struct StudentRegistration {
     let approvedAt: Date?
 }
 
+struct MentorRegistration {
+    let id: String
+    let fullName: String
+    let email: String
+    let employeeId: String
+    let designation: String
+    let department: String
+    let instituteName: String
+    let approvalStatus: ApprovalStatus
+    let createdAt: Date?
+    let approvedBy: String?
+    let approvedAt: Date?
+}
+
 struct Institute {
     let name: String
     let domain: String
@@ -315,6 +524,7 @@ enum ApprovalStatus: String {
 
 enum FirebaseManagerError: Error, LocalizedError {
     case studentNotFound
+    case mentorNotFound
     case instituteNotFound
     case invalidDomain
     case alreadyRegistered
@@ -326,6 +536,8 @@ enum FirebaseManagerError: Error, LocalizedError {
         switch self {
         case .studentNotFound:
             return "Student registration not found"
+        case .mentorNotFound:
+            return "Mentor registration not found"
         case .instituteNotFound:
             return "Institute not found"
         case .invalidDomain:
