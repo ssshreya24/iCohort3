@@ -1,20 +1,388 @@
-//
-//  Supabase+Mentor.swift
-//  iCohort3
-//
-//  Created by user@51 on 23/01/26.
-//
-
-//
-//  SupabaseManager+Mentor.swift
-//  iCohort3
-//
-//  Mentor-specific functionality
-//
+// COMPLETE FIXED VERSION - Replace entire file content
 
 import Foundation
-import UIKit
 import Supabase
+
+// MARK: - Mentor Profile Models
+extension SupabaseManager {
+    
+    struct MentorProfile: Codable {
+        let id: String
+        let person_id: String
+        let first_name: String?
+        let last_name: String?
+        let email: String?
+        let employee_id: String?
+        let designation: String?
+        let department: String?
+        let personal_mail: String?
+        let contact_number: String?
+        let is_profile_complete: Bool?
+        let created_at: String?
+        let updated_at: String?
+    }
+    
+    struct MentorProfileComplete: Codable {
+        let id: String
+        let person_id: String
+        let full_name: String
+        let first_name: String?
+        let last_name: String?
+        let email: String?
+        let employee_id: String?
+        let designation: String?
+        let department: String?
+        let personal_mail: String?
+        let contact_number: String?
+        let is_profile_complete: Bool?
+        let created_at: String?
+        let updated_at: String?
+    }
+}
+
+// MARK: - Mentor Profile Query Functions (FIXED)
+extension SupabaseManager {
+    
+    /// Fetch mentor person_id by email - FIXED SELECT QUERY
+    func fetchMentorId(email: String) async throws -> String? {
+        print("🔍 Fetching mentor ID for email:", email)
+        
+        do {
+            // ✅ FIXED: Select ALL fields explicitly
+            let response: [MentorProfile] = try await client
+                .from("mentor_profiles")
+                .select("*")  // Select all fields
+                .eq("email", value: email)
+                .limit(1)
+                .execute()
+                .value
+            
+            let personId = response.first?.person_id
+            
+            if let personId = personId {
+                print("✅ Found mentor person_id:", personId)
+            } else {
+                print("⚠️ No mentor found for email:", email)
+            }
+            
+            return personId
+            
+        } catch {
+            print("❌ Error fetching mentor ID:", error)
+            print("   Error details: \(error.localizedDescription)")
+            
+            if error.localizedDescription.contains("missing") ||
+               error.localizedDescription.contains("not found") {
+                print("⚠️ No mentor profile exists for email:", email)
+                return nil
+            }
+            
+            throw error
+        }
+    }
+    
+    /// Fetch basic mentor profile by person_id - FIXED SELECT QUERY
+    func fetchBasicMentorProfile(personId: String) async throws -> MentorProfile? {
+        print("🔍 Fetching mentor profile for person_id:", personId)
+        
+        do {
+            // ✅ FIXED: Select ALL fields explicitly
+            let response: [MentorProfile] = try await client
+                .from("mentor_profiles")
+                .select("*")  // Select all fields
+                .eq("person_id", value: personId)
+                .limit(1)
+                .execute()
+                .value
+            
+            let profile = response.first
+            
+            if profile != nil {
+                print("✅ Found mentor profile for person_id:", personId)
+            } else {
+                print("⚠️ No mentor profile found for person_id:", personId)
+            }
+            
+            return profile
+            
+        } catch {
+            print("❌ Error fetching mentor profile:", error)
+            
+            if error.localizedDescription.contains("missing") ||
+               error.localizedDescription.contains("not found") {
+                print("⚠️ No mentor profile exists for person_id:", personId)
+                return nil
+            }
+            
+            throw error
+        }
+    }
+    
+    /// Fetch complete mentor profile - FIXED SELECT QUERY
+    func fetchCompleteMentorProfile(personId: String) async throws -> MentorProfileComplete? {
+        print("🔍 Fetching complete mentor profile for person_id:", personId)
+        
+        do {
+            // ✅ FIXED: Select ALL fields explicitly
+            let response: [MentorProfileComplete] = try await client
+                .from("mentor_profile_complete")
+                .select("*")  // Select all fields
+                .eq("person_id", value: personId)
+                .limit(1)
+                .execute()
+                .value
+            
+            let profile = response.first
+            
+            if profile != nil {
+                print("✅ Found complete mentor profile")
+            } else {
+                print("⚠️ No complete mentor profile found")
+            }
+            
+            return profile
+            
+        } catch {
+            print("❌ Error fetching complete mentor profile:", error)
+            
+            if error.localizedDescription.contains("missing") ||
+               error.localizedDescription.contains("not found") {
+                print("⚠️ No complete mentor profile exists for person_id:", personId)
+                return nil
+            }
+            
+            throw error
+        }
+    }
+    
+    /// Get mentor greeting - IMPROVED with better fallbacks
+    func getMentorGreeting(personId: String) async throws -> String {
+        print("🔍 Fetching mentor greeting for person_id:", personId)
+        
+        // Try RPC function first
+        do {
+            let greeting: String = try await client
+                .rpc("get_mentor_greeting", params: ["p_person_id": personId])
+                .execute()
+                .value
+            
+            print("✅ Mentor greeting retrieved from RPC:", greeting)
+            return greeting
+            
+        } catch {
+            print("⚠️ RPC function failed, trying fallback methods:", error.localizedDescription)
+        }
+        
+        // Fallback 1: Try complete profile
+        do {
+            if let profile = try await fetchCompleteMentorProfile(personId: personId) {
+                let firstName = profile.full_name.components(separatedBy: " ").first ?? "Mentor"
+                print("✅ Using first name from complete profile:", firstName)
+                return "Hi \(firstName)"
+            }
+        } catch {
+            print("⚠️ Could not fetch complete mentor profile:", error)
+        }
+        
+        // Fallback 2: Try basic profile
+        do {
+            if let profile = try await fetchBasicMentorProfile(personId: personId),
+               let firstName = profile.first_name,
+               !firstName.isEmpty {
+                print("✅ Using first name from basic profile:", firstName)
+                return "Hi \(firstName)"
+            }
+        } catch {
+            print("⚠️ Could not fetch basic mentor profile:", error)
+        }
+        
+        // Fallback 3: Try people table
+        do {
+            if let person = try await fetchPerson(personId: personId) {
+                let firstName = person.full_name.components(separatedBy: " ").first ?? "Mentor"
+                print("✅ Using first name from people table:", firstName)
+                return "Hi \(firstName)"
+            }
+        } catch {
+            print("⚠️ Could not fetch person:", error)
+        }
+        
+        // Final fallback
+        print("✅ Using default greeting")
+        return "Hi Mentor"
+    }
+}
+
+// MARK: - Mentor Profile Mutation Functions
+extension SupabaseManager {
+    
+    /// Upsert mentor profile - IMPROVED error handling
+    func upsertMentorProfile(
+        personId: String,
+        firstName: String?,
+        lastName: String?,
+        email: String?,
+        employeeId: String?,
+        designation: String?,
+        department: String?,
+        personalMail: String?,
+        contactNumber: String?
+    ) async throws -> String {
+        print("🔄 Upserting mentor profile for person_id:", personId)
+        
+        struct MentorProfileUpsert: Encodable {
+            let person_id: String
+            let first_name: String?
+            let last_name: String?
+            let email: String?
+            let employee_id: String?
+            let designation: String?
+            let department: String?
+            let personal_mail: String?
+            let contact_number: String?
+            let is_profile_complete: Bool
+        }
+        
+        let isComplete = (firstName?.isEmpty == false) &&
+                        (lastName?.isEmpty == false) &&
+                        (email?.isEmpty == false) &&
+                        (employeeId?.isEmpty == false) &&
+                        (designation?.isEmpty == false) &&
+                        (department?.isEmpty == false)
+        
+        let profile = MentorProfileUpsert(
+            person_id: personId,
+            first_name: firstName,
+            last_name: lastName,
+            email: email,
+            employee_id: employeeId,
+            designation: designation,
+            department: department,
+            personal_mail: personalMail,
+            contact_number: contactNumber,
+            is_profile_complete: isComplete
+        )
+        
+        struct ProfileResponse: Codable {
+            let id: String
+        }
+        
+        do {
+            let response: [ProfileResponse] = try await client
+                .from("mentor_profiles")
+                .upsert(profile, onConflict: "person_id")
+                .select("id")
+                .execute()
+                .value
+            
+            guard let profileId = response.first?.id else {
+                throw NSError(domain: "SupabaseManager", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "Failed to upsert mentor profile"
+                ])
+            }
+            
+            print("✅ Mentor profile upserted with id:", profileId)
+            return profileId
+            
+        } catch {
+            // ✅ IMPROVED: Handle duplicate key errors
+            if error.localizedDescription.contains("duplicate key") &&
+               error.localizedDescription.contains("email") {
+                print("⚠️ Duplicate email detected, trying to update by email...")
+                
+                // Try update by email
+                do {
+                    let updateResponse: [ProfileResponse] = try await client
+                        .from("mentor_profiles")
+                        .update(profile)
+                        .eq("email", value: email ?? "")
+                        .select("id")
+                        .execute()
+                        .value
+                    
+                    guard let profileId = updateResponse.first?.id else {
+                        throw NSError(domain: "SupabaseManager", code: -1, userInfo: [
+                            NSLocalizedDescriptionKey: "Failed to update existing mentor profile"
+                        ])
+                    }
+                    
+                    print("✅ Updated existing mentor profile with id:", profileId)
+                    return profileId
+                    
+                } catch {
+                    print("❌ Could not update existing profile:", error)
+                    throw error
+                }
+            }
+            
+            throw error
+        }
+    }
+}
+
+// MARK: - Mentor Profile Helper Functions
+extension SupabaseManager {
+    
+    func mentorProfileExists(personId: String) async throws -> Bool {
+        let profile = try await fetchBasicMentorProfile(personId: personId)
+        return profile != nil
+    }
+    
+    func getMentorProfileCompletionStatus(personId: String) async throws -> Bool {
+        let profile = try await fetchBasicMentorProfile(personId: personId)
+        return profile?.is_profile_complete ?? false
+    }
+    
+    func fetchMentorProfileByEmail(email: String) async throws -> MentorProfile? {
+        print("🔍 Fetching mentor profile by email:", email)
+        
+        do {
+            let response: [MentorProfile] = try await client
+                .from("mentor_profiles")
+                .select("*")
+                .eq("email", value: email)
+                .limit(1)
+                .execute()
+                .value
+            
+            return response.first
+        } catch {
+            print("❌ Error fetching mentor profile by email:", error)
+            
+            if error.localizedDescription.contains("missing") ||
+               error.localizedDescription.contains("not found") {
+                return nil
+            }
+            
+            throw error
+        }
+    }
+    
+    func fetchMentorProfileByEmployeeId(employeeId: String) async throws -> MentorProfile? {
+        print("🔍 Fetching mentor profile by employee ID:", employeeId)
+        
+        do {
+            let response: [MentorProfile] = try await client
+                .from("mentor_profiles")
+                .select("*")
+                .eq("employee_id", value: employeeId)
+                .limit(1)
+                .execute()
+                .value
+            
+            return response.first
+        } catch {
+            print("❌ Error fetching mentor profile by employee ID:", error)
+            
+            if error.localizedDescription.contains("missing") ||
+               error.localizedDescription.contains("not found") {
+                return nil
+            }
+            
+            throw error
+        }
+    }
+}
 
 // MARK: - Mentor Announcements Extension
 extension SupabaseManager {
@@ -43,8 +411,6 @@ extension SupabaseManager {
         let author: String?
     }
     
-    // MARK: - CREATE Announcement
-    
     func saveAnnouncementToSupabase(
         title: String,
         description: String?,
@@ -64,8 +430,6 @@ extension SupabaseManager {
             .execute()
     }
     
-    // MARK: - READ Announcements
-    
     func fetchMentorAnnouncements() async throws -> [MentorAnnouncementRow] {
         let rows: [MentorAnnouncementRow] = try await client
             .from("mentor_announcements")
@@ -76,8 +440,6 @@ extension SupabaseManager {
         
         return rows
     }
-    
-    // MARK: - UPDATE Announcement
     
     func updateMentorAnnouncement(
         id: Int,
@@ -99,8 +461,6 @@ extension SupabaseManager {
             .eq("id", value: id)
             .execute()
     }
-    
-    // MARK: - DELETE Announcement
     
     func deleteAnnouncement(id: Int) async throws {
         _ = try await client
@@ -148,8 +508,6 @@ extension SupabaseManager {
         let send_to: String?
     }
     
-    // MARK: - CREATE Activity
-    
     func saveMentorActivity(
         title: String,
         note: String?,
@@ -183,8 +541,6 @@ extension SupabaseManager {
         
         return response
     }
-    
-    // MARK: - READ Activities
     
     func fetchAllMentorActivities() async throws -> [MentorActivityRow] {
         let rows: [MentorActivityRow] = try await client
@@ -220,8 +576,6 @@ extension SupabaseManager {
         return try await fetchMentorActivities(from: startOfDay, to: endOfDay)
     }
     
-    // MARK: - UPDATE Activity
-    
     func updateMentorActivity(
         id: Int,
         title: String?,
@@ -250,8 +604,6 @@ extension SupabaseManager {
             .eq("id", value: id)
             .execute()
     }
-    
-    // MARK: - DELETE Activity
     
     func deleteMentorActivity(id: Int) async throws {
         _ = try await client
@@ -287,8 +639,6 @@ extension SupabaseManager {
         let team_id: String
         let full_name: String
     }
-    
-    // MARK: - Fetch Teams
     
     func fetchTeamsForMentor(mentorId: String) async throws -> [TeamRow] {
         let rows: [TeamRow] = try await client

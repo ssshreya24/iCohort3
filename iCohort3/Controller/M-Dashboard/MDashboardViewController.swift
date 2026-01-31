@@ -5,16 +5,16 @@ import UIKit
 struct OngoingTeam {
     let teamId: String
     let teamNo: Int
-    let activeTaskCount: Int   // 🔴 ongoing_task
+    let activeTaskCount: Int
 }
 
 struct ReviewTask {
     let taskId: String
-        let teamId: String
-        let teamNo: Int
-        let taskTitle: String
+    let teamId: String
+    let teamNo: Int
+    let taskTitle: String
 }
-var teamMemberNames: [String: [String]] = [:]   // teamId -> [names]
+var teamMemberNames: [String: [String]] = [:]
 
 // MARK: - Dashboard
 
@@ -30,7 +30,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
 
     @IBOutlet weak var collectionView: UICollectionView!
 
-    // ✅ MUST be set from login/session (this is people.id for mentor)
+    // ✅ Updated: Gets person_id from UserDefaults
     var currentMentorId: String = ""
     var mentorDisplayName: String = "Mentor"
 
@@ -39,6 +39,20 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // ✅ Set default greeting immediately to avoid showing nothing
+        greetingLabel?.text = "Hi Mentor"
+        
+        // ✅ Get mentor ID from UserDefaults
+        if let personId = UserDefaults.standard.string(forKey: "current_person_id") {
+            currentMentorId = personId
+            print("✅ Current mentor ID loaded:", currentMentorId)
+        } else {
+            print("⚠️ No current_person_id found in UserDefaults")
+        }
+        
+        // ✅ Load mentor greeting from Supabase
+        loadMentorGreeting()
 
         if let img = UIImage(named: "ProfileImageMentor") {
             setProfileAvatarImage(img)
@@ -59,9 +73,61 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         collectionView.layer.cornerRadius = 16
         collectionView.backgroundColor = .clear
 
-        greetingLabel.text = "Hi \(mentorDisplayName)"
         todayCountLabel.text = "0"
 
+        // Load dashboard data
+        Task { await loadDashboardFromSupabase() }
+    }
+    
+    // ✅ IMPROVED: Load mentor greeting from Supabase with better error handling
+    private func loadMentorGreeting() {
+        // First, try to use stored name as immediate fallback
+        if let storedName = UserDefaults.standard.string(forKey: "current_user_name"), !storedName.isEmpty {
+            let firstName = storedName.components(separatedBy: " ").first ?? "Mentor"
+            self.mentorDisplayName = firstName
+            self.greetingLabel?.text = "Hi \(firstName)"
+            print("✅ Using stored name immediately:", firstName)
+        }
+        
+        guard let personId = UserDefaults.standard.string(forKey: "current_person_id"), !personId.isEmpty else {
+            print("⚠️ No person ID found, keeping default/stored greeting")
+            return
+        }
+        
+        print("🔄 Loading greeting for person ID:", personId)
+        
+        Task {
+            do {
+                // Fetch mentor greeting from Supabase
+                let greeting = try await SupabaseManager.shared.getMentorGreeting(personId: personId)
+                
+                // Extract just the name from "Hi [Name]" format
+                let name = greeting.replacingOccurrences(of: "Hi ", with: "")
+                
+                await MainActor.run {
+                    self.mentorDisplayName = name
+                    self.greetingLabel?.text = greeting
+                    print("✅ Greeting loaded:", greeting)
+                    
+                    // Also store the name for future use
+                    if !name.isEmpty && name != "Mentor" {
+                        UserDefaults.standard.set(name, forKey: "current_user_name")
+                    }
+                }
+            } catch {
+                print("❌ Error fetching greeting:", error)
+                // Keep the existing greeting (already set from stored name or default)
+            }
+        }
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // ✅ Refresh greeting when view appears (in case profile was updated)
+        loadMentorGreeting()
+        
+        // ✅ Reload dashboard data
         Task { await loadDashboardFromSupabase() }
     }
 
@@ -117,32 +183,44 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
 
     // MARK: - Supabase Fetch
 
-    private let mentorId = "d9966327-b3ed-4fc8-9fbe-70c7148527f3"   // must match teams.mentor_id in DB
-  
-
     private func loadDashboardFromSupabase() async {
+        // ✅ Use currentMentorId from UserDefaults
+        guard !currentMentorId.isEmpty else {
+            print("❌ No mentor ID available")
+            await MainActor.run {
+                self.ongoingTeams = []
+                self.reviewTasks = []
+                self.todayCountLabel.text = "0"
+                self.collectionView.reloadData()
+            }
+            return
+        }
+        
+        print("🔄 Loading dashboard for mentor ID:", currentMentorId)
+        
         do {
             // 1) Fetch teams assigned to this mentor
-            let teams = try await SupabaseManager.shared.fetchTeamsForMentor(mentorId: mentorId)
-            print("✅ teams for mentor:", teams.count)
+            let teams = try await SupabaseManager.shared.fetchTeamsForMentor(mentorId: currentMentorId)
+            print("✅ Found \(teams.count) teams for mentor")
 
             let teamIds = teams.map { $0.id }
+            
+            // 2) Fetch student names for each team
             for team in teams {
                 let names = try await SupabaseManager.shared.fetchStudentNamesForTeam(teamId: team.id)
                 teamMemberNames[team.id] = names
             }
 
-
-            // 2) Fetch counters from team_task
+            // 3) Fetch counters from team_task
             let taskRows = try await SupabaseManager.shared.fetchTeamTasks(teamIds: teamIds)
-            print("✅ team_task rows:", taskRows.count)
+            print("✅ Found task data for \(taskRows.count) teams")
 
             // Make a map: team_id -> TeamTaskRow
             let taskMap: [String: SupabaseManager.TeamTaskRow] = Dictionary(
                 uniqueKeysWithValues: taskRows.map { ($0.team_id, $0) }
             )
 
-            // 3) Map to Ongoing Teams section
+            // 4) Map to Ongoing Teams section
             let mappedOngoing: [OngoingTeam] = teams.map { team in
                 let counts = taskMap[team.id]
 
@@ -153,7 +231,6 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 let approved = counts?.approved_task ?? 0
 
                 let active = assigned + ongoing + review + prepared + approved
-  // ✅ excludes completed + rejected
 
                 return OngoingTeam(
                     teamId: team.id,
@@ -162,15 +239,13 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 )
             }
 
-
-            // 4) Pending review total (card)
+            // 5) Pending review total (card)
             let pendingReviewTotal = teams.reduce(0) { sum, team in
                 let counts = taskMap[team.id]
                 return sum + (counts?.for_review_task ?? 0)
             }
 
-            // 5) Temporary list for "Tasks to review today"
-            // (Until you have a real tasks table, we generate one line per team if for_review_task > 0)
+            // 6) Temporary list for "Tasks to review today"
             let mappedReview: [ReviewTask] = teams.compactMap { team in
                 let counts = taskMap[team.id]
                 let reviewCount = counts?.for_review_task ?? 0
@@ -185,15 +260,17 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
             }
 
             await MainActor.run {
-                self.greetingLabel.text = "Hi \(self.mentorDisplayName)"
                 self.ongoingTeams = mappedOngoing
                 self.reviewTasks = mappedReview
                 self.todayCountLabel.text = "\(pendingReviewTotal)"
                 self.collectionView.reloadData()
+                
+                print("✅ Dashboard loaded: \(mappedOngoing.count) teams, \(pendingReviewTotal) reviews pending")
             }
 
         } catch {
             print("❌ Dashboard fetch failed:", error)
+            print("   Error details: \(error.localizedDescription)")
 
             await MainActor.run {
                 self.ongoingTeams = []
@@ -263,7 +340,7 @@ extension MDashboardViewController {
             NSCollectionLayoutBoundarySupplementaryItem(layoutSize: headerSize,
                                                        elementKind: UICollectionView.elementKindSectionHeader,
                                                        alignment: .top)
-        ]
+            ]
         return section
     }
 
@@ -328,7 +405,7 @@ extension MDashboardViewController: UICollectionViewDataSource {
             } else {
                 let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "OngoingCell", for: indexPath) as! OngoingCollectionViewCell
                 let item = ongoingTeams[indexPath.item]
-                cell.configure(with: item)   // ✅ FIX
+                cell.configure(with: item)
                 return cell
             }
 
@@ -341,12 +418,11 @@ extension MDashboardViewController: UICollectionViewDataSource {
             } else {
                 let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ReviewCell", for: indexPath) as! ReviewCollectionViewCell
                 let item = reviewTasks[indexPath.item]
-                cell.configure(with: item)  // ✅ FIX
+                cell.configure(with: item)
                 return cell
             }
         }
     }
-
 
     func collectionView(_ collectionView: UICollectionView,
                         viewForSupplementaryElementOfKind kind: String,
@@ -391,6 +467,5 @@ extension MDashboardViewController: UICollectionViewDelegate {
             reviewVC.modalPresentationStyle = .fullScreen
             present(reviewVC, animated: true)
         }
-
     }
 }

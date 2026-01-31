@@ -855,3 +855,68 @@ class AdminApprovalViewController: UIViewController {
         present(alert, animated: true)
     }
 }
+
+
+
+extension AdminApprovalViewController {
+    
+    /// Approve student and migrate to Supabase
+    func performStudentApprovalWithMigration(student: StudentRegistration, at index: Int) {
+        showLoadingIndicator()
+        
+        Task {
+            do {
+                // 1. Approve in Firebase
+                try await FirebaseManager.shared.approveStudent(studentId: student.id, adminEmail: adminEmail)
+                print("✅ Student approved in Firebase")
+                
+                // 2. Migrate to Supabase
+                try await FirebaseToSupabaseMigration.shared.migrateApprovedStudent(email: student.email)
+                print("✅ Student migrated to Supabase")
+                
+                await MainActor.run {
+                    self.pendingStudents.remove(at: index)
+                    self.updateUI()
+                    self.hideLoadingIndicator()
+                    
+                    self.showAlert(title: "Success", message: "\(student.fullName) has been approved and synced to the system. They can now login.")
+                }
+            } catch {
+                await MainActor.run {
+                    self.hideLoadingIndicator()
+                    self.showAlert(title: "Error", message: "Failed to approve student: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    /// Approve mentor and migrate to Supabase
+    func performMentorApprovalWithMigration(mentor: MentorRegistration, at index: Int) {
+        showLoadingIndicator()
+        
+        Task {
+            do {
+                // 1. Approve in Firebase
+                try await FirebaseManager.shared.approveMentor(mentorId: mentor.id, adminEmail: adminEmail)
+                print("✅ Mentor approved in Firebase")
+                
+                // 2. Migrate to Supabase
+                try await FirebaseToSupabaseMigration.shared.migrateApprovedMentor(email: mentor.email)
+                print("✅ Mentor migrated to Supabase")
+                
+                await MainActor.run {
+                    self.pendingMentors.remove(at: index)
+                    self.updateUI()
+                    self.hideLoadingIndicator()
+                    
+                    self.showAlert(title: "Success", message: "\(mentor.fullName) has been approved and synced to the system. They can now login.")
+                }
+            } catch {
+                await MainActor.run {
+                    self.hideLoadingIndicator()
+                    self.showAlert(title: "Error", message: "Failed to approve mentor: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,522 @@
+//
+//  ProfileViewController.swift
+//  iCohort3
+//
+//  Updated with Supabase mentor profile integration
+//
+
+import UIKit
+import SafariServices
+import Supabase
+
+protocol ProfileViewControllerDelegate: AnyObject {
+    func profileViewController(_ controller: ProfileViewController,
+                               didUpdateAvatar image: UIImage)
+}
+
+class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
+                             UINavigationControllerDelegate {
+    weak var delegate: ProfileViewControllerDelegate?
+
+    // MARK: - Top Back
+    @IBOutlet weak var backButton: UIButton!
+    @IBOutlet weak var editButton: UIButton!
+    
+    // MARK: - Avatar
+    @IBOutlet weak var avatarImageView: UIImageView!
+    @IBOutlet weak var avatarEditButton: UIButton!
+    
+    // MARK: - Greeting (NEW)
+    @IBOutlet weak var greetingLabel: UILabel!
+    
+    // MARK: - Cards
+    @IBOutlet weak var profileCardView: UIView!
+    @IBOutlet weak var academicCardView: UIView!
+    @IBOutlet weak var personalCardView: UIView!
+    @IBOutlet weak var featuresCardView: UIView!
+    
+    // MARK: - Fields
+    @IBOutlet weak var firstNameField: UITextField!
+    @IBOutlet weak var lastNameField: UITextField!
+    
+    @IBOutlet weak var departmentField: UITextField!
+    @IBOutlet weak var srmMailField: UITextField!
+    @IBOutlet weak var facultyIdField: UITextField!
+    
+    @IBOutlet weak var personalMailField: UITextField!
+    @IBOutlet weak var contactNumberField: UITextField!
+    
+    // MARK: - Features
+    @IBOutlet weak var personalMailSwitch: UISwitch!
+    
+    // MARK: - Sign Out
+    @IBOutlet weak var signOutButton: UIButton!
+    
+    // MARK: - Loading
+    @IBOutlet weak var loadingIndicator: UIActivityIndicatorView!
+    
+    // MARK: - State
+    private var isEditingProfile = false
+    private var currentPersonId: String?
+    private var currentProfile: SupabaseManager.MentorProfile?
+
+    // MARK: - Convenience
+    private var allTextFields: [UITextField?] {
+        [
+            firstNameField,
+            lastNameField,
+            departmentField,
+            srmMailField,
+            facultyIdField,
+            personalMailField,
+            contactNumberField
+        ]
+    }
+
+    // MARK: - Lifecycle
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupUI()
+        setupInitialState()
+        setupLoadingIndicator()
+        avatarEditButton.isHidden = true
+        
+        if let img = UIImage(named: "ProfileImageMentor") {
+            let square = img.centerSquare()
+            avatarImageView.image = square
+        }
+        
+        // ✅ NEW: Get mentor person_id from UserDefaults
+        getCurrentUserPersonId()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if let personId = currentPersonId {
+            loadProfileData(personId: personId)
+        }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        makeAvatarCircular()
+        makeTopButtonsRounded()
+        makeSignOutRounded()
+        avatarImageView.layer.cornerRadius = avatarImageView.bounds.width / 2
+        avatarImageView.layer.masksToBounds = true
+        avatarEditButton.layer.cornerRadius = avatarEditButton.bounds.height / 2
+        avatarEditButton.layer.masksToBounds = true
+    }
+
+    // MARK: - Setup / Styling
+    
+    private func setupLoadingIndicator() {
+        loadingIndicator?.hidesWhenStopped = true
+        loadingIndicator?.style = .large
+    }
+    
+    private func getCurrentUserPersonId() {
+        if let storedPersonId = UserDefaults.standard.string(forKey: "current_person_id") {
+            currentPersonId = storedPersonId
+            loadProfileData(personId: storedPersonId)
+        } else {
+            print("⚠️ No person ID found in UserDefaults")
+            greetingLabel?.text = "Hi Mentor"
+        }
+    }
+    
+    // ✅ NEW: Load profile data from Supabase
+    private func loadProfileData(personId: String) {
+        loadingIndicator?.startAnimating()
+        
+        Task {
+            do {
+                // Fetch greeting
+                let greeting = try await SupabaseManager.shared.getMentorGreeting(personId: personId)
+                
+                // Fetch profile
+                let profile = try await SupabaseManager.shared.fetchBasicMentorProfile(personId: personId)
+                
+                await MainActor.run {
+                    self.currentProfile = profile
+                    self.updateUIWithProfile(profile, greeting: greeting)
+                    self.loadingIndicator?.stopAnimating()
+                }
+            } catch {
+                await MainActor.run {
+                    print("Error loading mentor profile:", error)
+                    self.loadingIndicator?.stopAnimating()
+                    
+                    // Show empty state
+                    if error.localizedDescription.contains("not found") {
+                        self.greetingLabel?.text = "Hi Mentor"
+                    } else {
+                        self.showError("Failed to load profile")
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateUIWithProfile(_ profile: SupabaseManager.MentorProfile?, greeting: String) {
+        greetingLabel?.text = greeting
+        
+        guard let profile = profile else {
+            // New user - show empty fields
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.text = ""
+                tf.textColor = .systemGray
+            }
+            return
+        }
+        
+        // Populate fields
+        firstNameField?.text = profile.first_name ?? ""
+        lastNameField?.text = profile.last_name ?? ""
+        departmentField?.text = profile.department ?? ""
+        srmMailField?.text = profile.email ?? ""
+        facultyIdField?.text = profile.employee_id ?? ""
+        personalMailField?.text = profile.personal_mail ?? ""
+        contactNumberField?.text = profile.contact_number ?? ""
+        
+        // Update text colors based on content
+        for tf in allTextFields.compactMap({ $0 }) {
+            if tf.text?.isEmpty == true {
+                tf.textColor = .systemBlue
+                tf.text = "Not Set"
+            } else {
+                tf.textColor = .label
+            }
+        }
+    }
+
+    private func setupUI() {
+        view.backgroundColor = UIColor(
+            red: 0xEF/255.0,
+            green: 0xEF/255.0,
+            blue: 0xF5/255.0,
+            alpha: 1.0
+        )
+
+        applyCardStyle(to: profileCardView)
+        applyCardStyle(to: academicCardView)
+        applyCardStyle(to: personalCardView)
+        applyCardStyle(to: featuresCardView)
+
+        editButton.setTitle("Edit", for: .normal)
+        
+        // ✅ NEW: Configure greeting label
+        if greetingLabel != nil {
+            greetingLabel.font = .systemFont(ofSize: 24, weight: .bold)
+            greetingLabel.textColor = .label
+            greetingLabel.text = "Hi Mentor" // Default
+        }
+    }
+
+    private func applyCardStyle(to card: UIView?) {
+        guard let card = card else { return }
+        card.layer.cornerRadius = 12
+        card.layer.masksToBounds = true
+        card.layer.borderWidth = 0.5
+        card.layer.borderColor = UIColor.systemGray5.cgColor
+        card.backgroundColor = .white
+    }
+
+    private func makeAvatarCircular() {
+        guard let avatar = avatarImageView else { return }
+        avatar.layer.cornerRadius = avatar.bounds.width / 2
+        avatar.layer.masksToBounds = true
+    }
+
+    private func makeTopButtonsRounded() {
+        [backButton, editButton].forEach { button in
+            guard let button = button else { return }
+            button.layer.cornerRadius = button.bounds.height / 2
+            button.layer.masksToBounds = true
+            button.backgroundColor = .white
+        }
+    }
+
+    private func makeSignOutRounded() {
+        guard let btn = signOutButton else { return }
+        btn.layer.cornerRadius = btn.bounds.height / 2
+        btn.layer.masksToBounds = true
+        btn.backgroundColor = UIColor.systemGray5
+        btn.setTitleColor(.systemRed, for: .normal)
+    }
+
+    private func setupInitialState() {
+        for tf in allTextFields.compactMap({ $0 }) {
+            tf.isEnabled = false
+            tf.placeholder = "Not Set"
+            tf.textColor = .systemGray
+            tf.text = ""
+        }
+        
+        greetingLabel?.text = "Hi Mentor"
+        greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
+        personalMailSwitch?.isOn = false
+    }
+
+    // MARK: - Actions
+
+    @IBAction func backButtonTapped(_ sender: UIButton) {
+        if let nav = navigationController {
+            nav.popViewController(animated: true)
+        } else {
+            dismiss(animated: true, completion: nil)
+        }
+    }
+    
+    @IBAction func avatarEditButtonTapped(_ sender: UIButton) {
+        let sheet = UIAlertController(
+            title: "Change Profile Picture",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            sheet.addAction(UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
+                self?.presentImagePicker(source: .camera)
+            })
+        }
+
+        sheet.addAction(UIAlertAction(title: "Upload from Photos", style: .default) { [weak self] _ in
+            self?.presentImagePicker(source: .photoLibrary)
+        })
+
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        present(sheet, animated: true)
+    }
+    
+    private func presentImagePicker(source: UIImagePickerController.SourceType) {
+        guard UIImagePickerController.isSourceTypeAvailable(source) else { return }
+        let picker = UIImagePickerController()
+        picker.sourceType = source
+        picker.allowsEditing = true
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    func imagePickerController(_ picker: UIImagePickerController,
+                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage
+        if let img = image {
+            let square = img.centerSquare()
+            avatarImageView.image = square
+            delegate?.profileViewController(self, didUpdateAvatar: square)
+        }
+        dismiss(animated: true)
+    }
+
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        dismiss(animated: true)
+    }
+
+    @IBAction func signOutButtonTapped(_ sender: UIButton) {
+        // ✅ Clear stored data
+        UserDefaults.standard.removeObject(forKey: "current_person_id")
+        UserDefaults.standard.removeObject(forKey: "current_user_name")
+        UserDefaults.standard.removeObject(forKey: "mentorEmail")
+        
+        DispatchQueue.main.async {
+            guard let windowScene = UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .first(where: { $0.activationState == .foregroundActive }),
+                  let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
+                print("⚠️ No key window found")
+                return
+            }
+
+            let sb = UIStoryboard(name: "Main", bundle: nil)
+            guard let loginVC = sb.instantiateViewController(withIdentifier: "MLoginVC") as? MLoginSignUpViewController else {
+                print("⚠️ Couldn't instantiate MLoginVC")
+                return
+            }
+
+            let loginNav = UINavigationController(rootViewController: loginVC)
+            loginNav.navigationBar.isTranslucent = false
+
+            let transition = CATransition()
+            transition.duration = 0.35
+            transition.type = .push
+            transition.subtype = .fromBottom
+            transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+            window.layer.add(transition, forKey: kCATransition)
+            window.rootViewController = loginNav
+            window.makeKeyAndVisible()
+        }
+    }
+
+    @IBAction func personalMailSwitchChanged(_ sender: UISwitch) {
+        // Can be used later for privacy settings
+    }
+
+    @IBAction func editButtonTapped(_ sender: UIButton) {
+        isEditingProfile.toggle()
+        avatarEditButton.isHidden = !isEditingProfile
+
+        if isEditingProfile {
+            // ENTER EDIT MODE
+            editButton.setTitle("Save", for: .normal)
+            editButton.backgroundColor = .systemGreen
+
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.isEnabled = true
+                tf.textColor = .label
+                if tf.text == "Not Set" || tf.text?.isEmpty == true {
+                    tf.text = ""
+                }
+            }
+
+            firstNameField?.becomeFirstResponder()
+
+        } else {
+            // EXIT EDIT MODE (SAVE)
+            editButton.setTitle("Edit", for: .normal)
+            editButton.backgroundColor = .systemBlue
+
+            view.endEditing(true)
+            saveProfileToSupabase()
+
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.isEnabled = false
+            }
+        }
+    }
+
+    // ✅ NEW: Save to Supabase
+    private func saveProfileToSupabase() {
+        guard let personId = currentPersonId else {
+            showError("User not found. Please log in again.")
+            return
+        }
+        
+        print("🔄 Starting mentor profile save for person_id: \(personId)")
+        
+        // Get field values
+        let firstName = firstNameField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lastName = lastNameField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let department = departmentField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = srmMailField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let employeeId = facultyIdField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let personalMail = personalMailField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let contactNumber = contactNumberField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Validate required fields
+        guard let firstName = firstName, !firstName.isEmpty else {
+            showError("First name is required")
+            return
+        }
+        
+        guard let lastName = lastName, !lastName.isEmpty else {
+            showError("Last name is required")
+            return
+        }
+        
+        loadingIndicator?.startAnimating()
+        
+        Task {
+            do {
+                print("🔄 Upserting mentor profile...")
+                
+                // Upsert profile to Supabase
+                struct MentorProfileUpsert: Encodable {
+                    let person_id: String
+                    let first_name: String
+                    let last_name: String
+                    let email: String?
+                    let employee_id: String?
+                    let department: String?
+                    let designation: String?
+                    let personal_mail: String?
+                    let contact_number: String?
+                    let is_profile_complete: Bool
+                }
+                
+                let isComplete = !firstName.isEmpty && !lastName.isEmpty
+                
+                let profile = MentorProfileUpsert(
+                    person_id: personId,
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: email?.isEmpty == true ? nil : email,
+                    employee_id: employeeId?.isEmpty == true ? nil : employeeId,
+                    department: department?.isEmpty == true ? nil : department,
+                    designation: currentProfile?.designation,
+                    personal_mail: personalMail?.isEmpty == true ? nil : personalMail,
+                    contact_number: contactNumber?.isEmpty == true ? nil : contactNumber,
+                    is_profile_complete: isComplete
+                )
+                
+                struct ProfileResponse: Codable {
+                    let id: String
+                }
+                
+                let _: [ProfileResponse] = try await SupabaseManager.shared.client
+                    .from("mentor_profiles")
+                    .upsert(profile, onConflict: "person_id")
+                    .select("id")
+                    .execute()
+                    .value
+                
+                print("✅ Mentor profile saved")
+                
+                await MainActor.run {
+                    self.loadingIndicator?.stopAnimating()
+                    self.showSuccess("Profile saved successfully!")
+                    
+                    // Reload to get updated greeting
+                    Task {
+                        await self.loadProfileData(personId: personId)
+                    }
+                }
+                
+            } catch let error as NSError {
+                await MainActor.run {
+                    self.loadingIndicator?.stopAnimating()
+                    print("❌ Error saving mentor profile:", error)
+                    
+                    let errorMessage = error.localizedDescription
+                    self.showError("Failed to save profile: \(errorMessage)")
+                }
+            } catch {
+                await MainActor.run {
+                    self.loadingIndicator?.stopAnimating()
+                    print("❌ Unknown error saving mentor profile:", error)
+                    self.showError("Failed to save profile: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func showError(_ message: String) {
+        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    private func showSuccess(_ message: String) {
+        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+}
+
+extension UIImage {
+    func centerSquare() -> UIImage {
+        let originalSize = self.size
+        let side = min(originalSize.width, originalSize.height)
+        let x = (originalSize.width  - side) / 2.0
+        let y = (originalSize.height - side) / 2.0
+
+        let cropRect = CGRect(x: x, y: y, width: side, height: side).integral
+
+        guard let cg = self.cgImage?.cropping(to: cropRect) else { return self }
+        return UIImage(cgImage: cg, scale: self.scale, orientation: self.imageOrientation)
+    }
+}
