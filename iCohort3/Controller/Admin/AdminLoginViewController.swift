@@ -2,7 +2,7 @@
 //  AdminLoginViewController.swift
 //  iCohort3
 //
-//  SIMPLIFIED VERSION - Email and Password Only
+//  FIXED: Push dashboard instead of replacing window root
 //
 
 import UIKit
@@ -62,22 +62,9 @@ class AdminLoginViewController: UIViewController {
     func handleLoginSuccess() {
         print("✅ Admin logged in successfully")
         
-        // Navigate to Admin Approval Dashboard
-        let approvalVC = AdminApprovalViewController()
-        let navController = UINavigationController(rootViewController: approvalVC)
-        navController.modalPresentationStyle = .fullScreen
-        
-        let window = view.window ?? UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }
-        
-        guard let window = window else { return }
-        
-        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-            window.rootViewController = navController
-            window.makeKeyAndVisible()
-        }
+        // ✅ FIXED: Push dashboard onto existing navigation stack instead of replacing window root
+        let dashboardVC = AdminDashboardViewController()
+        navigationController?.pushViewController(dashboardVC, animated: true)
     }
     
     // MARK: - Actions

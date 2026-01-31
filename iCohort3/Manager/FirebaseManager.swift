@@ -1,8 +1,8 @@
 //
-//  FirebaseManager.swift
+//  FirebaseManager.swift - FIXED APPROVAL METHODS
 //  iCohort3
 //
-//  Firebase Firestore manager for student AND mentor approval system
+//  CRITICAL FIX: Now copies instituteDomain and instituteName during approval!
 //
 
 import Foundation
@@ -12,7 +12,8 @@ import CryptoKit
 
 class FirebaseManager {
     static let shared = FirebaseManager()
-    private let db = Firestore.firestore()
+    
+    let db = Firestore.firestore()
     
     private init() {}
     
@@ -37,9 +38,8 @@ class FirebaseManager {
         db.collection("approved_mentors")
     }
     
-    // MARK: - Student Registration (existing code)
+    // MARK: - Student Registration
     
-    /// Register a new student with pending approval status
     func registerStudent(
         fullName: String,
         email: String,
@@ -48,7 +48,6 @@ class FirebaseManager {
         instituteDomain: String
     ) async throws -> String {
         
-        // Check if already registered
         let existingQuery = studentRegistrationsRef
             .whereField("email", isEqualTo: email)
             .limit(to: 1)
@@ -58,7 +57,6 @@ class FirebaseManager {
             throw FirebaseManagerError.alreadyRegistered
         }
         
-        // Hash password
         let passwordHash = hashPassword(password)
         
         let data: [String: Any] = [
@@ -78,9 +76,8 @@ class FirebaseManager {
         return docRef.documentID
     }
     
-    // MARK: - Mentor Registration (NEW)
+    // MARK: - Mentor Registration
     
-    /// Register a new mentor with pending approval status
     func registerMentor(
         fullName: String,
         email: String,
@@ -91,7 +88,6 @@ class FirebaseManager {
         password: String
     ) async throws -> String {
         
-        // Check if already registered
         let existingQuery = mentorRegistrationsRef
             .whereField("email", isEqualTo: email)
             .limit(to: 1)
@@ -101,7 +97,6 @@ class FirebaseManager {
             throw FirebaseManagerError.alreadyRegistered
         }
         
-        // Hash password
         let passwordHash = hashPassword(password)
         
         let data: [String: Any] = [
@@ -123,7 +118,6 @@ class FirebaseManager {
         return docRef.documentID
     }
     
-    /// Check mentor approval status
     func checkMentorApproval(email: String) async throws -> ApprovalStatus {
         let query = mentorRegistrationsRef
             .whereField("email", isEqualTo: email)
@@ -139,7 +133,6 @@ class FirebaseManager {
         return ApprovalStatus(rawValue: status) ?? .pending
     }
     
-    /// Get mentor registration by email
     func getMentorRegistration(email: String) async throws -> MentorRegistration? {
         let query = mentorRegistrationsRef
             .whereField("email", isEqualTo: email)
@@ -154,7 +147,6 @@ class FirebaseManager {
         return try parseMentorRegistration(document: document)
     }
     
-    /// Check student approval status
     func checkStudentApproval(email: String) async throws -> ApprovalStatus {
         let query = studentRegistrationsRef
             .whereField("email", isEqualTo: email)
@@ -170,7 +162,6 @@ class FirebaseManager {
         return ApprovalStatus(rawValue: status) ?? .pending
     }
     
-    /// Get student registration by email
     func getStudentRegistration(email: String) async throws -> StudentRegistration? {
         let query = studentRegistrationsRef
             .whereField("email", isEqualTo: email)
@@ -187,7 +178,6 @@ class FirebaseManager {
     
     // MARK: - Admin Operations
     
-    /// Get all pending students for a specific domain
     func getPendingStudents(forDomain domain: String) async throws -> [StudentRegistration] {
         let query = studentRegistrationsRef
             .whereField("instituteDomain", isEqualTo: domain)
@@ -201,7 +191,6 @@ class FirebaseManager {
         }
     }
     
-    /// Get all pending mentors for a specific institute (NEW)
     func getPendingMentors(forInstituteName name: String) async throws -> [MentorRegistration] {
         let query = mentorRegistrationsRef
             .whereField("instituteName", isEqualTo: name)
@@ -215,11 +204,12 @@ class FirebaseManager {
         }
     }
     
-    /// Approve a student registration
+    // MARK: - FIXED APPROVAL METHODS
+    
+    /// Approve a student registration - NOW COPIES instituteDomain!
     func approveStudent(studentId: String, adminEmail: String) async throws {
         let docRef = studentRegistrationsRef.document(studentId)
         
-        // Get student data
         let document = try await docRef.getDocument()
         guard document.exists else {
             throw FirebaseManagerError.studentNotFound
@@ -229,7 +219,8 @@ class FirebaseManager {
         guard let email = data?["email"] as? String,
               let passwordHash = data?["passwordHash"] as? String,
               let fullName = data?["fullName"] as? String,
-              let regNumber = data?["regNumber"] as? String else {
+              let regNumber = data?["regNumber"] as? String,
+              let instituteDomain = data?["instituteDomain"] as? String else { // 🔥 CRITICAL FIX
             throw FirebaseManagerError.invalidData
         }
         
@@ -241,26 +232,26 @@ class FirebaseManager {
             "updatedAt": FieldValue.serverTimestamp()
         ])
         
-        // Add to approved students collection (for login verification)
+        // 🔥 CRITICAL FIX: Now includes instituteDomain!
         let approvedData: [String: Any] = [
             "email": email,
             "passwordHash": passwordHash,
             "fullName": fullName,
             "regNumber": regNumber,
+            "instituteDomain": instituteDomain, // 🔥 ADDED THIS
             "approvedAt": FieldValue.serverTimestamp(),
             "approvedBy": adminEmail
         ]
         
         try await approvedStudentsRef.document(email).setData(approvedData)
         
-        print("✅ Student approved:", email)
+        print("✅ Student approved:", email, "Domain:", instituteDomain)
     }
     
-    /// Approve a mentor registration (NEW)
+    /// Approve a mentor registration - NOW COPIES instituteName!
     func approveMentor(mentorId: String, adminEmail: String) async throws {
         let docRef = mentorRegistrationsRef.document(mentorId)
         
-        // Get mentor data
         let document = try await docRef.getDocument()
         guard document.exists else {
             throw FirebaseManagerError.mentorNotFound
@@ -272,7 +263,8 @@ class FirebaseManager {
               let fullName = data?["fullName"] as? String,
               let employeeId = data?["employeeId"] as? String,
               let designation = data?["designation"] as? String,
-              let department = data?["department"] as? String else {
+              let department = data?["department"] as? String,
+              let instituteName = data?["instituteName"] as? String else { // 🔥 CRITICAL FIX
             throw FirebaseManagerError.invalidData
         }
         
@@ -284,7 +276,7 @@ class FirebaseManager {
             "updatedAt": FieldValue.serverTimestamp()
         ])
         
-        // Add to approved mentors collection (for login verification)
+        // 🔥 CRITICAL FIX: Now includes instituteName!
         let approvedData: [String: Any] = [
             "email": email,
             "passwordHash": passwordHash,
@@ -292,16 +284,16 @@ class FirebaseManager {
             "employeeId": employeeId,
             "designation": designation,
             "department": department,
+            "instituteName": instituteName, // 🔥 ADDED THIS
             "approvedAt": FieldValue.serverTimestamp(),
             "approvedBy": adminEmail
         ]
         
         try await approvedMentorsRef.document(email).setData(approvedData)
         
-        print("✅ Mentor approved:", email)
+        print("✅ Mentor approved:", email, "Institute:", instituteName)
     }
     
-    /// Decline a student registration
     func declineStudent(studentId: String, adminEmail: String) async throws {
         let docRef = studentRegistrationsRef.document(studentId)
         
@@ -315,7 +307,6 @@ class FirebaseManager {
         print("✅ Student declined:", studentId)
     }
     
-    /// Decline a mentor registration (NEW)
     func declineMentor(mentorId: String, adminEmail: String) async throws {
         let docRef = mentorRegistrationsRef.document(mentorId)
         
@@ -329,7 +320,6 @@ class FirebaseManager {
         print("✅ Mentor declined:", mentorId)
     }
     
-    /// Verify if student is approved and can login
     func verifyApprovedStudent(email: String, password: String) async throws -> Bool {
         let docRef = approvedStudentsRef.document(email)
         let document = try await docRef.getDocument()
@@ -344,7 +334,6 @@ class FirebaseManager {
         return inputHash == storedHash
     }
     
-    /// Verify if mentor is approved and can login (NEW)
     func verifyApprovedMentor(email: String, password: String) async throws -> Bool {
         let docRef = approvedMentorsRef.document(email)
         let document = try await docRef.getDocument()
@@ -361,7 +350,6 @@ class FirebaseManager {
     
     // MARK: - Institute Management
     
-    /// Register a new institute
     func registerInstitute(
         name: String,
         domain: String,
@@ -369,7 +357,6 @@ class FirebaseManager {
         adminId: String
     ) async throws {
         
-        // Check if institute already exists
         let query = institutesRef
             .whereField("domain", isEqualTo: domain)
             .limit(to: 1)
@@ -391,7 +378,6 @@ class FirebaseManager {
         print("✅ Institute registered:", name)
     }
     
-    /// Get institute by domain
     func getInstitute(byDomain domain: String) async throws -> Institute? {
         let document = try await institutesRef.document(domain).getDocument()
         
@@ -407,7 +393,6 @@ class FirebaseManager {
         )
     }
     
-    /// Get institute by admin email
     func getInstitute(byAdminEmail email: String) async throws -> Institute? {
         let query = institutesRef
             .whereField("adminEmail", isEqualTo: email)

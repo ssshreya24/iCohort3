@@ -3,6 +3,7 @@
 //  iCohort3
 //
 //  Admin page to approve or decline student AND mentor registrations
+//  UPDATED: Softer approve/decline button colors matching design reference
 //
 
 import UIKit
@@ -508,18 +509,18 @@ class AdminApprovalViewController: UIViewController {
     private func createButtonStack(approveTag: Int, declineTag: Int, type: CardType) -> UIStackView {
         let approveButton = UIButton(type: .system)
         approveButton.setTitle("Approve", for: .normal)
-        approveButton.setTitleColor(.systemGreen, for: .normal)
+        approveButton.setTitleColor(.systemGreen, for: .normal)  // ✅ Green text
         approveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        approveButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.15)
+        approveButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.15)  // ✅ Soft green background
         approveButton.layer.cornerRadius = 12
         approveButton.translatesAutoresizingMaskIntoConstraints = false
         approveButton.tag = approveTag
         
         let declineButton = UIButton(type: .system)
         declineButton.setTitle("Decline", for: .normal)
-        declineButton.setTitleColor(.systemRed, for: .normal)
+        declineButton.setTitleColor(.systemRed, for: .normal)  // ✅ Red text
         declineButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)
+        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)  // ✅ Soft red background
         declineButton.layer.cornerRadius = 12
         declineButton.translatesAutoresizingMaskIntoConstraints = false
         declineButton.tag = declineTag
