@@ -2,7 +2,7 @@
 //  MLoginSignUpViewController.swift
 //  iCohort3
 //
-//  FIXED VERSION - Matches student login flow (Firestore only, no Firebase Auth)
+//  CORRECTED VERSION - Now calls performLoginWithSync() to trigger migration
 //
 
 import UIKit
@@ -94,6 +94,7 @@ class MLoginSignUpViewController: UIViewController {
         navigationController?.pushViewController(signUpVC, animated: true)
     }
 
+    // ✅ FIXED: Now calls performLoginWithSync() instead of performLogin()
     @IBAction func signInTapped(_ sender: UIButton) {
         print("🔐 Mentor Sign In button tapped")
         
@@ -110,15 +111,81 @@ class MLoginSignUpViewController: UIViewController {
         signInButton.isEnabled = false
         showLoadingIndicator()
         
-        performLogin(email: email, password: password)
+        // ✅ THIS IS THE FIX - Call the sync version that triggers migration
+        performLoginWithSync(email: email, password: password)
+    }
+
+    func handleLoginSuccess() {
+        let tab = MentorMainTabBarViewController()
+
+        let win = view.window ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+
+        guard let window = win else { return }
+
+        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
+            window.rootViewController = tab
+        }
     }
     
-    private func performLogin(email: String, password: String) {
+    // MARK: - Helper Methods
+    
+    func showLoadingIndicator() {
+        hideLoadingIndicator()
+        
+        DispatchQueue.main.async {
+            let indicator = UIActivityIndicatorView(style: .large)
+            indicator.color = .systemBlue
+            indicator.center = self.view.center
+            indicator.startAnimating()
+            
+            let backdrop = UIView(frame: self.view.bounds)
+            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+            backdrop.tag = 9999
+            backdrop.addSubview(indicator)
+            
+            self.view.addSubview(backdrop)
+            self.view.isUserInteractionEnabled = false
+            
+            self.loadingIndicator = indicator
+            
+            print("🔄 Loading indicator shown")
+        }
+    }
+    
+    func hideLoadingIndicator() {
+        DispatchQueue.main.async {
+            self.view.viewWithTag(9999)?.removeFromSuperview()
+            self.loadingIndicator?.stopAnimating()
+            self.loadingIndicator?.removeFromSuperview()
+            self.loadingIndicator = nil
+            self.view.isUserInteractionEnabled = true
+            
+            print("✋ Loading indicator hidden")
+        }
+    }
+    
+    func showAlert(title: String, message: String) {
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(alert, animated: true)
+        }
+    }
+}
+
+// MARK: - Login with Sync Extension
+extension MLoginSignUpViewController {
+    
+    /// Updated login flow with Firebase-Supabase sync
+    func performLoginWithSync(email: String, password: String) {
         Task {
             do {
                 print("📝 Checking mentor approval status for:", email)
                 
-                // Check if mentor is approved in Firestore
+                // 1. Check if mentor is approved in Firebase
                 let approvalStatus = try await FirebaseManager.shared.checkMentorApproval(email: email)
                 
                 print("📊 Mentor approval status:", approvalStatus)
@@ -143,7 +210,7 @@ class MLoginSignUpViewController: UIViewController {
                 case .approved:
                     print("✅ Mentor is approved, verifying password")
                     
-                    // Verify password matches
+                    // 2. Verify password matches in Firebase
                     let isValidPassword = try await FirebaseManager.shared.verifyApprovedMentor(email: email, password: password)
                     
                     guard isValidPassword else {
@@ -155,10 +222,15 @@ class MLoginSignUpViewController: UIViewController {
                         return
                     }
                     
-                    print("✅ Password verified, logging in mentor")
+                    print("✅ Password verified, syncing to Supabase")
+                    
+                    // 3. Sync mentor data from Firebase to Supabase
+                    let mentorName = try await FirebaseToSupabaseMigration.shared.syncMentorAtLogin(email: email)
+                    
+                    print("✅ Sync complete, mentor name:", mentorName)
                     
                     await MainActor.run {
-                        print("✅ Mentor login success (approved):", email)
+                        print("✅ Mentor login success:", email)
                         
                         if rememberMeButton.isSelected {
                             UserDefaults.standard.set(true, forKey: "isMentorLoggedIn")
@@ -187,66 +259,6 @@ class MLoginSignUpViewController: UIViewController {
                     showAlert(title: "Login Failed", message: "An error occurred: \(error.localizedDescription)")
                 }
             }
-        }
-    }
-
-    func handleLoginSuccess() {
-        let tab = MentorMainTabBarViewController()
-
-        let win = view.window ?? UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }
-
-        guard let window = win else { return }
-
-        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-            window.rootViewController = tab
-        }
-    }
-    
-    // MARK: - Helper Methods
-    
-    private func showLoadingIndicator() {
-        hideLoadingIndicator()
-        
-        DispatchQueue.main.async {
-            let indicator = UIActivityIndicatorView(style: .large)
-            indicator.color = .systemBlue
-            indicator.center = self.view.center
-            indicator.startAnimating()
-            
-            let backdrop = UIView(frame: self.view.bounds)
-            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-            backdrop.tag = 9999
-            backdrop.addSubview(indicator)
-            
-            self.view.addSubview(backdrop)
-            self.view.isUserInteractionEnabled = false
-            
-            self.loadingIndicator = indicator
-            
-            print("🔄 Loading indicator shown")
-        }
-    }
-    
-    private func hideLoadingIndicator() {
-        DispatchQueue.main.async {
-            self.view.viewWithTag(9999)?.removeFromSuperview()
-            self.loadingIndicator?.stopAnimating()
-            self.loadingIndicator?.removeFromSuperview()
-            self.loadingIndicator = nil
-            self.view.isUserInteractionEnabled = true
-            
-            print("✋ Loading indicator hidden")
-        }
-    }
-    
-    func showAlert(title: String, message: String) {
-        DispatchQueue.main.async {
-            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            self.present(alert, animated: true)
         }
     }
 }

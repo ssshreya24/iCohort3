@@ -3,7 +3,7 @@
 //  iCohort3
 //
 //  Created by user@51 on 05/11/25.
-//  Updated to fix layout and prevent unnecessary scrolling
+//  Updated with Supabase name display integration
 //
 
 import UIKit
@@ -17,6 +17,9 @@ class SDashboardViewController: UIViewController {
     @IBOutlet weak var editButton: UIButton!
     @IBOutlet weak var tasksDueTodayLabel: UILabel!
     @IBOutlet weak var contentView: UIView!
+    
+    // ✅ NEW: Add greeting label outlet
+    @IBOutlet weak var greetingLabel: UILabel!
     
     private let noTasksLabel: UILabel = {
         let label = UILabel()
@@ -63,6 +66,10 @@ class SDashboardViewController: UIViewController {
         
         visibleStatuses = allStatuses
         
+        // ✅ NEW: Load student name from Supabase
+        loadStudentGreeting()
+        
+        
         NotificationCenter.default.addObserver(self,
                                                selector: #selector(handleDeleteNotification(_:)),
                                                name: .statusCardDeleteTapped,
@@ -71,6 +78,57 @@ class SDashboardViewController: UIViewController {
                                                selector: #selector(handleAddNotification(_:)),
                                                name: .statusCardAddTapped,
                                                object: nil)
+    }
+    
+    // ✅ NEW: Load student greeting from Supabase
+    private func loadStudentGreeting() {
+        guard let personId = UserDefaults.standard.string(forKey: "current_person_id") else {
+            print("⚠️ No person ID found, using default greeting")
+            greetingLabel?.text = "Hi Student"
+            return
+        }
+        
+        print("🔄 Loading greeting for person ID:", personId)
+        
+        Task {
+            do {
+                // Fetch student greeting from Supabase
+                let greeting = try await SupabaseManager.shared.getStudentGreeting(personId: personId)
+                
+                await MainActor.run {
+                    self.greetingLabel?.text = greeting
+                    print("✅ Greeting loaded:", greeting)
+                }
+            } catch {
+                print("❌ Error fetching greeting:", error)
+                
+                // Fallback to stored name
+                if let storedName = UserDefaults.standard.string(forKey: "current_user_name") {
+                    let firstName = storedName.components(separatedBy: " ").first ?? "Student"
+                    await MainActor.run {
+                        self.greetingLabel?.text = "Hi \(firstName)"
+                    }
+                } else {
+                    await MainActor.run {
+                        self.greetingLabel?.text = "Hi Student"
+                    }
+                }
+            }
+        }
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // ✅ NEW: Refresh greeting when view appears
+        loadStudentGreeting()
+        
+        updateCollectionViewHeight()
+        updateTableViewVisibility()
+        
+        // Ensure scrolling is enabled
+        scrollView.isScrollEnabled = true
+        scrollView.alwaysBounceVertical = true
     }
     
     private func setupUI() {
@@ -83,6 +141,13 @@ class SDashboardViewController: UIViewController {
         // Set task card to white background
         taskCard.layer.cornerRadius = 20
         taskCard.backgroundColor = .white
+        
+        // ✅ NEW: Configure greeting label
+        if greetingLabel != nil {
+            greetingLabel.font = .systemFont(ofSize: 28, weight: .bold)
+            greetingLabel.textColor = .label
+            greetingLabel.text = "Hi Student" // Default
+        }
         
         collectionView.dataSource = self
         collectionView.delegate = self
@@ -123,16 +188,6 @@ class SDashboardViewController: UIViewController {
         if let g = view.layer.sublayers?.first as? CAGradientLayer {
             g.frame = view.bounds
         }
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        updateCollectionViewHeight()
-        updateTableViewVisibility()
-        
-        // Ensure scrolling is enabled
-        scrollView.isScrollEnabled = true
-        scrollView.alwaysBounceVertical = true
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -270,7 +325,8 @@ class SDashboardViewController: UIViewController {
     }
     
     @IBAction func profileTapped(_ sender: Any) {
-        let vc = SProfileViewController(nibName: "SProfileViewController", bundle: nil)
+        // ✅ UPDATED: Use StudentProfileViewController instead
+        let vc = StudentProfileViewController(nibName: "StudentProfileViewController", bundle: nil)
         vc.modalPresentationStyle = .pageSheet
         vc.modalTransitionStyle = .coverVertical
 

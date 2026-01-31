@@ -2,22 +2,17 @@
 //  Supabase+Student.swift
 //  iCohort3
 //
-//  Created by user@51 on 23/01/26.
-//
-
-//
-//  SupabaseManager+Student.swift
-//  iCohort3
-//
-//  Student-specific functionality
+//  UNIFIED VERSION - All student-related types and functions
 //
 
 import Foundation
-internal import PostgREST
+import PostgREST
 import Supabase
 
 // MARK: - Student Profile Extension
 extension SupabaseManager {
+    
+    // MARK: - Student Types
     
     struct StudentProfile: Codable, Sendable {
         let id: String?
@@ -85,25 +80,47 @@ extension SupabaseManager {
     // MARK: - Fetch Student Profile
     
     func fetchStudentProfile(personId: String) async throws -> StudentProfileComplete? {
+        print("🔍 Fetching complete student profile for person_id:", personId)
+        
         let response: [StudentProfileComplete] = try await client
             .from("student_profile_complete")
             .select()
             .eq("person_id", value: personId)
+            .limit(1)
             .execute()
             .value
         
-        return response.first
+        let profile = response.first
+        
+        if profile != nil {
+            print("✅ Found complete student profile")
+        } else {
+            print("⚠️ No complete student profile found")
+        }
+        
+        return profile
     }
     
     func fetchBasicStudentProfile(personId: String) async throws -> StudentProfile? {
+        print("🔍 Fetching basic student profile for person_id:", personId)
+        
         let response: [StudentProfile] = try await client
             .from("student_profiles")
             .select()
             .eq("person_id", value: personId)
+            .limit(1)
             .execute()
             .value
         
-        return response.first
+        let profile = response.first
+        
+        if profile != nil {
+            print("✅ Found basic student profile")
+        } else {
+            print("⚠️ No basic student profile found")
+        }
+        
+        return profile
     }
     
     // MARK: - Create/Update Student Profile
@@ -118,6 +135,8 @@ extension SupabaseManager {
         personalMail: String? = nil,
         contactNumber: String? = nil
     ) async throws -> String {
+        print("🔄 Upserting student profile for person_id:", personId)
+        
         let isComplete = firstName != nil && !firstName!.isEmpty &&
                         lastName != nil && !lastName!.isEmpty &&
                         department != nil && !department!.isEmpty &&
@@ -149,44 +168,91 @@ extension SupabaseManager {
         
         guard let profileId = response.first?.id else {
             throw NSError(domain: "SupabaseManager", code: -1,
-                         userInfo: [NSLocalizedDescriptionKey: "Failed to upsert profile"])
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to upsert student profile"])
         }
         
+        print("✅ Student profile upserted with id:", profileId)
         return profileId
     }
     
     // MARK: - Get Student Greeting
     
     func getStudentGreeting(personId: String) async throws -> String {
-        let params: [String: String] = ["p_person_id": personId]
+        print("🔍 Fetching student greeting for person_id:", personId)
         
-        let result: String = try await client
-            .rpc("get_student_greeting", params: params)
-            .execute()
-            .value
-        
-        return result
+        do {
+            let params: [String: String] = ["p_person_id": personId]
+            
+            let result: String = try await client
+                .rpc("get_student_greeting", params: params)
+                .execute()
+                .value
+            
+            print("✅ Student greeting retrieved:", result)
+            return result
+            
+        } catch {
+            print("❌ Error fetching student greeting from RPC:", error)
+            print("   Error details: \(error.localizedDescription)")
+            
+            // Fallback 1: Try to get first name from student profile
+            do {
+                if let profile = try await fetchBasicStudentProfile(personId: personId),
+                   let firstName = profile.first_name,
+                   !firstName.isEmpty {
+                    print("✅ Using first name from profile:", firstName)
+                    return "Hi \(firstName)"
+                }
+            } catch {
+                print("⚠️ Could not fetch student profile for fallback:", error)
+            }
+            
+            // Fallback 2: Try to get first name from people table
+            do {
+                if let person = try await fetchPerson(personId: personId) {
+                    let firstName = person.full_name.components(separatedBy: " ").first ?? "Student"
+                    print("✅ Using first name from people table:", firstName)
+                    return "Hi \(firstName)"
+                }
+            } catch {
+                print("⚠️ Could not fetch person for fallback:", error)
+            }
+            
+            // Final fallback
+            print("✅ Using default greeting")
+            return "Hi Student"
+        }
     }
     
     // MARK: - Assign Student to Team
     
     func assignStudentToTeam9(studentPersonId: String) async throws {
+        print("🔄 Assigning student to Team 9...")
+        
         struct TeamRow: Codable {
             let id: String
+            let team_no: Int
         }
         
+        // 1. Get Team 9's ID
         let teams: [TeamRow] = try await client
             .from("teams")
-            .select("id")
+            .select("id, team_no")
             .eq("team_no", value: 9)
+            .limit(1)
             .execute()
             .value
         
-        guard let teamId = teams.first?.id else {
-            throw NSError(domain: "SupabaseManager", code: -1,
-                         userInfo: [NSLocalizedDescriptionKey: "Team 9 not found"])
+        guard let team = teams.first else {
+            print("⚠️ Team 9 not found in database - skipping team assignment")
+            print("⚠️ Please create Team 9 in Supabase or update assignment logic")
+            return
         }
         
+        let teamId = team.id
+        print("✅ Found Team 9 with ID:", teamId)
+        
+        // 2. Check if student is already assigned
         struct MemberCheck: Codable {
             let team_id: String
             let member_id: String
@@ -194,23 +260,36 @@ extension SupabaseManager {
         
         let existing: [MemberCheck] = try await client
             .from("team_members")
-            .select()
+            .select("team_id, member_id")
             .eq("team_id", value: teamId)
             .eq("member_id", value: studentPersonId)
             .execute()
             .value
         
-        if existing.isEmpty {
-            let member: [String: String] = [
-                "team_id": teamId,
-                "member_id": studentPersonId
-            ]
-            
-            _ = try await client
-                .from("team_members")
-                .insert(member)
-                .execute()
+        if !existing.isEmpty {
+            print("✅ Student already assigned to Team 9")
+            return
         }
+        
+        // 3. Insert team member assignment
+        let member: [String: String] = [
+            "team_id": teamId,
+            "member_id": studentPersonId
+        ]
+        
+        struct TeamMemberResponse: Codable {
+            let team_id: String
+            let member_id: String
+        }
+        
+        let _: [TeamMemberResponse] = try await client
+            .from("team_members")
+            .insert(member)
+            .select("team_id, member_id")
+            .execute()
+            .value
+        
+        print("✅ Student successfully assigned to Team 9")
     }
     
     // MARK: - Check Profile Completion
@@ -223,6 +302,8 @@ extension SupabaseManager {
     // MARK: - Fetch Student ID
     
     func fetchStudentId(srmMail: String) async throws -> String? {
+        print("🔍 Fetching student ID for SRM email:", srmMail)
+        
         let profiles: [StudentProfile] = try await client
             .from("student_profiles")
             .select()
@@ -231,10 +312,20 @@ extension SupabaseManager {
             .execute()
             .value
         
-        return profiles.first?.person_id
+        let personId = profiles.first?.person_id
+        
+        if let personId = personId {
+            print("✅ Found student person_id:", personId)
+        } else {
+            print("⚠️ No student found for SRM email:", srmMail)
+        }
+        
+        return personId
     }
     
     func fetchStudentId(regNo: String) async throws -> String? {
+        print("🔍 Fetching student ID for reg no:", regNo)
+        
         let profiles: [StudentProfile] = try await client
             .from("student_profiles")
             .select()
@@ -247,6 +338,8 @@ extension SupabaseManager {
     }
     
     func fetchStudentId(teamId: String, studentName: String) async throws -> String? {
+        print("🔍 Fetching student ID for team:", teamId, "name:", studentName)
+        
         struct MemberWithProfile: Codable {
             let member_id: String
             let people: PersonInfo?
@@ -265,10 +358,12 @@ extension SupabaseManager {
         
         for member in members {
             if member.people?.full_name == studentName {
+                print("✅ Found student ID:", member.member_id)
                 return member.member_id
             }
         }
         
+        print("⚠️ Student not found in team")
         return nil
     }
     
@@ -276,15 +371,25 @@ extension SupabaseManager {
         return UserDefaults.standard.string(forKey: "current_person_id")
     }
     
+    // MARK: - Fetch Person
+    
     func fetchPerson(personId: String) async throws -> PersonDetailRow? {
+        print("🔍 Fetching person:", personId)
+        
         let persons: [PersonDetailRow] = try await client
             .from("people")
-            .select()
+            .select("id, full_name, role, created_at")
             .eq("id", value: personId)
             .limit(1)
             .execute()
             .value
         
-        return persons.first
+        if let person = persons.first {
+            print("✅ Found person:", person.full_name)
+            return person
+        } else {
+            print("⚠️ Person not found")
+            return nil
+        }
     }
 }
