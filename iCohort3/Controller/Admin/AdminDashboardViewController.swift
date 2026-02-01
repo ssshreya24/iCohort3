@@ -2,7 +2,8 @@
 //  AdminDashboardViewController.swift
 //  iCohort3
 //
-//  🔧 FIXED: Better error handling for teams count
+//  🔧 FIXED: Smaller logout/back buttons (36x36) and auto-logout on back button
+//  ✨ NEW: Added badge counts to segmented control to show pending request counts
 //
 
 import UIKit
@@ -98,13 +99,13 @@ class AdminDashboardViewController: UIViewController {
         headerContainerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(headerContainerView)
         
-        // Back button
+        // Back button - 🔧 REDUCED SIZE TO 36x36
         backButton.translatesAutoresizingMaskIntoConstraints = false
-        let backConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
+        let backConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: backConfig), for: .normal)
         backButton.tintColor = .black
         backButton.backgroundColor = .white
-        backButton.layer.cornerRadius = 22
+        backButton.layer.cornerRadius = 18  // 36/2 = 18
         backButton.layer.shadowColor = UIColor.black.cgColor
         backButton.layer.shadowOffset = CGSize(width: 0, height: 2)
         backButton.layer.shadowRadius = 8
@@ -127,9 +128,9 @@ class AdminDashboardViewController: UIViewController {
         institutionLabel.translatesAutoresizingMaskIntoConstraints = false
         headerContainerView.addSubview(institutionLabel)
         
-        // Logout button
+        // Logout button - 🔧 REDUCED SIZE TO 36x36
         logoutButton.translatesAutoresizingMaskIntoConstraints = false
-        let logoutConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        let logoutConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
         logoutButton.setImage(UIImage(systemName: "rectangle.portrait.and.arrow.right", withConfiguration: logoutConfig), for: .normal)
         logoutButton.tintColor = .black
         logoutButton.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
@@ -208,7 +209,7 @@ class AdminDashboardViewController: UIViewController {
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         scrollView.refreshControl = refreshControl
         
-        // Layout constraints
+        // Layout constraints - 🔧 UPDATED BUTTON SIZES TO 36x36
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -226,22 +227,22 @@ class AdminDashboardViewController: UIViewController {
             headerContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             headerContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            // Back button
+            // Back button - 36x36
             backButton.topAnchor.constraint(equalTo: headerContainerView.topAnchor),
             backButton.leadingAnchor.constraint(equalTo: headerContainerView.leadingAnchor),
-            backButton.widthAnchor.constraint(equalToConstant: 44),
-            backButton.heightAnchor.constraint(equalToConstant: 44),
+            backButton.widthAnchor.constraint(equalToConstant: 36),
+            backButton.heightAnchor.constraint(equalToConstant: 36),
             
             // Title
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
             titleLabel.trailingAnchor.constraint(equalTo: logoutButton.leadingAnchor, constant: -12),
             
-            // Logout button
+            // Logout button - 36x36
             logoutButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             logoutButton.trailingAnchor.constraint(equalTo: headerContainerView.trailingAnchor),
-            logoutButton.widthAnchor.constraint(equalToConstant: 44),
-            logoutButton.heightAnchor.constraint(equalToConstant: 44),
+            logoutButton.widthAnchor.constraint(equalToConstant: 36),
+            logoutButton.heightAnchor.constraint(equalToConstant: 36),
             
             // Institution label
             institutionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
@@ -381,9 +382,21 @@ class AdminDashboardViewController: UIViewController {
         }
     }
     
+    // ✨ NEW: Update segmented control titles with badge counts
+    private func updateSegmentedControlTitles() {
+        let studentsTitle = pendingStudents.count > 0 ? "Students (\(pendingStudents.count))" : "Students"
+        let mentorsTitle = pendingMentors.count > 0 ? "Mentors (\(pendingMentors.count))" : "Mentors"
+        
+        segmentedControl.setTitle(studentsTitle, forSegmentAt: 0)
+        segmentedControl.setTitle(mentorsTitle, forSegmentAt: 1)
+    }
+    
     private func updateUI() {
         approvedStudentsCard.updateCount("\(approvedStudentsCount)")
         approvedMentorsCard.updateCount("\(approvedMentorsCount)")
+        
+        // ✨ NEW: Update segment titles with badge counts
+        updateSegmentedControlTitles()
         
         updateTeamsPreview()
         updatePendingRequests()
@@ -754,18 +767,17 @@ class AdminDashboardViewController: UIViewController {
     }
     
     // MARK: - Actions
+    
+    // 🔧 FIXED: Back button now logs out and navigates to login
     @objc private func backButtonTapped() {
-        if let navController = navigationController {
-            for viewController in navController.viewControllers {
-                if viewController is AdminLoginViewController {
-                    navController.popToViewController(viewController, animated: true)
-                    return
-                }
-            }
-            let adminLoginVC = AdminLoginViewController()
-            navController.setViewControllers([adminLoginVC], animated: true)
-        } else {
-            dismiss(animated: true)
+        do {
+            try Auth.auth().signOut()
+            print("✅ Logged out successfully")
+            navigateToLogin()
+        } catch {
+            print("❌ Logout error: \(error.localizedDescription)")
+            // Still navigate to login even if logout fails
+            navigateToLogin()
         }
     }
     

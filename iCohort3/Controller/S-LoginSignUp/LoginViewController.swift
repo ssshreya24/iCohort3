@@ -2,7 +2,7 @@
 //  LoginViewController.swift
 //  iCohort3
 //
-//  CORRECTED VERSION - Now calls performLoginWithSync() to trigger migration
+//  FIXED VERSION - Better error handling and loading states
 //
 
 import UIKit
@@ -112,9 +112,8 @@ class LoginViewController: UIViewController {
         }
     }
     
-    // ✅ FIXED: Now calls performLoginWithSync() instead of performLogin()
     @IBAction func signInTapped(_ sender: UIButton) {
-        print("🔐 Student Sign In button tapped")
+        print("🔐 Sign In button tapped")
         
         guard let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
             showAlert(title: "Error", message: "Please enter your email address")
@@ -129,87 +128,15 @@ class LoginViewController: UIViewController {
         signInButton.isEnabled = false
         showLoadingIndicator()
         
-        // ✅ THIS IS THE FIX - Call the sync version that triggers migration
-        performLoginWithSync(email: email, password: password)
+        performLogin(email: email, password: password)
     }
     
-    func handleLoginSuccess() {
-        let tab = MainTabBarViewController()
-        
-        let win = view.window ?? UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }
-        
-        guard let window = win else { return }
-        
-        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-            window.rootViewController = tab
-        }
-    }
-    
-    // MARK: - Helper Methods
-    
-    func showLoadingIndicator() {
-        // Remove any existing indicator first
-        hideLoadingIndicator()
-        
-        DispatchQueue.main.async {
-            let indicator = UIActivityIndicatorView(style: .large)
-            indicator.color = .systemBlue
-            indicator.center = self.view.center
-            indicator.startAnimating()
-            
-            // Add backdrop
-            let backdrop = UIView(frame: self.view.bounds)
-            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-            backdrop.tag = 9999
-            backdrop.addSubview(indicator)
-            
-            self.view.addSubview(backdrop)
-            self.view.isUserInteractionEnabled = false
-            
-            self.loadingIndicator = indicator
-            
-            print("🔄 Loading indicator shown")
-        }
-    }
-    
-    func hideLoadingIndicator() {
-        DispatchQueue.main.async {
-            // Remove backdrop
-            self.view.viewWithTag(9999)?.removeFromSuperview()
-            
-            // Remove indicator
-            self.loadingIndicator?.stopAnimating()
-            self.loadingIndicator?.removeFromSuperview()
-            self.loadingIndicator = nil
-            
-            self.view.isUserInteractionEnabled = true
-            
-            print("✋ Loading indicator hidden")
-        }
-    }
-    
-    func showAlert(title: String, message: String) {
-        DispatchQueue.main.async {
-            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            self.present(alert, animated: true)
-        }
-    }
-}
-
-// MARK: - Login with Sync Extension
-extension LoginViewController {
-    
-    /// Updated login flow with Firebase-Supabase sync
-    func performLoginWithSync(email: String, password: String) {
+    private func performLogin(email: String, password: String) {
         Task {
             do {
-                print("📝 Checking student approval status for:", email)
+                print("📝 Checking approval status for:", email)
                 
-                // 1. Check if student is approved in Firebase
+                // First check if student is approved in Firestore
                 let approvalStatus = try await FirebaseManager.shared.checkStudentApproval(email: email)
                 
                 print("📊 Approval status:", approvalStatus)
@@ -234,7 +161,7 @@ extension LoginViewController {
                 case .approved:
                     print("✅ Student is approved, verifying password")
                     
-                    // 2. Verify password matches in Firebase
+                    // Verify password matches
                     let isValidPassword = try await FirebaseManager.shared.verifyApprovedStudent(email: email, password: password)
                     
                     guard isValidPassword else {
@@ -246,15 +173,10 @@ extension LoginViewController {
                         return
                     }
                     
-                    print("✅ Password verified, syncing to Supabase")
-                    
-                    // 3. Sync student data from Firebase to Supabase
-                    let studentName = try await FirebaseToSupabaseMigration.shared.syncStudentAtLogin(email: email)
-                    
-                    print("✅ Sync complete, student name:", studentName)
+                    print("✅ Password verified, logging in")
                     
                     await MainActor.run {
-                        print("✅ Student login success:", email)
+                        print("✅ Student login success (approved):", email)
                         
                         if rememberMeButton.isSelected {
                             UserDefaults.standard.set(true, forKey: "isLoggedIn")
@@ -283,6 +205,72 @@ extension LoginViewController {
                     showAlert(title: "Login Failed", message: "An error occurred: \(error.localizedDescription)")
                 }
             }
+        }
+    }
+    
+    func handleLoginSuccess() {
+        let tab = MainTabBarViewController()
+        
+        let win = view.window ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+        
+        guard let window = win else { return }
+        
+        UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
+            window.rootViewController = tab
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func showLoadingIndicator() {
+        // Remove any existing indicator first
+        hideLoadingIndicator()
+        
+        DispatchQueue.main.async {
+            let indicator = UIActivityIndicatorView(style: .large)
+            indicator.color = .systemBlue
+            indicator.center = self.view.center
+            indicator.startAnimating()
+            
+            // Add backdrop
+            let backdrop = UIView(frame: self.view.bounds)
+            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+            backdrop.tag = 9999
+            backdrop.addSubview(indicator)
+            
+            self.view.addSubview(backdrop)
+            self.view.isUserInteractionEnabled = false
+            
+            self.loadingIndicator = indicator
+            
+            print("🔄 Loading indicator shown")
+        }
+    }
+    
+    private func hideLoadingIndicator() {
+        DispatchQueue.main.async {
+            // Remove backdrop
+            self.view.viewWithTag(9999)?.removeFromSuperview()
+            
+            // Remove indicator
+            self.loadingIndicator?.stopAnimating()
+            self.loadingIndicator?.removeFromSuperview()
+            self.loadingIndicator = nil
+            
+            self.view.isUserInteractionEnabled = true
+            
+            print("✋ Loading indicator hidden")
+        }
+    }
+    
+    func showAlert(title: String, message: String) {
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            self.present(alert, animated: true)
         }
     }
 }

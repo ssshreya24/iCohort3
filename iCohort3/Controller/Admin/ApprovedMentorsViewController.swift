@@ -2,8 +2,8 @@
 //  ApprovedMentorsViewController.swift
 //  iCohort3
 //
-//  Beautiful UI with profile avatars and styled cards
-//  FIXED: Removed sorting to work without Firebase index
+//  Beautiful UI with profile avatars, styled cards, and chevron arrows
+//  FIXED: Added chevron arrow and tap to view details
 //
 
 import UIKit
@@ -203,6 +203,19 @@ extension ApprovedMentorsViewController: UITableViewDelegate, UITableViewDataSou
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 110
     }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let mentor = isSearching ? filteredMentors[indexPath.row] : allMentors[indexPath.row]
+        
+        let detailVC = MentorDetailViewController(
+            email: mentor.email,
+            name: mentor.fullName,
+            employeeId: mentor.employeeId,
+            designation: mentor.designation,
+            department: mentor.department
+        )
+        navigationController?.pushViewController(detailVC, animated: true)
+    }
 }
 
 // MARK: - UISearchBarDelegate
@@ -233,13 +246,14 @@ extension ApprovedMentorsViewController: UISearchBarDelegate {
     }
 }
 
-// MARK: - Beautiful Mentor Cell
+// MARK: - Beautiful Mentor Cell with Chevron
 class BeautifulMentorCell: UITableViewCell {
     private let containerView = UIView()
     private let profileImageView = UIImageView()
     private let nameLabel = UILabel()
     private let emailLabel = UILabel()
     private let departmentBadge = UILabel()
+    private let chevronImageView = UIImageView()
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -294,6 +308,14 @@ class BeautifulMentorCell: UITableViewCell {
         departmentBadge.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(departmentBadge)
         
+        // Chevron Image View
+        let chevronConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        chevronImageView.image = UIImage(systemName: "chevron.right", withConfiguration: chevronConfig)
+        chevronImageView.tintColor = .tertiaryLabel
+        chevronImageView.contentMode = .scaleAspectFit
+        chevronImageView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(chevronImageView)
+        
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
@@ -307,15 +329,20 @@ class BeautifulMentorCell: UITableViewCell {
             
             nameLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
             nameLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
-            nameLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            nameLabel.trailingAnchor.constraint(equalTo: chevronImageView.leadingAnchor, constant: -8),
             
             emailLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
             emailLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
-            emailLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            emailLabel.trailingAnchor.constraint(equalTo: chevronImageView.leadingAnchor, constant: -8),
             
             departmentBadge.topAnchor.constraint(equalTo: emailLabel.bottomAnchor, constant: 8),
             departmentBadge.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
-            departmentBadge.heightAnchor.constraint(equalToConstant: 24)
+            departmentBadge.heightAnchor.constraint(equalToConstant: 24),
+            
+            chevronImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            chevronImageView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            chevronImageView.widthAnchor.constraint(equalToConstant: 14),
+            chevronImageView.heightAnchor.constraint(equalToConstant: 14)
         ])
     }
     
@@ -327,6 +354,15 @@ class BeautifulMentorCell: UITableViewCell {
         // Set profile image with generated avatar
         let initial = String(mentor.fullName.prefix(1)).uppercased()
         profileImageView.image = generateProfileImage(initial: initial, name: mentor.fullName)
+    }
+    
+    override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+        super.setHighlighted(highlighted, animated: animated)
+        
+        UIView.animate(withDuration: 0.1) {
+            self.containerView.alpha = highlighted ? 0.8 : 1.0
+            self.containerView.transform = highlighted ? CGAffineTransform(scaleX: 0.98, y: 0.98) : .identity
+        }
     }
     
     private func generateProfileImage(initial: String, name: String) -> UIImage {

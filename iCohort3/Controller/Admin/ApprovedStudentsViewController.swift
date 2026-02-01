@@ -2,8 +2,8 @@
 //  ApprovedStudentsViewController.swift
 //  iCohort3
 //
-//  Beautiful UI with profile avatars and styled cards
-//  FIXED: Removed sorting to work without Firebase index
+//  Beautiful UI with profile avatars, styled cards, and chevron arrows
+//  FIXED: Added chevron arrow and tap to view details
 //
 
 import UIKit
@@ -201,6 +201,17 @@ extension ApprovedStudentsViewController: UITableViewDelegate, UITableViewDataSo
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 100
     }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let student = isSearching ? filteredStudents[indexPath.row] : allStudents[indexPath.row]
+        
+        let detailVC = StudentDetailViewController(
+            email: student.email,
+            name: student.fullName,
+            regNo: student.regNumber
+        )
+        navigationController?.pushViewController(detailVC, animated: true)
+    }
 }
 
 // MARK: - UISearchBarDelegate
@@ -229,13 +240,14 @@ extension ApprovedStudentsViewController: UISearchBarDelegate {
     }
 }
 
-// MARK: - Beautiful Student Cell
+// MARK: - Beautiful Student Cell with Chevron
 class BeautifulStudentCell: UITableViewCell {
     private let containerView = UIView()
     private let profileImageView = UIImageView()
     private let nameLabel = UILabel()
     private let regNumberLabel = UILabel()
     private let emailLabel = UILabel()
+    private let chevronImageView = UIImageView()
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -286,6 +298,14 @@ class BeautifulStudentCell: UITableViewCell {
         emailLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(emailLabel)
         
+        // Chevron Image View
+        let chevronConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        chevronImageView.image = UIImage(systemName: "chevron.right", withConfiguration: chevronConfig)
+        chevronImageView.tintColor = .tertiaryLabel
+        chevronImageView.contentMode = .scaleAspectFit
+        chevronImageView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.addSubview(chevronImageView)
+        
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
@@ -299,15 +319,20 @@ class BeautifulStudentCell: UITableViewCell {
             
             nameLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
             nameLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
-            nameLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            nameLabel.trailingAnchor.constraint(equalTo: chevronImageView.leadingAnchor, constant: -8),
             
             regNumberLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
             regNumberLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
-            regNumberLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            regNumberLabel.trailingAnchor.constraint(equalTo: chevronImageView.leadingAnchor, constant: -8),
             
             emailLabel.topAnchor.constraint(equalTo: regNumberLabel.bottomAnchor, constant: 2),
             emailLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
-            emailLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16)
+            emailLabel.trailingAnchor.constraint(equalTo: chevronImageView.leadingAnchor, constant: -8),
+            
+            chevronImageView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            chevronImageView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -16),
+            chevronImageView.widthAnchor.constraint(equalToConstant: 14),
+            chevronImageView.heightAnchor.constraint(equalToConstant: 14)
         ])
     }
     
@@ -319,6 +344,15 @@ class BeautifulStudentCell: UITableViewCell {
         // Set profile image with generated avatar
         let initial = String(student.fullName.prefix(1)).uppercased()
         profileImageView.image = generateProfileImage(initial: initial, name: student.fullName)
+    }
+    
+    override func setHighlighted(_ highlighted: Bool, animated: Bool) {
+        super.setHighlighted(highlighted, animated: animated)
+        
+        UIView.animate(withDuration: 0.1) {
+            self.containerView.alpha = highlighted ? 0.8 : 1.0
+            self.containerView.transform = highlighted ? CGAffineTransform(scaleX: 0.98, y: 0.98) : .identity
+        }
     }
     
     private func generateProfileImage(initial: String, name: String) -> UIImage {
