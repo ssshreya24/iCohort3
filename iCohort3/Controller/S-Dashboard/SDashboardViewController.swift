@@ -326,7 +326,7 @@ class SDashboardViewController: UIViewController {
     
     @IBAction func profileTapped(_ sender: Any) {
         // ✅ UPDATED: Use StudentProfileViewController instead
-        let vc = StudentProfileViewController(nibName: "StudentProfileViewController", bundle: nil)
+        let vc = SProfileViewController(nibName: "SProfileViewController", bundle: nil)
         vc.modalPresentationStyle = .pageSheet
         vc.modalTransitionStyle = .coverVertical
 

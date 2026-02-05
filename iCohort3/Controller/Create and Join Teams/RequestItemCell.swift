@@ -1,13 +1,6 @@
-//
-//  RequestItemCell.swift
-//  iCohort3
-//
-//  Created by user@0 on 12/11/25.
-//
-
 import UIKit
 
-class RequestItemCell: UICollectionViewCell {
+final class RequestItemCell: UICollectionViewCell {
 
     // MARK: - Outlets
     @IBOutlet weak var avatarView: UIImageView!
@@ -17,12 +10,25 @@ class RequestItemCell: UICollectionViewCell {
 
     // MARK: - Callback
     private var onAction: (() -> Void)?
+    private var onSecondaryAction: (() -> Void)?   // for Reject (optional)
 
     // MARK: - Lifecycle
     override func awakeFromNib() {
         super.awakeFromNib()
         setupUI()
         avatarView.tintColor = .systemGray2
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        onAction = nil
+        onSecondaryAction = nil
+        nameLabel.text = nil
+        subtitleLabel.text = nil
+        avatarView.image = nil
+        actionButton.isHidden = false
+        actionButton.setTitle(nil, for: .normal)
+        actionButton.backgroundColor = .systemBlue
     }
 
     override func layoutSubviews() {
@@ -45,51 +51,94 @@ class RequestItemCell: UICollectionViewCell {
         actionButton.setTitleColor(.white, for: .normal)
     }
 
-    // MARK: - Configurations
-
-    /// For “Requests Sent” section — show button
-    func configureForSent(name: String, avatar: UIImage?, onSend: @escaping () -> Void) {
+    // MARK: - NEW: Student row for "Send Request" segment
+    /// Shows: Name + "REG • Department" + [Send Request]
+    func configureStudentRow(
+        name: String,
+        regNo: String,
+        department: String,
+        avatar: UIImage? = nil,
+        onSendRequest: @escaping () -> Void
+    ) {
         nameLabel.text = name
-        subtitleLabel.text = "Ready to send a request"
+        subtitleLabel.text = "\(regNo) • \(department)"
         avatarView.image = avatar ?? UIImage(systemName: "person.circle")
+        avatarView.backgroundColor = .clear
+
         actionButton.isHidden = false
-        actionButton.setTitle("Send", for: .normal)
-        onAction = onSend
+        actionButton.setTitle("Send Request", for: .normal)
+        actionButton.backgroundColor = .systemBlue
+
+        onAction = onSendRequest
+        onSecondaryAction = nil
     }
 
-    /// For “Requests Received” section — hide button, show team info
-    func configureForReceived(name: String, avatar: UIImage?, onSend: @escaping () -> Void) {
-        nameLabel.text = name
-        subtitleLabel.text = "2h ago"
-        avatarView.image = avatar ?? UIImage(systemName: "person.circle")
+    // MARK: - NEW: Incoming request row for "Requests" segment
+    /// Shows: Requester name + "Requested to join your team" + [Accept]
+    /// (Reject can be handled in VC via swipe/action sheet; keeping cell simple)
+    func configureIncomingRequestRow(
+        requesterName: String,
+        subtitle: String = "Requested to join your team",
+        avatar: UIImage? = nil,
+        onAccept: @escaping () -> Void
+    ) {
+        nameLabel.text = requesterName
+        subtitleLabel.text = subtitle
+        avatarView.image = avatar ?? UIImage(systemName: "person.circle.fill")
+        avatarView.backgroundColor = .clear
+
+        actionButton.isHidden = false
         actionButton.setTitle("Accept", for: .normal)
-        actionButton.isHidden = false
-        avatarView.backgroundColor = .systemGray2
+        actionButton.backgroundColor = .systemGreen
+
+        onAction = onAccept
+        onSecondaryAction = nil
     }
-    // Inside RequestItemCell.swift
 
-
-    func configureForJoin(adminName: String,
-                          avatar: UIImage?,
-                          teamNumber: String,
-                          members: [String],
-                          onJoin: @escaping () -> Void) {
-        // First line: "Ananya (Team 3)"
+    // MARK: - Existing: Join team card (you already use this)
+    func configureForJoin(
+        adminName: String,
+        avatar: UIImage?,
+        teamNumber: String,
+        members: [String],
+        onJoin: @escaping () -> Void
+    ) {
         nameLabel.text = "\(adminName) (Team \(teamNumber))"
-
-        // Second line: "Rahul, Meera, Karthik"
         subtitleLabel.text = members.joined(separator: ", ")
 
         avatarView.image = avatar ?? UIImage(systemName: "person.circle")
         avatarView.backgroundColor = .systemGray2
 
         actionButton.setTitle("Join", for: .normal)
+        actionButton.backgroundColor = .systemBlue
         actionButton.isHidden = false
 
         onAction = onJoin
+        onSecondaryAction = nil
     }
 
-    
+    // MARK: - (Optional) Fix your old functions if you still want them
+    func configureForSent(name: String, avatar: UIImage?, onSend: @escaping () -> Void) {
+        nameLabel.text = name
+        subtitleLabel.text = "Ready to send a request"
+        avatarView.image = avatar ?? UIImage(systemName: "person.circle")
+        actionButton.isHidden = false
+        actionButton.setTitle("Send", for: .normal)
+        actionButton.backgroundColor = .systemBlue
+        onAction = onSend
+        onSecondaryAction = nil
+    }
+
+    func configureForReceived(name: String, avatar: UIImage?, onAccept: @escaping () -> Void) {
+        nameLabel.text = name
+        subtitleLabel.text = "Requested you"
+        avatarView.image = avatar ?? UIImage(systemName: "person.circle.fill")
+        actionButton.setTitle("Accept", for: .normal)
+        actionButton.backgroundColor = .systemGreen
+        actionButton.isHidden = false
+        onAction = onAccept
+        onSecondaryAction = nil
+    }
 
     // MARK: - Actions
     @IBAction func actionButtonTapped(_ sender: UIButton) {
