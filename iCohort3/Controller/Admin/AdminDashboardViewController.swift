@@ -2,12 +2,10 @@
 //  AdminDashboardViewController.swift
 //  iCohort3
 //
-//  🔧 FIXED: Better error handling for teams count
+//  ✅ FIXED: Uses Supabase instead of Firebase
 //
 
 import UIKit
-import FirebaseAuth
-import FirebaseFirestore
 
 class AdminDashboardViewController: UIViewController {
     
@@ -47,8 +45,8 @@ class AdminDashboardViewController: UIViewController {
     private var approvedStudentsCount: Int = 0
     private var approvedMentorsCount: Int = 0
     private var teamsCount: Int = 0
-    private var pendingStudents: [StudentRegistration] = []
-    private var pendingMentors: [MentorRegistration] = []
+    private var pendingStudents: [SupabaseManager.StudentRegistration] = []
+    private var pendingMentors: [SupabaseManager.MentorRegistration] = []
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -84,21 +82,17 @@ class AdminDashboardViewController: UIViewController {
         gradientLayer.frame = view.bounds
         view.layer.insertSublayer(gradientLayer, at: 0)
         
-        // Setup scroll view
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsVerticalScrollIndicator = true
         scrollView.alwaysBounceVertical = true
         view.addSubview(scrollView)
         
-        // Setup content view
         contentView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(contentView)
         
-        // Setup header container
         headerContainerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(headerContainerView)
         
-        // Back button
         backButton.translatesAutoresizingMaskIntoConstraints = false
         let backConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
         backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: backConfig), for: .normal)
@@ -112,14 +106,12 @@ class AdminDashboardViewController: UIViewController {
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         headerContainerView.addSubview(backButton)
         
-        // Setup title label
         titleLabel.text = "Admin"
         titleLabel.font = .systemFont(ofSize: 32, weight: .bold)
         titleLabel.textColor = .label
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         headerContainerView.addSubview(titleLabel)
         
-        // Setup institution label
         institutionLabel.text = "Loading..."
         institutionLabel.font = .systemFont(ofSize: 17, weight: .regular)
         institutionLabel.textColor = .secondaryLabel
@@ -127,7 +119,6 @@ class AdminDashboardViewController: UIViewController {
         institutionLabel.translatesAutoresizingMaskIntoConstraints = false
         headerContainerView.addSubview(institutionLabel)
         
-        // Logout button
         logoutButton.translatesAutoresizingMaskIntoConstraints = false
         let logoutConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
         logoutButton.setImage(UIImage(systemName: "rectangle.portrait.and.arrow.right", withConfiguration: logoutConfig), for: .normal)
@@ -135,14 +126,12 @@ class AdminDashboardViewController: UIViewController {
         logoutButton.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
         headerContainerView.addSubview(logoutButton)
         
-        // Setup statistics stack view
         statisticsStackView.axis = .horizontal
         statisticsStackView.spacing = 16
         statisticsStackView.distribution = .fillEqually
         statisticsStackView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(statisticsStackView)
         
-        // Create statistic cards
         approvedStudentsCard = StatisticCardView(
             icon: UIImage(systemName: "person.2.fill")!,
             iconColor: .systemBlue,
@@ -162,14 +151,12 @@ class AdminDashboardViewController: UIViewController {
         statisticsStackView.addArrangedSubview(approvedStudentsCard)
         statisticsStackView.addArrangedSubview(approvedMentorsCard)
         
-        // Setup teams section
         teamsHeaderLabel.text = "Teams Formed"
         teamsHeaderLabel.font = .systemFont(ofSize: 22, weight: .semibold)
         teamsHeaderLabel.textColor = .label
         teamsHeaderLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(teamsHeaderLabel)
         
-        // View All Teams button
         viewAllTeamsButton.setTitle("View All", for: .normal)
         viewAllTeamsButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         viewAllTeamsButton.setTitleColor(.black, for: .normal)
@@ -186,14 +173,12 @@ class AdminDashboardViewController: UIViewController {
         teamsContainerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(teamsContainerView)
         
-        // Setup pending requests section
         pendingRequestsLabel.text = "Pending Requests"
         pendingRequestsLabel.font = .systemFont(ofSize: 22, weight: .semibold)
         pendingRequestsLabel.textColor = .label
         pendingRequestsLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(pendingRequestsLabel)
         
-        // Setup segmented control
         segmentedControl.selectedSegmentIndex = 0
         segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
@@ -204,11 +189,9 @@ class AdminDashboardViewController: UIViewController {
         requestsStackView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(requestsStackView)
         
-        // Add refresh control
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         scrollView.refreshControl = refreshControl
         
-        // Layout constraints
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -221,29 +204,24 @@ class AdminDashboardViewController: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             
-            // Header container
             headerContainerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
             headerContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             headerContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
-            // Back button
             backButton.topAnchor.constraint(equalTo: headerContainerView.topAnchor),
             backButton.leadingAnchor.constraint(equalTo: headerContainerView.leadingAnchor),
             backButton.widthAnchor.constraint(equalToConstant: 44),
             backButton.heightAnchor.constraint(equalToConstant: 44),
             
-            // Title
             titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             titleLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
             titleLabel.trailingAnchor.constraint(equalTo: logoutButton.leadingAnchor, constant: -12),
             
-            // Logout button
             logoutButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
             logoutButton.trailingAnchor.constraint(equalTo: headerContainerView.trailingAnchor),
             logoutButton.widthAnchor.constraint(equalToConstant: 44),
             logoutButton.heightAnchor.constraint(equalToConstant: 44),
             
-            // Institution label
             institutionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
             institutionLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 12),
             institutionLabel.trailingAnchor.constraint(equalTo: logoutButton.leadingAnchor, constant: -12),
@@ -283,18 +261,11 @@ class AdminDashboardViewController: UIViewController {
     
     // MARK: - Data Loading
     private func getAdminInfo() {
-        guard let user = Auth.auth().currentUser else {
-            showAlert(title: "Error", message: "No admin logged in") {
-                self.navigateToLogin()
-            }
-            return
-        }
-        
-        adminEmail = user.email ?? ""
+        adminEmail = UserDefaults.standard.string(forKey: "current_user_email") ?? ""
         
         Task {
             do {
-                if let institute = try await FirebaseManager.shared.getInstitute(byAdminEmail: adminEmail) {
+                if let institute = try await SupabaseManager.shared.getInstitute(byAdminEmail: adminEmail) {
                     await MainActor.run {
                         self.instituteName = institute.name
                         self.instituteDomain = institute.domain
@@ -313,19 +284,16 @@ class AdminDashboardViewController: UIViewController {
         
         Task {
             do {
-                async let students = FirebaseManager.shared.getPendingStudents(forDomain: instituteDomain)
-                async let mentors = FirebaseManager.shared.getPendingMentors(forInstituteName: instituteName)
-                async let approvedStudents = fetchApprovedStudentsCount()
-                async let approvedMentors = fetchApprovedMentorsCount()
+                async let students = SupabaseManager.shared.getPendingStudents(forDomain: instituteDomain)
+                async let mentors = SupabaseManager.shared.getPendingMentors(forInstituteName: instituteName)
+                async let approvedStudents = SupabaseManager.shared.countApprovedStudents(forDomain: instituteDomain)
+                async let approvedMentors = SupabaseManager.shared.countApprovedMentors(forInstituteName: instituteName)
                 
-                // 🔧 FIXED: Better error handling for teams count
                 let teamsCount: Int
                 do {
-                    teamsCount = try await fetchTeamsCountFromSupabase()
-                    print("✅ Successfully fetched teams count: \(teamsCount)")
+                    teamsCount = try await SupabaseManager.shared.fetchTeamsCount()
                 } catch {
-                    print("⚠️ Error fetching teams count: \(error.localizedDescription)")
-                    print("⚠️ Falling back to 0")
+                    print("⚠️ Error fetching teams count:", error.localizedDescription)
                     teamsCount = 0
                 }
                 
@@ -345,39 +313,10 @@ class AdminDashboardViewController: UIViewController {
                 await MainActor.run {
                     self.hideLoadingIndicator()
                     print("❌ Load data error: \(error.localizedDescription)")
-                    // Don't show alert for teams count error, just use 0
                     self.teamsCount = 0
                     self.updateUI()
                 }
             }
-        }
-    }
-    
-    private func fetchApprovedStudentsCount() async throws -> Int {
-        let query = FirebaseManager.shared.db.collection("approved_students")
-            .whereField("instituteDomain", isEqualTo: instituteDomain)
-        
-        let snapshot = try await query.getDocuments()
-        return snapshot.documents.count
-    }
-    
-    private func fetchApprovedMentorsCount() async throws -> Int {
-        let query = FirebaseManager.shared.db.collection("approved_mentors")
-            .whereField("instituteName", isEqualTo: instituteName)
-        
-        let snapshot = try await query.getDocuments()
-        return snapshot.documents.count
-    }
-    
-    // 🔧 FIXED: Better error handling
-    private func fetchTeamsCountFromSupabase() async throws -> Int {
-        do {
-            let count = try await SupabaseManager.shared.fetchTeamsCount()
-            print("📊 Supabase teams count: \(count)")
-            return count
-        } catch {
-            print("❌ Supabase error: \(error)")
-            throw error
         }
     }
     
@@ -451,7 +390,6 @@ class AdminDashboardViewController: UIViewController {
                     requestsStackView.addArrangedSubview(viewAllButton)
                 }
             }
-
         } else {
             if pendingMentors.isEmpty {
                 let emptyLabel = UILabel()
@@ -483,7 +421,7 @@ class AdminDashboardViewController: UIViewController {
         }
     }
 
-    private func createPendingStudentCard(for student: StudentRegistration, index: Int) -> UIView {
+    private func createPendingStudentCard(for student: SupabaseManager.StudentRegistration, index: Int) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
         card.layer.cornerRadius = 16
@@ -494,26 +432,26 @@ class AdminDashboardViewController: UIViewController {
         card.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarView = UIView()
-        avatarView.backgroundColor = getAvatarColor(for: student.fullName)
+        avatarView.backgroundColor = getAvatarColor(for: student.full_name)
         avatarView.layer.cornerRadius = 30
         avatarView.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarLabel = UILabel()
-        avatarLabel.text = String(student.fullName.prefix(1)).uppercased()
+        avatarLabel.text = String(student.full_name.prefix(1)).uppercased()
         avatarLabel.font = .systemFont(ofSize: 24, weight: .semibold)
-        avatarLabel.textColor = getAvatarTextColor(for: student.fullName)
+        avatarLabel.textColor = getAvatarTextColor(for: student.full_name)
         avatarLabel.textAlignment = .center
         avatarLabel.translatesAutoresizingMaskIntoConstraints = false
         avatarView.addSubview(avatarLabel)
         
         let nameLabel = UILabel()
-        nameLabel.text = student.fullName
+        nameLabel.text = student.full_name
         nameLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         nameLabel.textColor = .label
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         
         let infoLabel = UILabel()
-        infoLabel.text = student.regNumber
+        infoLabel.text = student.reg_number
         infoLabel.font = .systemFont(ofSize: 14, weight: .regular)
         infoLabel.textColor = .secondaryLabel
         infoLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -531,10 +469,15 @@ class AdminDashboardViewController: UIViewController {
         emailLabel.translatesAutoresizingMaskIntoConstraints = false
         
         let requestLabel = UILabel()
-        if let date = student.createdAt {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "d MMM yyyy"
-            requestLabel.text = "Requested • \(formatter.string(from: date))"
+        if let dateString = student.created_at {
+            let isoFormatter = ISO8601DateFormatter()
+            if let date = isoFormatter.date(from: dateString) {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "d MMM yyyy"
+                requestLabel.text = "Requested • \(formatter.string(from: date))"
+            } else {
+                requestLabel.text = "Requested recently"
+            }
         } else {
             requestLabel.text = "Requested recently"
         }
@@ -618,7 +561,7 @@ class AdminDashboardViewController: UIViewController {
         return card
     }
     
-    private func createPendingMentorCard(for mentor: MentorRegistration, index: Int) -> UIView {
+    private func createPendingMentorCard(for mentor: SupabaseManager.MentorRegistration, index: Int) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
         card.layer.cornerRadius = 16
@@ -629,26 +572,26 @@ class AdminDashboardViewController: UIViewController {
         card.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarView = UIView()
-        avatarView.backgroundColor = getAvatarColor(for: mentor.fullName)
+        avatarView.backgroundColor = getAvatarColor(for: mentor.full_name)
         avatarView.layer.cornerRadius = 30
         avatarView.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarLabel = UILabel()
-        avatarLabel.text = String(mentor.fullName.prefix(1)).uppercased()
+        avatarLabel.text = String(mentor.full_name.prefix(1)).uppercased()
         avatarLabel.font = .systemFont(ofSize: 24, weight: .semibold)
-        avatarLabel.textColor = getAvatarTextColor(for: mentor.fullName)
+        avatarLabel.textColor = getAvatarTextColor(for: mentor.full_name)
         avatarLabel.textAlignment = .center
         avatarLabel.translatesAutoresizingMaskIntoConstraints = false
         avatarView.addSubview(avatarLabel)
         
         let nameLabel = UILabel()
-        nameLabel.text = mentor.fullName
+        nameLabel.text = mentor.full_name
         nameLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         nameLabel.textColor = .label
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         
         let infoLabel = UILabel()
-        infoLabel.text = "\(mentor.employeeId) • \(mentor.designation)"
+        infoLabel.text = "\(mentor.employee_id) • \(mentor.designation)"
         infoLabel.font = .systemFont(ofSize: 14, weight: .regular)
         infoLabel.textColor = .secondaryLabel
         infoLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -666,10 +609,15 @@ class AdminDashboardViewController: UIViewController {
         emailLabel.translatesAutoresizingMaskIntoConstraints = false
         
         let requestLabel = UILabel()
-        if let date = mentor.createdAt {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "d MMM yyyy"
-            requestLabel.text = "Requested • \(formatter.string(from: date))"
+        if let dateString = mentor.created_at {
+            let isoFormatter = ISO8601DateFormatter()
+            if let date = isoFormatter.date(from: dateString) {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "d MMM yyyy"
+                requestLabel.text = "Requested • \(formatter.string(from: date))"
+            } else {
+                requestLabel.text = "Requested recently"
+            }
         } else {
             requestLabel.text = "Requested recently"
         }
@@ -774,12 +722,11 @@ class AdminDashboardViewController: UIViewController {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Logout", style: .destructive) { _ in
-            do {
-                try Auth.auth().signOut()
-                self.navigateToLogin()
-            } catch {
-                self.showAlert(title: "Error", message: "Failed to logout: \(error.localizedDescription)")
-            }
+            UserDefaults.standard.removeObject(forKey: "current_user_email")
+            UserDefaults.standard.removeObject(forKey: "current_person_id")
+            UserDefaults.standard.removeObject(forKey: "is_logged_in")
+            
+            self.navigateToLogin()
         })
         
         present(alert, animated: true)
@@ -816,7 +763,7 @@ class AdminDashboardViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Approve Request",
-            message: "Request will be approved for \(student.fullName)",
+            message: "Request will be approved for \(student.full_name)",
             preferredStyle: .alert
         )
         
@@ -833,7 +780,7 @@ class AdminDashboardViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Decline Request",
-            message: "Request will be declined for \(student.fullName)",
+            message: "Request will be declined for \(student.full_name)",
             preferredStyle: .alert
         )
         
@@ -845,12 +792,12 @@ class AdminDashboardViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func performStudentApproval(student: StudentRegistration, at index: Int) {
+    private func performStudentApproval(student: SupabaseManager.StudentRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.approveStudent(studentId: student.id, adminEmail: adminEmail)
+                try await SupabaseManager.shared.approveStudent(studentId: student.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingStudents.remove(at: index)
@@ -858,7 +805,7 @@ class AdminDashboardViewController: UIViewController {
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Request Approved", message: "\(student.fullName)'s request has been approved")
+                    self.showAlert(title: "Request Approved", message: "\(student.full_name)'s request has been approved")
                 }
             } catch {
                 await MainActor.run {
@@ -869,19 +816,19 @@ class AdminDashboardViewController: UIViewController {
         }
     }
     
-    private func performStudentDecline(student: StudentRegistration, at index: Int) {
+    private func performStudentDecline(student: SupabaseManager.StudentRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.declineStudent(studentId: student.id, adminEmail: adminEmail)
+                try await SupabaseManager.shared.declineStudent(studentId: student.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingStudents.remove(at: index)
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Request Declined", message: "\(student.fullName)'s request has been declined")
+                    self.showAlert(title: "Request Declined", message: "\(student.full_name)'s request has been declined")
                 }
             } catch {
                 await MainActor.run {
@@ -898,7 +845,7 @@ class AdminDashboardViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Approve Request",
-            message: "Request will be approved for \(mentor.fullName)",
+            message: "Request will be approved for \(mentor.full_name)",
             preferredStyle: .alert
         )
         
@@ -915,7 +862,7 @@ class AdminDashboardViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Decline Request",
-            message: "Request will be declined for \(mentor.fullName)",
+            message: "Request will be declined for \(mentor.full_name)",
             preferredStyle: .alert
         )
         
@@ -927,12 +874,12 @@ class AdminDashboardViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func performMentorApproval(mentor: MentorRegistration, at index: Int) {
+    private func performMentorApproval(mentor: SupabaseManager.MentorRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.approveMentor(mentorId: mentor.id, adminEmail: adminEmail)
+                try await SupabaseManager.shared.approveMentor(mentorId: mentor.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingMentors.remove(at: index)
@@ -940,7 +887,7 @@ class AdminDashboardViewController: UIViewController {
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Request Approved", message: "\(mentor.fullName)'s request has been approved")
+                    self.showAlert(title: "Request Approved", message: "\(mentor.full_name)'s request has been approved")
                 }
             } catch {
                 await MainActor.run {
@@ -951,19 +898,19 @@ class AdminDashboardViewController: UIViewController {
         }
     }
     
-    private func performMentorDecline(mentor: MentorRegistration, at index: Int) {
+    private func performMentorDecline(mentor: SupabaseManager.MentorRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.declineMentor(mentorId: mentor.id, adminEmail: adminEmail)
+                try await SupabaseManager.shared.declineMentor(mentorId: mentor.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingMentors.remove(at: index)
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Request Declined", message: "\(mentor.fullName)'s request has been declined")
+                    self.showAlert(title: "Request Declined", message: "\(mentor.full_name)'s request has been declined")
                 }
             } catch {
                 await MainActor.run {

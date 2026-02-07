@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24506" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24504"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
@@ -11,16 +11,17 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="AdminSignUpViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
-                <outlet property="confirmPassTextField" destination="v71-RF-2Du" id="ysl-1q-QT9"/>
-                <outlet property="confirmPassView" destination="5g8-mH-Ne5" id="hkK-Yq-Akh"/>
-                <outlet property="domainTextField" destination="MoR-3o-A4z" id="8Pd-BO-flg"/>
-                <outlet property="domainView" destination="77D-J1-ZFb" id="8bD-0j-vOJ"/>
-                <outlet property="mailTextField" destination="Eeo-hL-Q7O" id="qU0-FM-oTL"/>
-                <outlet property="mailView" destination="BRI-32-Idb" id="Giq-Em-uW0"/>
-                <outlet property="passTextField" destination="TdI-ak-meF" id="ZJW-MK-Njy"/>
-                <outlet property="passView" destination="dSB-4q-Qop" id="qnA-yP-e3Q"/>
-                <outlet property="uniNameView" destination="1JP-pE-rda" id="PCy-si-7nq"/>
-                <outlet property="uniTextField" destination="GCs-fh-W5Y" id="7HL-Mc-gkk"/>
+                <outlet property="confirmPassTextField" destination="v71-RF-2Du" id="Zqr-lW-C1f"/>
+                <outlet property="confirmPassView" destination="5g8-mH-Ne5" id="qnj-ZE-cRR"/>
+                <outlet property="domainTextField" destination="MoR-3o-A4z" id="eWb-YR-O3b"/>
+                <outlet property="domainView" destination="77D-J1-ZFb" id="4e8-Oo-WKu"/>
+                <outlet property="mailTextField" destination="Eeo-hL-Q7O" id="Gj9-5p-5D7"/>
+                <outlet property="mailView" destination="BRI-32-Idb" id="cCx-XP-JjW"/>
+                <outlet property="passTextField" destination="TdI-ak-meF" id="atZ-9e-dG3"/>
+                <outlet property="passView" destination="dSB-4q-Qop" id="Ul5-j7-ADZ"/>
+                <outlet property="registerButtonOutlet" destination="wK9-GS-lup" id="ksk-VE-Tkk"/>
+                <outlet property="uniNameView" destination="1JP-pE-rda" id="4C8-ER-BuM"/>
+                <outlet property="uniTextField" destination="GCs-fh-W5Y" id="vQv-4w-2hY"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
         </placeholder>

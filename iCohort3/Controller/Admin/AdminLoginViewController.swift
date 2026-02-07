@@ -2,11 +2,10 @@
 //  AdminLoginViewController.swift
 //  iCohort3
 //
-//  FIXED: Push dashboard instead of replacing window root
+//  ✅ SUPABASE ONLY - No Firebase dependencies
 //
 
 import UIKit
-import FirebaseAuth
 
 class AdminLoginViewController: UIViewController {
     
@@ -24,12 +23,6 @@ class AdminLoginViewController: UIViewController {
         super.viewDidLoad()
         
         setupUI()
-        
-        // Auto-login if admin is already authenticated
-        if Auth.auth().currentUser != nil {
-            print("✅ Admin already logged in, navigating to dashboard")
-            handleLoginSuccess()
-        }
     }
     
     // MARK: - UI Setup
@@ -62,7 +55,6 @@ class AdminLoginViewController: UIViewController {
     func handleLoginSuccess() {
         print("✅ Admin logged in successfully")
         
-        // ✅ FIXED: Push dashboard onto existing navigation stack instead of replacing window root
         let dashboardVC = AdminDashboardViewController()
         navigationController?.pushViewController(dashboardVC, animated: true)
     }
@@ -70,7 +62,7 @@ class AdminLoginViewController: UIViewController {
     // MARK: - Actions
     @IBAction func signInTapped(_ sender: UIButton) {
         print("\n===========================================")
-        print("🎯 ADMIN LOGIN STARTED")
+        print("🎯 ADMIN LOGIN STARTED (SUPABASE)")
         print("===========================================")
         
         view.endEditing(true)
@@ -89,46 +81,54 @@ class AdminLoginViewController: UIViewController {
         }
         print("✅ Password provided")
         
-        print("\n🚀 Starting Firebase Auth login...")
+        print("\n🚀 Starting Supabase authentication...")
         print("===========================================\n")
         
         signInButton.isEnabled = false
         showLoadingIndicator()
         
-        Auth.auth().signIn(withEmail: email, password: password) { [weak self] result, error in
-            guard let self = self else { return }
-            
-            self.hideLoadingIndicator()
-            self.signInButton.isEnabled = true
-            
-            if let error = error {
-                print("\n❌ Firebase Auth LOGIN FAILED")
-                print("Error code:", (error as NSError).code)
-                print("Error domain:", (error as NSError).domain)
-                print("Error description:", error.localizedDescription)
-                print("Full error:", error)
-                print("===========================================\n")
+        Task {
+            do {
+                // ✅ Verify admin credentials in Supabase
+                let isValid = try await SupabaseManager.shared.verifyAdmin(email: email, password: password)
                 
-                self.showAlert(title: "Login Failed", message: error.localizedDescription)
-                return
-            }
-            
-            guard let user = result?.user else {
-                print("\n❌ Login succeeded but no user returned")
-                print("===========================================\n")
+                guard isValid else {
+                    await MainActor.run {
+                        self.hideLoadingIndicator()
+                        self.signInButton.isEnabled = true
+                        self.showAlert(title: "Login Failed", message: "Invalid email or password")
+                    }
+                    return
+                }
                 
-                self.showAlert(title: "Error", message: "Login failed")
-                return
+                print("✅ Admin credentials verified")
+                
+                // Get institute info
+                if let institute = try await SupabaseManager.shared.getInstitute(byAdminEmail: email) {
+                    print("✅ Institute found:", institute.name)
+                    
+                    // Store session
+                    UserDefaults.standard.set(email, forKey: "admin_email")
+                    UserDefaults.standard.set(institute.name, forKey: "admin_institute_name")
+                    UserDefaults.standard.set(institute.domain, forKey: "admin_institute_domain")
+                    UserDefaults.standard.set(true, forKey: "is_admin")
+                }
+                
+                await MainActor.run {
+                    self.hideLoadingIndicator()
+                    self.signInButton.isEnabled = true
+                    self.handleLoginSuccess()
+                }
+                
+            } catch {
+                print("❌ Login error:", error.localizedDescription)
+                
+                await MainActor.run {
+                    self.hideLoadingIndicator()
+                    self.signInButton.isEnabled = true
+                    self.showAlert(title: "Login Failed", message: error.localizedDescription)
+                }
             }
-            
-            print("\n🎉 Firebase Auth LOGIN SUCCESS!")
-            print("User ID:", user.uid)
-            print("Email:", user.email ?? "N/A")
-            print("Email verified:", user.isEmailVerified)
-            print("===========================================\n")
-            
-            // Navigate to dashboard
-            self.handleLoginSuccess()
         }
     }
     

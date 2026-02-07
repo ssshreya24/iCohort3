@@ -2,11 +2,12 @@
 //  AdminTeamsViewController.swift
 //  iCohort3
 //
-//  ✅ COMPLETE TEAMS VIEW: Display all teams with members and mentor assignment dropdown
+//  ✅ FIXED: Uses Supabase for approved mentors
 //
 
 import UIKit
-import FirebaseFirestore
+import PostgREST
+import Supabase
 
 class AdminTeamsViewController: UIViewController {
     
@@ -46,7 +47,6 @@ class AdminTeamsViewController: UIViewController {
         navigationItem.title = "Teams"
         navigationItem.largeTitleDisplayMode = .never
         
-        // Setup custom back button
         backButton.backgroundColor = .white
         backButton.layer.cornerRadius = 22
         backButton.layer.shadowColor = UIColor.black.cgColor
@@ -63,7 +63,6 @@ class AdminTeamsViewController: UIViewController {
         
         view.addSubview(backButton)
         
-        // Setup table view
         tableView.delegate = self
         tableView.dataSource = self
         tableView.register(TeamCell.self, forCellReuseIdentifier: "TeamCell")
@@ -73,11 +72,9 @@ class AdminTeamsViewController: UIViewController {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
         
-        // Add refresh control
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         tableView.refreshControl = refreshControl
         
-        // Layout
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -101,10 +98,10 @@ class AdminTeamsViewController: UIViewController {
         
         Task {
             do {
-                // ✅ FIXED: Fetch approved mentors from Firebase first
-                let mentors = try await fetchApprovedMentorsFromFirebase()
+                // ✅ FIXED: Fetch approved mentors from Supabase
+                let mentors = try await fetchApprovedMentorsFromSupabase()
                 
-                // ✅ FIXED: Fetch teams from Supabase
+                // ✅ Fetch teams from Supabase
                 let teamsData = try await SupabaseManager.shared.fetchAllTeamsWithDetails()
                 
                 // ✅ Map to display models with mentor names
@@ -138,20 +135,32 @@ class AdminTeamsViewController: UIViewController {
         }
     }
     
-    // ✅ Fetch approved mentors from Firebase
-    private func fetchApprovedMentorsFromFirebase() async throws -> [ApprovedMentorForAssignment] {
-        let query = FirebaseManager.shared.db.collection("approved_mentors")
-            .whereField("instituteName", isEqualTo: instituteName)
+    // ✅ FIXED: Fetch approved mentors from Supabase
+    private func fetchApprovedMentorsFromSupabase() async throws -> [ApprovedMentorForAssignment] {
+        struct MentorProfileDB: Codable {
+            let person_id: String
+            let first_name: String?
+            let last_name: String?
+            let email: String?
+            let institute_name: String?
+        }
         
-        let snapshot = try await query.getDocuments()
+        let profiles: [MentorProfileDB] = try await SupabaseManager.shared.client
+            .from("mentor_profiles")
+            .select("person_id, first_name, last_name, email, institute_name")
+            .eq("institute_name", value: instituteName)
+            .execute()
+            .value
         
-        return snapshot.documents.compactMap { doc in
-            let data = doc.data()
-            // ✅ The document ID should match the person.id in Supabase
+        return profiles.map { profile in
+            let fullName = [profile.first_name, profile.last_name]
+                .compactMap { $0 }
+                .joined(separator: " ")
+            
             return ApprovedMentorForAssignment(
-                personId: doc.documentID, // This matches the person.id in Supabase
-                fullName: data["fullName"] as? String ?? "",
-                email: data["email"] as? String ?? ""
+                personId: profile.person_id,
+                fullName: fullName.isEmpty ? (profile.email ?? "Unknown") : fullName,
+                email: profile.email ?? ""
             )
         }
     }
@@ -169,7 +178,6 @@ class AdminTeamsViewController: UIViewController {
             preferredStyle: .actionSheet
         )
         
-        // ✅ Add mentor options from Firebase approved_mentors
         for mentor in approvedMentors {
             let action = UIAlertAction(title: mentor.fullName, style: .default) { _ in
                 self.assignMentor(mentorId: mentor.personId, mentorName: mentor.fullName, to: team)
@@ -177,7 +185,6 @@ class AdminTeamsViewController: UIViewController {
             alert.addAction(action)
         }
         
-        // Add remove mentor option if team has a mentor
         if team.mentorId != nil {
             let removeAction = UIAlertAction(title: "Remove Mentor", style: .destructive) { _ in
                 self.removeMentor(from: team)
@@ -187,7 +194,6 @@ class AdminTeamsViewController: UIViewController {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         
-        // For iPad
         if let popover = alert.popoverPresentationController {
             popover.sourceView = view
             popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
@@ -319,7 +325,6 @@ class TeamCell: UITableViewCell {
         backgroundColor = .clear
         selectionStyle = .none
         
-        // Container
         containerView.backgroundColor = .white
         containerView.layer.cornerRadius = 16
         containerView.layer.shadowColor = UIColor.black.cgColor
@@ -329,19 +334,16 @@ class TeamCell: UITableViewCell {
         containerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(containerView)
         
-        // Team Number
         teamNumberLabel.font = .systemFont(ofSize: 24, weight: .bold)
         teamNumberLabel.textColor = .label
         teamNumberLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(teamNumberLabel)
         
-        // Mentor Label
         mentorLabel.font = .systemFont(ofSize: 15, weight: .medium)
         mentorLabel.textColor = .secondaryLabel
         mentorLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(mentorLabel)
         
-        // Assign Mentor Button
         assignMentorButton.setTitle("Assign Mentor", for: .normal)
         assignMentorButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         assignMentorButton.setTitleColor(.systemBlue, for: .normal)
@@ -351,14 +353,12 @@ class TeamCell: UITableViewCell {
         assignMentorButton.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(assignMentorButton)
         
-        // Members Label
         membersLabel.text = "Members:"
         membersLabel.font = .systemFont(ofSize: 14, weight: .semibold)
         membersLabel.textColor = .label
         membersLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(membersLabel)
         
-        // Members Stack
         membersStackView.axis = .vertical
         membersStackView.spacing = 4
         membersStackView.translatesAutoresizingMaskIntoConstraints = false
@@ -406,10 +406,8 @@ class TeamCell: UITableViewCell {
             assignMentorButton.setTitle("Assign Mentor", for: .normal)
         }
         
-        // Clear previous members
         membersStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        // Add member labels
         for memberName in team.memberNames {
             let memberLabel = UILabel()
             memberLabel.text = "• \(memberName)"
@@ -443,7 +441,7 @@ struct TeamDisplayModel {
 }
 
 struct ApprovedMentorForAssignment {
-    let personId: String  // This matches the document ID in Firebase and person.id in Supabase
+    let personId: String
     let fullName: String
     let email: String
 }

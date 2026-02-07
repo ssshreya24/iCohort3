@@ -2,12 +2,12 @@
 //  ApprovedStudentsViewController.swift
 //  iCohort3
 //
-//  Beautiful UI with profile avatars and styled cards
-//  FIXED: Removed sorting to work without Firebase index
+//  ✅ FIXED: Uses Supabase instead of Firebase
 //
 
 import UIKit
-import FirebaseFirestore
+import PostgREST
+import Supabase
 
 class ApprovedStudentsViewController: UIViewController {
     
@@ -44,12 +44,11 @@ class ApprovedStudentsViewController: UIViewController {
     
     // MARK: - Setup
     private func setupUI() {
-        view.backgroundColor = UIColor(red: 239/255, green: 239/255, blue: 245/255, alpha: 1.0) // #EFEFF5
+        view.backgroundColor = UIColor(red: 239/255, green: 239/255, blue: 245/255, alpha: 1.0)
         
         navigationItem.title = "Approved Students"
         navigationItem.largeTitleDisplayMode = .never
         
-        // Setup custom back button
         backButton.backgroundColor = .white
         backButton.layer.cornerRadius = 22
         backButton.layer.shadowColor = UIColor.black.cgColor
@@ -66,14 +65,12 @@ class ApprovedStudentsViewController: UIViewController {
         
         view.addSubview(backButton)
         
-        // Setup search bar
         searchBar.delegate = self
         searchBar.placeholder = "Search students..."
         searchBar.searchBarStyle = .minimal
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(searchBar)
         
-        // Setup table view
         studentsTableView.delegate = self
         studentsTableView.dataSource = self
         studentsTableView.register(BeautifulStudentCell.self, forCellReuseIdentifier: "BeautifulStudentCell")
@@ -83,11 +80,9 @@ class ApprovedStudentsViewController: UIViewController {
         studentsTableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(studentsTableView)
         
-        // Add refresh control
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         studentsTableView.refreshControl = refreshControl
         
-        // Layout
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -132,28 +127,44 @@ class ApprovedStudentsViewController: UIViewController {
         }
     }
     
+    // ✅ FIXED: Query Supabase instead of Firebase
     private func fetchApprovedStudents() async throws -> [ApprovedStudent] {
-        // Filter by instituteDomain (now properly saved during approval!)
-        let query = FirebaseManager.shared.db.collection("approved_students")
-            .whereField("instituteDomain", isEqualTo: instituteDomain)
-        
-        let snapshot = try await query.getDocuments()
-        
-        print("📊 Found \(snapshot.documents.count) approved students for domain: \(instituteDomain)")
-        
-        var students = snapshot.documents.compactMap { doc in
-            let data = doc.data()
-            return ApprovedStudent(
-                id: doc.documentID,
-                fullName: data["fullName"] as? String ?? "",
-                regNumber: data["regNumber"] as? String ?? "",
-                email: data["email"] as? String ?? "",
-                approvedAt: (data["approvedAt"] as? Timestamp)?.dateValue() ?? Date()
-            )
+        struct StudentProfileDB: Codable {
+            let person_id: String
+            let first_name: String?
+            let last_name: String?
+            let srm_mail: String?
+            let reg_no: String?
+            let institute_domain: String?
+            let approved_at: String?
         }
         
-        students.sort { $0.approvedAt > $1.approvedAt }
+        let profiles: [StudentProfileDB] = try await SupabaseManager.shared.client
+            .from("student_profiles")
+            .select("person_id, first_name, last_name, srm_mail, reg_no, institute_domain, approved_at")
+            .eq("institute_domain", value: instituteDomain)
+            .execute()
+            .value
         
+        let isoFormatter = ISO8601DateFormatter()
+        
+        let students = profiles.compactMap { profile -> ApprovedStudent? in
+            let fullName = [profile.first_name, profile.last_name]
+                .compactMap { $0 }
+                .joined(separator: " ")
+            
+            let approvedDate = profile.approved_at.flatMap { isoFormatter.date(from: $0) } ?? Date()
+            
+            return ApprovedStudent(
+                id: profile.person_id,
+                fullName: fullName.isEmpty ? (profile.srm_mail ?? "Unknown") : fullName,
+                regNumber: profile.reg_no ?? "",
+                email: profile.srm_mail ?? "",
+                approvedAt: approvedDate
+            )
+        }.sorted { $0.approvedAt > $1.approvedAt }
+        
+        print("✅ Found \(students.count) approved students for domain: \(instituteDomain)")
         return students
     }
     
@@ -250,7 +261,6 @@ class BeautifulStudentCell: UITableViewCell {
         backgroundColor = .clear
         selectionStyle = .none
         
-        // Container
         containerView.backgroundColor = .white
         containerView.layer.cornerRadius = 16
         containerView.layer.shadowColor = UIColor.black.cgColor
@@ -260,7 +270,6 @@ class BeautifulStudentCell: UITableViewCell {
         containerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(containerView)
         
-        // Profile Image
         profileImageView.contentMode = .scaleAspectFill
         profileImageView.clipsToBounds = true
         profileImageView.layer.cornerRadius = 30
@@ -268,19 +277,16 @@ class BeautifulStudentCell: UITableViewCell {
         profileImageView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(profileImageView)
         
-        // Name Label
         nameLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         nameLabel.textColor = .label
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(nameLabel)
         
-        // Reg Number Label
         regNumberLabel.font = .systemFont(ofSize: 14, weight: .regular)
         regNumberLabel.textColor = .secondaryLabel
         regNumberLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(regNumberLabel)
         
-        // Email Label
         emailLabel.font = .systemFont(ofSize: 14, weight: .regular)
         emailLabel.textColor = .tertiaryLabel
         emailLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -316,7 +322,6 @@ class BeautifulStudentCell: UITableViewCell {
         regNumberLabel.text = student.regNumber
         emailLabel.text = student.email
         
-        // Set profile image with generated avatar
         let initial = String(student.fullName.prefix(1)).uppercased()
         profileImageView.image = generateProfileImage(initial: initial, name: student.fullName)
     }

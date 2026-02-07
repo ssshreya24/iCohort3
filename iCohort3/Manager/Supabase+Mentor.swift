@@ -676,3 +676,303 @@ extension SupabaseManager {
         return rows.map { $0.full_name }
     }
 }
+
+
+extension SupabaseManager {
+    
+    /// Fetch mentor's full name by person_id
+    func fetchMentorFullName(personId: String) async throws -> String {
+        print("🔍 Fetching mentor full name for person_id:", personId)
+        
+        // Try mentor_profiles first
+        if let profile = try await fetchBasicMentorProfile(personId: personId) {
+            // Build full name from first_name and last_name
+            if let firstName = profile.first_name, let lastName = profile.last_name {
+                let fullName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+                if !fullName.isEmpty {
+                    print("✅ Found name from mentor profile:", fullName)
+                    return fullName
+                }
+            }
+        }
+        
+        // Fallback to people table
+        if let person = try await fetchPerson(personId: personId) {
+            print("✅ Found name from people table:", person.full_name)
+            return person.full_name
+        }
+        
+        // Fallback to approved_mentors table
+        do {
+            struct ApprovedMentor: Codable {
+                let full_name: String?
+            }
+            
+            // Get mentor email from mentor_profiles
+            if let profile = try await fetchBasicMentorProfile(personId: personId),
+               let email = profile.email {
+                
+                let approved: [ApprovedMentor] = try await client
+                    .from("approved_mentors")
+                    .select("full_name")
+                    .eq("email", value: email)
+                    .limit(1)
+                    .execute()
+                    .value
+                
+                if let mentor = approved.first, let name = mentor.full_name {
+                    print("✅ Found name from approved_mentors:", name)
+                    return name
+                }
+            }
+        } catch {
+            print("⚠️ Could not fetch from approved_mentors:", error)
+        }
+        
+        // Final fallback
+        print("⚠️ Could not find mentor name, using default")
+        return "Mentor"
+    }
+    
+    /// Fetch mentor's full name by email
+    func fetchMentorFullNameByEmail(email: String) async throws -> String {
+        print("🔍 Fetching mentor full name for email:", email)
+        
+        // Try mentor_profiles first
+        if let profile = try await fetchMentorProfileByEmail(email: email) {
+            if let firstName = profile.first_name, let lastName = profile.last_name {
+                let fullName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+                if !fullName.isEmpty {
+                    print("✅ Found name from mentor profile:", fullName)
+                    return fullName
+                }
+            }
+        }
+        
+        // Try approved_mentors table
+        do {
+            struct ApprovedMentor: Codable {
+                let full_name: String?
+            }
+            
+            let approved: [ApprovedMentor] = try await client
+                .from("approved_mentors")
+                .select("full_name")
+                .eq("email", value: email)
+                .limit(1)
+                .execute()
+                .value
+            
+            if let mentor = approved.first, let name = mentor.full_name {
+                print("✅ Found name from approved_mentors:", name)
+                return name
+            }
+        } catch {
+            print("⚠️ Could not fetch from approved_mentors:", error)
+        }
+        
+        // Try mentor_registrations table
+        do {
+            struct MentorReg: Codable {
+                let full_name: String
+            }
+            
+            let registrations: [MentorReg] = try await client
+                .from("mentor_registrations")
+                .select("full_name")
+                .eq("email", value: email)
+                .limit(1)
+                .execute()
+                .value
+            
+            if let registration = registrations.first {
+                print("✅ Found name from mentor_registrations:", registration.full_name)
+                return registration.full_name
+            }
+        } catch {
+            print("⚠️ Could not fetch from mentor_registrations:", error)
+        }
+        
+        print("⚠️ Could not find mentor name, using default")
+        return "Mentor"
+    }
+    
+    /// Check if mentor exists in any table
+    func mentorExists(email: String) async throws -> Bool {
+        // Check mentor_profiles
+        if let _ = try await fetchMentorProfileByEmail(email: email) {
+            return true
+        }
+        
+        // Check approved_mentors
+        do {
+            struct Count: Codable {
+                let count: Int?
+            }
+            
+            let result: [Count] = try await client
+                .from("approved_mentors")
+                .select("email", count: .exact)
+                .eq("email", value: email)
+                .execute()
+                .value
+            
+            if let count = result.first?.count, count > 0 {
+                return true
+            }
+        } catch {}
+        
+        // Check mentor_registrations
+        do {
+            struct Count: Codable {
+                let count: Int?
+            }
+            
+            let result: [Count] = try await client
+                .from("mentor_registrations")
+                .select("email", count: .exact)
+                .eq("email", value: email)
+                .execute()
+                .value
+            
+            if let count = result.first?.count, count > 0 {
+                return true
+            }
+        } catch {}
+        
+        return false
+    }
+    
+    /// Get mentor's institute name
+    func fetchMentorInstituteName(personId: String) async throws -> String? {
+        // Try mentor_profiles first
+        if let profile = try await fetchBasicMentorProfile(personId: personId) {
+            if let email = profile.email {
+                // Try approved_mentors
+                do {
+                    struct ApprovedMentor: Codable {
+                        let institute_name: String?
+                    }
+                    
+                    let approved: [ApprovedMentor] = try await client
+                        .from("approved_mentors")
+                        .select("institute_name")
+                        .eq("email", value: email)
+                        .limit(1)
+                        .execute()
+                        .value
+                    
+                    if let instituteName = approved.first?.institute_name {
+                        return instituteName
+                    }
+                } catch {}
+                
+                // Try mentor_registrations
+                do {
+                    struct MentorReg: Codable {
+                        let institute_name: String
+                    }
+                    
+                    let registrations: [MentorReg] = try await client
+                        .from("mentor_registrations")
+                        .select("institute_name")
+                        .eq("email", value: email)
+                        .limit(1)
+                        .execute()
+                        .value
+                    
+                    if let instituteName = registrations.first?.institute_name {
+                        return instituteName
+                    }
+                } catch {}
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Sync mentor data from approved_mentors to mentor_profiles
+    func syncMentorFromApprovedMentors(email: String) async throws {
+        print("🔄 Syncing mentor from approved_mentors to mentor_profiles...")
+        
+        struct ApprovedMentor: Codable {
+            let email: String
+            let full_name: String?
+            let employee_id: String?
+            let designation: String?
+            let department: String?
+            let institute_name: String?
+        }
+        
+        // Fetch from approved_mentors
+        let approved: [ApprovedMentor] = try await client
+            .from("approved_mentors")
+            .select("email, full_name, employee_id, designation, department, institute_name")
+            .eq("email", value: email)
+            .limit(1)
+            .execute()
+            .value
+        
+        guard let mentor = approved.first else {
+            print("❌ Mentor not found in approved_mentors")
+            return
+        }
+        
+        // Get or create person_id
+        let personId: String
+        if let existingPersonId = try await fetchMentorId(email: email) {
+            personId = existingPersonId
+            print("✅ Found existing person_id:", personId)
+        } else {
+            // Create person record
+            struct PersonInsert: Encodable {
+                let full_name: String
+                let role: String
+            }
+            
+            struct PersonResponse: Codable {
+                let id: String
+            }
+            
+            let insert = PersonInsert(
+                full_name: mentor.full_name ?? "Unknown Mentor",
+                role: "mentor"
+            )
+            
+            let response: [PersonResponse] = try await client
+                .from("people")
+                .insert(insert)
+                .select("id")
+                .execute()
+                .value
+            
+            guard let newPersonId = response.first?.id else {
+                throw NSError(domain: "SupabaseManager", code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to create person record"])
+            }
+            
+            personId = newPersonId
+            print("✅ Created new person_id:", personId)
+        }
+        
+        // Parse name
+        let nameParts = (mentor.full_name ?? "").components(separatedBy: " ")
+        let firstName = nameParts.first ?? ""
+        let lastName = nameParts.count > 1 ? nameParts.dropFirst().joined(separator: " ") : ""
+        
+        // Upsert mentor profile
+        _ = try await upsertMentorProfile(
+            personId: personId,
+            firstName: firstName,
+            lastName: lastName,
+            email: mentor.email,
+            employeeId: mentor.employee_id,
+            designation: mentor.designation,
+            department: mentor.department,
+            personalMail: nil,
+            contactNumber: nil
+        )
+        
+        print("✅ Mentor profile synced successfully")
+    }
+}

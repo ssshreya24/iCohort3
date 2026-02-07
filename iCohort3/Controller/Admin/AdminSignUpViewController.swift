@@ -2,23 +2,28 @@
 //  AdminSignUpViewController.swift
 //  iCohort3
 //
-//  SIMPLIFIED VERSION - Email and Password Only
+//  ✅ FIXED: Uses Supabase instead of Firebase
 //
 
 import UIKit
-import FirebaseAuth
+import PostgREST
+import Supabase
 
 class AdminSignUpViewController: UIViewController {
     
+    @IBOutlet weak var uniNameView: UIView!
+    @IBOutlet weak var uniTextField: UITextField!
     @IBOutlet weak var mailView: UIView!
     @IBOutlet weak var mailTextField: UITextField!
+    @IBOutlet weak var domainView: UIView!
+    @IBOutlet weak var domainTextField: UITextField!
     @IBOutlet weak var passView: UIView!
     @IBOutlet weak var passTextField: UITextField!
     @IBOutlet weak var confirmPassView: UIView!
     @IBOutlet weak var confirmPassTextField: UITextField!
-    @IBOutlet weak var registerButton: UIButton!
+    @IBOutlet weak var registerButtonOutlet: UIButton!
     
-    private var loadingIndicator: UIActivityIndicatorView?
+    private var isSubmitting = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -32,126 +37,231 @@ class AdminSignUpViewController: UIViewController {
         let radius: CGFloat = 20
         
         // Apply corner radius to all views
-        let views = [mailView, passView, confirmPassView]
+        let views = [uniNameView, mailView, domainView, passView, confirmPassView]
         
         for view in views {
             view?.layer.cornerRadius = radius
             view?.clipsToBounds = true
         }
         
-        registerButton?.layer.cornerRadius = radius
-        registerButton?.clipsToBounds = true
+        registerButtonOutlet.layer.cornerRadius = radius
+        registerButtonOutlet.clipsToBounds = true
+        
+        // Setup text fields
+        passTextField.isSecureTextEntry = true
+        confirmPassTextField.isSecureTextEntry = true
+        
+        mailTextField.autocapitalizationType = .none
+        mailTextField.keyboardType = .emailAddress
+        
+        domainTextField.autocapitalizationType = .none
+        domainTextField.placeholder = "e.g., srmist.edu.in"
     }
     
     func setupPlaceholders() {
-        mailTextField.placeholder = "Enter admin email"
-        passTextField.placeholder = "Enter password"
-        confirmPassTextField.placeholder = "Confirm password"
-        
-        // Make password fields secure
-        passTextField.isSecureTextEntry = true
-        confirmPassTextField.isSecureTextEntry = true
+        uniTextField.placeholder = "Institution Name"
+        mailTextField.placeholder = "Admin Email"
+        domainTextField.placeholder = "Email Domain (e.g., srmist.edu.in)"
+        passTextField.placeholder = "Password"
+        confirmPassTextField.placeholder = "Confirm Password"
     }
-
-    @IBAction func registerButton(_ sender: Any) {
-        print("\n===========================================")
-        print("🎯 ADMIN REGISTRATION STARTED")
-        print("===========================================")
-        
-        view.endEditing(true)
-        
-        guard let email = mailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
-            print("❌ Validation failed: Email is empty")
-            showAlert(title: "Error", message: "Please enter admin email")
-            return
+    
+    // MARK: - Validation
+    
+    private func validateInputs() -> (isValid: Bool, message: String?) {
+        guard let institutionName = uniTextField.text?.trimmingCharacters(in: .whitespaces),
+              !institutionName.isEmpty else {
+            return (false, "Please enter institution name")
         }
-        print("✅ Email:", email)
         
-        guard let password = passTextField.text, !password.isEmpty else {
-            print("❌ Validation failed: Password is empty")
-            showAlert(title: "Error", message: "Please enter password")
-            return
+        guard let email = mailTextField.text?.trimmingCharacters(in: .whitespaces),
+              !email.isEmpty else {
+            return (false, "Please enter admin email")
         }
-        print("✅ Password length:", password.count)
         
-        guard let confirmPassword = confirmPassTextField.text, !confirmPassword.isEmpty else {
-            print("❌ Validation failed: Confirm password is empty")
-            showAlert(title: "Error", message: "Please confirm password")
-            return
+        let emailRegex = "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}$"
+        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        guard emailPredicate.evaluate(with: email) else {
+            return (false, "Please enter a valid email address")
+        }
+        
+        // Auto-extract domain from email if domain field is empty
+        var domain = domainTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        
+        if domain.isEmpty {
+            // Extract domain from email (everything after @)
+            if let atIndex = email.firstIndex(of: "@") {
+                let domainFromEmail = String(email[email.index(after: atIndex)...])
+                domain = domainFromEmail.lowercased()
+                
+                // Update the text field with extracted domain
+                domainTextField.text = domain
+            } else {
+                return (false, "Please enter email domain")
+            }
+        }
+        
+        // Basic domain validation - must contain at least one dot and valid characters
+        // Accepts formats like: university.edu, srmist.edu.in, ox.ac.uk, etc.
+        let domainComponents = domain.split(separator: ".")
+        
+        // Must have at least 2 parts (e.g., domain.com)
+        guard domainComponents.count >= 2 else {
+            return (false, "Please enter a valid domain (e.g. chitkara.edu.in)")
+        }
+        
+        // Check each component is valid (alphanumeric and hyphens, but not starting/ending with hyphen)
+        for component in domainComponents {
+            let componentStr = String(component)
+            
+            // Must not be empty
+            guard !componentStr.isEmpty else {
+                return (false, "Please enter a valid domain (e.g. chitkara.edu.in)")
+            }
+            
+            // Must start and end with alphanumeric
+            guard let first = componentStr.first,
+                  let last = componentStr.last,
+                  first.isLetter || first.isNumber,
+                  last.isLetter || last.isNumber else {
+                return (false, "Please enter a valid domain (e.g. chitkara.edu.in)")
+            }
+            
+            // Must contain only valid characters (alphanumeric and hyphen)
+            let validCharacterSet = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-"))
+            guard componentStr.rangeOfCharacter(from: validCharacterSet.inverted) == nil else {
+                return (false, "Please enter a valid domain (e.g. chitkara.edu.in)")
+            }
+        }
+        
+        // Last component should contain at least one letter (TLD requirement)
+        guard let lastComponent = domainComponents.last,
+              lastComponent.rangeOfCharacter(from: .letters) != nil else {
+            return (false, "Please enter a valid domain (e.g. chitkara.edu.in)")
+        }
+        
+        guard let password = passTextField.text,
+              !password.isEmpty else {
+            return (false, "Please enter a password")
+        }
+        
+        guard password.count >= 6 else {
+            return (false, "Password must be at least 6 characters")
+        }
+        
+        guard let confirmPassword = confirmPassTextField.text,
+              !confirmPassword.isEmpty else {
+            return (false, "Please confirm your password")
         }
         
         guard password == confirmPassword else {
-            print("❌ Validation failed: Passwords don't match")
-            showAlert(title: "Error", message: "Passwords do not match")
+            return (false, "Passwords do not match")
+        }
+        
+        return (true, nil)
+    }
+    
+    // MARK: - Actions
+    
+    @IBAction func registerButton(_ sender: Any) {
+        view.endEditing(true)
+        
+        guard !isSubmitting else { return }
+        
+        // Validate inputs
+        let validation = validateInputs()
+        guard validation.isValid else {
+            showAlert(title: "Validation Error", message: validation.message ?? "Please check your inputs")
             return
         }
-        print("✅ Passwords match")
         
-        guard password.count >= 6 else {
-            print("❌ Validation failed: Password too short")
-            showAlert(title: "Weak Password", message: "Password must be at least 6 characters")
+        guard let institutionName = uniTextField.text?.trimmingCharacters(in: .whitespaces),
+              let email = mailTextField.text?.trimmingCharacters(in: .whitespaces),
+              let domain = domainTextField.text?.trimmingCharacters(in: .whitespaces).lowercased(),
+              let password = passTextField.text else {
             return
         }
-        print("✅ Password strength validated")
         
-        print("\n🚀 All validations passed!")
-        print("📝 Starting Firebase Auth registration...")
-        print("===========================================\n")
+        // Show loading
+        isSubmitting = true
+        registerButtonOutlet.isEnabled = false
+        registerButtonOutlet.setTitle("Creating Account...", for: .normal)
         
-        (sender as? UIButton)?.isEnabled = false
-        showLoadingIndicator()
-        
-        // Create Firebase Auth user
-        Auth.auth().createUser(withEmail: email, password: password) { [weak self] result, error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                print("\n❌ Firebase Auth FAILED")
-                print("Error code:", (error as NSError).code)
-                print("Error domain:", (error as NSError).domain)
-                print("Error description:", error.localizedDescription)
-                print("Full error:", error)
-                print("===========================================\n")
+        Task {
+            do {
+                // STEP 1: Create admin account in Supabase
+                try await SupabaseManager.shared.registerAdmin(
+                    email: email,
+                    password: password,
+                    instituteId: nil
+                )
                 
-                self.hideLoadingIndicator()
-                (sender as? UIButton)?.isEnabled = true
-                self.showAlert(title: "Signup Failed", message: error.localizedDescription)
-                return
-            }
-            
-            guard let user = result?.user else {
-                print("\n❌ Firebase Auth succeeded but no user returned")
-                print("===========================================\n")
+                print("✅ Admin account created in Supabase")
                 
-                self.hideLoadingIndicator()
-                (sender as? UIButton)?.isEnabled = true
-                self.showAlert(title: "Error", message: "Failed to create admin account")
-                return
-            }
-            
-            print("\n🎉 Firebase Auth SUCCESS!")
-            print("User ID:", user.uid)
-            print("Email:", user.email ?? "N/A")
-            print("===========================================\n")
-            
-            // Send verification email
-            user.sendEmailVerification { emailError in
-                if let emailError = emailError {
-                    print("⚠️  Email verification send failed:", emailError.localizedDescription)
-                } else {
-                    print("✅ Verification email sent")
+                // STEP 2: Get the admin account ID
+                struct AdminAccountResponse: Codable {
+                    let id: String
                 }
-            }
-            
-            self.hideLoadingIndicator()
-            (sender as? UIButton)?.isEnabled = true
-            
-            self.showAlert(
-                title: "Success",
-                message: "Admin account created successfully. You can now login."
-            ) {
-                print("✅ Navigating back to login")
-                self.navigationController?.popViewController(animated: true)
+                
+                let adminAccounts: [AdminAccountResponse] = try await SupabaseManager.shared.client
+                    .from("admin_accounts")
+                    .select("id")
+                    .eq("email", value: email)
+                    .limit(1)
+                    .execute()
+                    .value
+                
+                guard let adminId = adminAccounts.first?.id else {
+                    throw NSError(domain: "AdminSignUp", code: -1,
+                                userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve admin account ID"])
+                }
+                
+                print("✅ Admin ID retrieved: \(adminId)")
+                
+                // STEP 3: Create institute with admin ID
+                try await SupabaseManager.shared.registerInstitute(
+                    name: institutionName,
+                    domain: domain,
+                    adminEmail: email,
+                    adminId: adminId
+                )
+                
+                print("✅ Institute registered: \(institutionName) with domain: \(domain)")
+                
+                // STEP 4: Show success and navigate back
+                await MainActor.run {
+                    isSubmitting = false
+                    registerButtonOutlet.isEnabled = true
+                    registerButtonOutlet.setTitle("Register", for: .normal)
+                    
+                    showSuccessAlert(
+                        title: "Registration Successful",
+                        message: "Institution '\(institutionName)' has been registered.\n\nDomain: \(domain)\nAdmin Email: \(email)\n\nYou can now log in as an admin."
+                    )
+                }
+                
+            } catch let error as SupabaseError {
+                await MainActor.run {
+                    isSubmitting = false
+                    registerButtonOutlet.isEnabled = true
+                    registerButtonOutlet.setTitle("Register", for: .normal)
+                    
+                    showAlert(title: "Registration Failed", message: error.localizedDescription)
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    registerButtonOutlet.isEnabled = true
+                    registerButtonOutlet.setTitle("Register", for: .normal)
+                    
+                    // Check if it's an "already registered" error
+                    let errorMessage = error.localizedDescription
+                    if errorMessage.contains("already registered") || errorMessage.contains("already exists") {
+                        showAlert(title: "Registration Failed", message: "This email is already registered. Please use a different email.")
+                    } else {
+                        showAlert(title: "Registration Failed", message: "An error occurred: \(errorMessage)")
+                    }
+                }
             }
         }
     }
@@ -166,35 +276,17 @@ class AdminSignUpViewController: UIViewController {
     
     // MARK: - Helper Methods
     
-    private func showLoadingIndicator() {
-        DispatchQueue.main.async {
-            let indicator = UIActivityIndicatorView(style: .large)
-            indicator.center = self.view.center
-            indicator.startAnimating()
-            self.view.addSubview(indicator)
-            self.view.isUserInteractionEnabled = false
-            self.loadingIndicator = indicator
-            print("🔄 Loading indicator shown")
-        }
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
     
-    private func hideLoadingIndicator() {
-        DispatchQueue.main.async {
-            self.loadingIndicator?.stopAnimating()
-            self.loadingIndicator?.removeFromSuperview()
-            self.view.isUserInteractionEnabled = true
-            self.loadingIndicator = nil
-            print("✋ Loading indicator hidden")
-        }
-    }
-    
-    func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
-        DispatchQueue.main.async {
-            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                completion?()
-            })
-            self.present(alert, animated: true)
-        }
+    private func showSuccessAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+            self?.navigationController?.popViewController(animated: true)
+        })
+        present(alert, animated: true)
     }
 }

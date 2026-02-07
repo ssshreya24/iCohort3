@@ -2,11 +2,10 @@
 //  MSignUpViewController.swift
 //  iCohort3
 //
-//  Updated to register mentors with pending approval status (Firestore only, no Firebase Auth)
+//  ✅ SUPABASE ONLY - No Firebase dependencies
 //
 
 import UIKit
-import FirebaseAuth
 
 class MSignUpViewController: UIViewController {
 
@@ -231,23 +230,27 @@ class MSignUpViewController: UIViewController {
     ) {
         Task {
             do {
-                print("📝 Starting mentor registration for:", email)
+                print("📝 Starting mentor registration in Supabase:", email)
                 
-                // Check if mentor already registered
-                if let existingMentor = try await FirebaseManager.shared.getMentorRegistration(email: email) {
-                    print("⚠️ Mentor already exists with status:", existingMentor.approvalStatus)
+                // ✅ Check if mentor already registered in Supabase
+                let status = try? await SupabaseManager.shared.checkMentorApproval(email: email)
+                
+                if let status = status {
+                    print("⚠️ Mentor already exists with status:", status)
                     
                     await MainActor.run {
                         hideLoadingIndicator()
                         signUpButton.isEnabled = true
                         
-                        switch existingMentor.approvalStatus {
-                        case .pending:
+                        switch status {
+                        case "pending":
                             showAlert(title: "Pending Approval", message: "Your registration is pending approval from the institute. Please wait for confirmation.")
-                        case .approved:
+                        case "approved":
                             showAlert(title: "Already Registered", message: "You are already registered and approved. Please login.")
-                        case .declined:
+                        case "declined":
                             showAlert(title: "Registration Declined", message: "Your registration was declined by the institute. Please contact your administrator.")
+                        default:
+                            showAlert(title: "Already Registered", message: "This email is already registered.")
                         }
                     }
                     return
@@ -255,8 +258,8 @@ class MSignUpViewController: UIViewController {
                 
                 print("✅ No existing registration found, proceeding with new registration")
                 
-                // Register mentor in Firestore with pending status
-                let mentorId = try await FirebaseManager.shared.registerMentor(
+                // ✅ Register mentor in Supabase with pending status
+                let mentorId = try await SupabaseManager.shared.registerMentor(
                     fullName: name,
                     email: email,
                     employeeId: employeeID,
@@ -266,7 +269,7 @@ class MSignUpViewController: UIViewController {
                     password: password
                 )
                 
-                print("✅ Mentor registered in Firestore with ID:", mentorId)
+                print("✅ Mentor registered in Supabase with ID:", mentorId)
                 
                 await MainActor.run {
                     hideLoadingIndicator()
@@ -280,7 +283,7 @@ class MSignUpViewController: UIViewController {
                     }
                 }
                 
-            } catch FirebaseManagerError.alreadyRegistered {
+            } catch SupabaseError.alreadyRegistered {
                 print("❌ Error: Already registered")
                 await MainActor.run {
                     hideLoadingIndicator()

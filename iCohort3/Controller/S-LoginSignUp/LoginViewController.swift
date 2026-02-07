@@ -2,11 +2,10 @@
 //  LoginViewController.swift
 //  iCohort3
 //
-//  CORRECTED VERSION - Now calls performLoginWithSync() to trigger migration
+//  ✅ SUPABASE ONLY - No Firebase dependencies
 //
 
 import UIKit
-import FirebaseAuth
 
 class LoginViewController: UIViewController {
     
@@ -112,9 +111,10 @@ class LoginViewController: UIViewController {
         }
     }
     
-    // ✅ FIXED: Now calls performLoginWithSync() instead of performLogin()
     @IBAction func signInTapped(_ sender: UIButton) {
-        print("🔐 Student Sign In button tapped")
+        print("\n===========================================")
+        print("🔐 STUDENT LOGIN STARTED (SUPABASE)")
+        print("===========================================")
         
         guard let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
             showAlert(title: "Error", message: "Please enter your email address")
@@ -129,8 +129,85 @@ class LoginViewController: UIViewController {
         signInButton.isEnabled = false
         showLoadingIndicator()
         
-        // ✅ THIS IS THE FIX - Call the sync version that triggers migration
-        performLoginWithSync(email: email, password: password)
+        performLogin(email: email, password: password)
+    }
+    
+    private func performLogin(email: String, password: String) {
+        Task {
+            do {
+                print("📝 Verifying student credentials in Supabase...")
+                
+                // ✅ Verify credentials directly in Supabase
+                let isValid = try await SupabaseManager.shared.verifyStudent(email: email, password: password)
+                
+                guard isValid else {
+                    await MainActor.run {
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        showAlert(title: "Login Failed", message: "Invalid email or password")
+                    }
+                    return
+                }
+                
+                print("✅ Credentials verified")
+                
+                // ✅ Get student person_id from Supabase
+                guard let personId = try await SupabaseManager.shared.fetchStudentId(srmMail: email) else {
+                    throw SupabaseError.studentNotFound
+                }
+                
+                print("✅ Person ID found:", personId)
+                
+                // ✅ Get full name
+                let fullName = try await SupabaseManager.shared.fetchStudentFullName(personIdString: personId)
+                
+                print("✅ Student name:", fullName)
+                
+                // ✅ Store session
+                await MainActor.run {
+                    UserDefaults.standard.set(personId, forKey: "current_person_id")
+                    UserDefaults.standard.set(fullName, forKey: "current_user_name")
+                    UserDefaults.standard.set(email, forKey: "current_user_email")
+                    UserDefaults.standard.set("student", forKey: "current_user_role")
+                    UserDefaults.standard.set(true, forKey: "is_logged_in")
+                    
+                    if rememberMeButton.isSelected {
+                        UserDefaults.standard.set(true, forKey: "remember_me")
+                        UserDefaults.standard.set(email, forKey: "remembered_email")
+                    }
+                    
+                    print("✅ Student login success")
+                    
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    handleLoginSuccess()
+                }
+                
+            } catch SupabaseError.notApproved {
+                print("❌ Error: Not approved")
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    showAlert(title: "Pending Approval", message: "Your registration is still pending approval from your institute. Please wait for confirmation.")
+                }
+                
+            } catch SupabaseError.studentNotFound {
+                print("❌ Error: Student not found")
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    showAlert(title: "Not Registered", message: "This email is not registered. Please sign up first.")
+                }
+                
+            } catch {
+                print("❌ Login error:", error.localizedDescription)
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    signInButton.isEnabled = true
+                    showAlert(title: "Login Failed", message: "An error occurred: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
     func handleLoginSuccess() {
@@ -196,93 +273,6 @@ class LoginViewController: UIViewController {
             let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             self.present(alert, animated: true)
-        }
-    }
-}
-
-// MARK: - Login with Sync Extension
-extension LoginViewController {
-    
-    /// Updated login flow with Firebase-Supabase sync
-    func performLoginWithSync(email: String, password: String) {
-        Task {
-            do {
-                print("📝 Checking student approval status for:", email)
-                
-                // 1. Check if student is approved in Firebase
-                let approvalStatus = try await FirebaseManager.shared.checkStudentApproval(email: email)
-                
-                print("📊 Approval status:", approvalStatus)
-                
-                switch approvalStatus {
-                case .pending:
-                    await MainActor.run {
-                        hideLoadingIndicator()
-                        signInButton.isEnabled = true
-                        showAlert(title: "Pending Approval", message: "Your registration is still pending approval from your institute. Please wait for confirmation.")
-                    }
-                    return
-                    
-                case .declined:
-                    await MainActor.run {
-                        hideLoadingIndicator()
-                        signInButton.isEnabled = true
-                        showAlert(title: "Access Denied", message: "Your registration was declined by the institute. Please contact your administrator.")
-                    }
-                    return
-                    
-                case .approved:
-                    print("✅ Student is approved, verifying password")
-                    
-                    // 2. Verify password matches in Firebase
-                    let isValidPassword = try await FirebaseManager.shared.verifyApprovedStudent(email: email, password: password)
-                    
-                    guard isValidPassword else {
-                        await MainActor.run {
-                            hideLoadingIndicator()
-                            signInButton.isEnabled = true
-                            showAlert(title: "Login Failed", message: "Invalid email or password")
-                        }
-                        return
-                    }
-                    
-                    print("✅ Password verified, syncing to Supabase")
-                    
-                    // 3. Sync student data from Firebase to Supabase
-                    let studentName = try await FirebaseToSupabaseMigration.shared.syncStudentAtLogin(email: email)
-                    
-                    print("✅ Sync complete, student name:", studentName)
-                    
-                    await MainActor.run {
-                        print("✅ Student login success:", email)
-                        
-                        if rememberMeButton.isSelected {
-                            UserDefaults.standard.set(true, forKey: "isLoggedIn")
-                            UserDefaults.standard.set(email, forKey: "userEmail")
-                        }
-                        
-                        hideLoadingIndicator()
-                        signInButton.isEnabled = true
-                        handleLoginSuccess()
-                    }
-                }
-                
-            } catch FirebaseManagerError.studentNotFound {
-                print("❌ Error: Student not found")
-                await MainActor.run {
-                    hideLoadingIndicator()
-                    signInButton.isEnabled = true
-                    showAlert(title: "Not Registered", message: "This email is not registered. Please sign up first.")
-                }
-                
-            } catch {
-                print("❌ Login error:", error.localizedDescription)
-                await MainActor.run {
-                    hideLoadingIndicator()
-                    signInButton.isEnabled = true
-                    showAlert(title: "Login Failed", message: "An error occurred: \(error.localizedDescription)")
-                }
-            }
         }
     }
 }

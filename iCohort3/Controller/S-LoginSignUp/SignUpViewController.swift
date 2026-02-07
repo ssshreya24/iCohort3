@@ -2,11 +2,10 @@
 //  SignUpViewController.swift
 //  iCohort3
 //
-//  FIXED VERSION - Resolves loading screen and signup issues
+//  ✅ SUPABASE ONLY - No Firebase dependencies
 //
 
 import UIKit
-import FirebaseAuth
 
 class SignUpViewController: UIViewController {
     @IBOutlet weak var fullNameContainer: UIView!
@@ -168,23 +167,27 @@ class SignUpViewController: UIViewController {
     ) {
         Task {
             do {
-                print("📝 Starting registration for:", email)
+                print("📝 Starting student registration in Supabase:", email)
                 
-                // Check if student already registered
-                if let existingStudent = try await FirebaseManager.shared.getStudentRegistration(email: email) {
-                    print("⚠️ Student already exists with status:", existingStudent.approvalStatus)
+                // ✅ Check if student already registered in Supabase
+                let status = try? await SupabaseManager.shared.checkStudentApproval(email: email)
+                
+                if let status = status {
+                    print("⚠️ Student already exists with status:", status)
                     
                     await MainActor.run {
                         hideLoadingIndicator()
                         signUpButton.isEnabled = true
                         
-                        switch existingStudent.approvalStatus {
-                        case .pending:
+                        switch status {
+                        case "pending":
                             showAlert(title: "Pending Approval", message: "Your registration is pending approval from your institute. Please wait for confirmation.")
-                        case .approved:
+                        case "approved":
                             showAlert(title: "Already Registered", message: "You are already registered and approved. Please login.")
-                        case .declined:
+                        case "declined":
                             showAlert(title: "Registration Declined", message: "Your registration was declined by the institute. Please contact your administrator.")
+                        default:
+                            showAlert(title: "Already Registered", message: "This email is already registered.")
                         }
                     }
                     return
@@ -192,8 +195,8 @@ class SignUpViewController: UIViewController {
                 
                 print("✅ No existing registration found, proceeding with new registration")
                 
-                // Register in Firebase Firestore with pending status
-                let studentId = try await FirebaseManager.shared.registerStudent(
+                // ✅ Register in Supabase with pending status
+                let studentId = try await SupabaseManager.shared.registerStudent(
                     fullName: name,
                     email: email,
                     regNumber: regNumber,
@@ -201,7 +204,7 @@ class SignUpViewController: UIViewController {
                     instituteDomain: domain
                 )
                 
-                print("✅ Student registered in Firestore with ID:", studentId)
+                print("✅ Student registered in Supabase with ID:", studentId)
                 
                 // Update UI on main thread
                 await MainActor.run {
@@ -216,7 +219,7 @@ class SignUpViewController: UIViewController {
                     }
                 }
                 
-            } catch FirebaseManagerError.alreadyRegistered {
+            } catch SupabaseError.alreadyRegistered {
                 print("❌ Error: Already registered")
                 await MainActor.run {
                     hideLoadingIndicator()

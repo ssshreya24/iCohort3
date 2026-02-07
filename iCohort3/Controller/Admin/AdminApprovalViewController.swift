@@ -2,12 +2,10 @@
 //  AdminApprovalViewController.swift
 //  iCohort3
 //
-//  Admin page to approve or decline student AND mentor registrations
-//  UPDATED: Softer approve/decline button colors matching design reference
+//  ✅ FIXED: Uses Supabase instead of Firebase
 //
 
 import UIKit
-import FirebaseAuth
 
 class AdminApprovalViewController: UIViewController {
     
@@ -25,9 +23,9 @@ class AdminApprovalViewController: UIViewController {
     private var loadingIndicator: UIActivityIndicatorView?
     
     // MARK: - Data
-    private var pendingStudents: [StudentRegistration] = []
-    private var pendingMentors: [MentorRegistration] = []
-    private var instituteDomain: String = "srmist.edu.in" // Default for SRM
+    private var pendingStudents: [SupabaseManager.StudentRegistration] = []
+    private var pendingMentors: [SupabaseManager.MentorRegistration] = []
+    private var instituteDomain: String = "srmist.edu.in"
     private var instituteName: String = "SRM University"
     private var adminEmail: String = ""
     
@@ -44,34 +42,28 @@ class AdminApprovalViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = UIColor(red: 239/255, green: 239/255, blue: 245/255, alpha: 1.0)
         
-        // Hide navigation bar title since we have custom header
         navigationItem.title = ""
         
-        // Setup scroll view
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsVerticalScrollIndicator = true
         scrollView.alwaysBounceVertical = true
         view.addSubview(scrollView)
         
-        // Setup content view
         contentView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(contentView)
         
-        // Setup greeting label
         greetingLabel.text = "Welcome back,"
         greetingLabel.font = .systemFont(ofSize: 27, weight: .bold)
         greetingLabel.textColor = .black
         greetingLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(greetingLabel)
         
-        // Setup name label
         nameLabel.text = "Admin"
         nameLabel.font = .systemFont(ofSize: 24, weight: .regular)
         nameLabel.textColor = .systemGray
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(nameLabel)
         
-        // Setup logout button
         logoutButton.setTitle("Logout", for: .normal)
         logoutButton.setTitleColor(.systemBlue, for: .normal)
         logoutButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular)
@@ -82,20 +74,17 @@ class AdminApprovalViewController: UIViewController {
         logoutButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(logoutButton)
         
-        // Setup segmented control
         segmentedControl.selectedSegmentIndex = 0
         segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         segmentedControl.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         contentView.addSubview(segmentedControl)
         
-        // Setup requests header
         requestsHeaderLabel.text = "Requests"
         requestsHeaderLabel.font = .systemFont(ofSize: 24, weight: .semibold)
         requestsHeaderLabel.textColor = .systemGray
         requestsHeaderLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(requestsHeaderLabel)
         
-        // Setup pending badge
         pendingBadge.text = "0 Pending"
         pendingBadge.font = .systemFont(ofSize: 14, weight: .semibold)
         pendingBadge.textColor = .systemBlue
@@ -106,17 +95,14 @@ class AdminApprovalViewController: UIViewController {
         pendingBadge.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(pendingBadge)
         
-        // Setup cards stack view
         cardsStackView.axis = .vertical
         cardsStackView.spacing = 16
         cardsStackView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(cardsStackView)
         
-        // Add refresh control
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         scrollView.refreshControl = refreshControl
         
-        // Layout constraints
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -161,24 +147,14 @@ class AdminApprovalViewController: UIViewController {
         ])
     }
     
-    private func getGreeting() -> String {
-        return "Welcome back,"
-    }
-    
     private func getAdminInfo() {
-        guard let user = Auth.auth().currentUser else {
-            showAlert(title: "Error", message: "No admin logged in") {
-                self.navigateToLogin()
-            }
-            return
-        }
+        // ✅ Get admin email from UserDefaults (saved during login)
+        adminEmail = UserDefaults.standard.string(forKey: "current_user_email") ?? ""
         
-        adminEmail = user.email ?? ""
-        
-        // Get institute domain from Firebase
         Task {
             do {
-                if let institute = try await FirebaseManager.shared.getInstitute(byAdminEmail: adminEmail) {
+                // ✅ Get institute from Supabase
+                if let institute = try await SupabaseManager.shared.getInstitute(byAdminEmail: adminEmail) {
                     await MainActor.run {
                         self.instituteDomain = institute.domain
                         self.instituteName = institute.name
@@ -191,20 +167,18 @@ class AdminApprovalViewController: UIViewController {
         }
     }
     
-    // MARK: - Segmented Control
     @objc private func segmentChanged() {
         updateUI()
     }
     
-    // MARK: - Data Loading
     private func loadPendingData() {
         showLoadingIndicator()
         
         Task {
             do {
-                // Load both students and mentors
-                async let students = FirebaseManager.shared.getPendingStudents(forDomain: instituteDomain)
-                async let mentors = FirebaseManager.shared.getPendingMentors(forInstituteName: instituteName)
+                // ✅ Load from Supabase
+                async let students = SupabaseManager.shared.getPendingStudents(forDomain: instituteDomain)
+                async let mentors = SupabaseManager.shared.getPendingMentors(forInstituteName: instituteName)
                 
                 let (loadedStudents, loadedMentors) = try await (students, mentors)
                 
@@ -224,11 +198,9 @@ class AdminApprovalViewController: UIViewController {
     }
     
     private func updateUI() {
-        // Get current count based on selected segment
         let count = segmentedControl.selectedSegmentIndex == 0 ? pendingStudents.count : pendingMentors.count
         pendingBadge.text = "\(count) Pending"
         
-        // Clear existing cards
         cardsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         if count == 0 {
@@ -237,13 +209,11 @@ class AdminApprovalViewController: UIViewController {
             hideEmptyState()
             
             if segmentedControl.selectedSegmentIndex == 0 {
-                // Show student cards
                 for (index, student) in pendingStudents.enumerated() {
                     let card = createStudentCard(for: student, at: index)
                     cardsStackView.addArrangedSubview(card)
                 }
             } else {
-                // Show mentor cards
                 for (index, mentor) in pendingMentors.enumerated() {
                     let card = createMentorCard(for: mentor, at: index)
                     cardsStackView.addArrangedSubview(card)
@@ -252,8 +222,8 @@ class AdminApprovalViewController: UIViewController {
         }
     }
     
-    // MARK: - Student Card
-    private func createStudentCard(for student: StudentRegistration, at index: Int) -> UIView {
+    // MARK: - Student Card (adapted for Supabase model)
+    private func createStudentCard(for student: SupabaseManager.StudentRegistration, at index: Int) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
         card.layer.cornerRadius = 20
@@ -263,44 +233,43 @@ class AdminApprovalViewController: UIViewController {
         card.layer.shadowOpacity = 0.06
         card.translatesAutoresizingMaskIntoConstraints = false
         
-        // Avatar circle
         let avatarView = UIView()
-        avatarView.backgroundColor = getAvatarColor(for: student.fullName)
+        avatarView.backgroundColor = getAvatarColor(for: student.full_name)
         avatarView.layer.cornerRadius = 30
         avatarView.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarLabel = UILabel()
-        avatarLabel.text = String(student.fullName.prefix(1)).uppercased()
+        avatarLabel.text = String(student.full_name.prefix(1)).uppercased()
         avatarLabel.font = .systemFont(ofSize: 24, weight: .semibold)
-        avatarLabel.textColor = getAvatarTextColor(for: student.fullName)
+        avatarLabel.textColor = getAvatarTextColor(for: student.full_name)
         avatarLabel.textAlignment = .center
         avatarLabel.translatesAutoresizingMaskIntoConstraints = false
         avatarView.addSubview(avatarLabel)
         
-        // Student name
         let nameLabel = UILabel()
-        nameLabel.text = student.fullName
+        nameLabel.text = student.full_name
         nameLabel.font = .systemFont(ofSize: 20, weight: .semibold)
         nameLabel.textColor = .label
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        // Reg number and institute
         let regInstLabel = UILabel()
-        regInstLabel.text = "\(student.regNumber) • \(instituteName)"
+        regInstLabel.text = "\(student.reg_number) • \(instituteName)"
         regInstLabel.font = .systemFont(ofSize: 14, weight: .regular)
         regInstLabel.textColor = .systemGray
         regInstLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        // Email with icon
         let emailStack = createInfoStack(icon: "envelope.fill", text: student.email)
         
-        // Date with icon
-        let dateStack = createDateStack(date: student.createdAt)
+        // ✅ Parse created_at date from Supabase
+        let dateStack: UIStackView
+        if let createdAt = student.created_at {
+            dateStack = createDateStackFromString(dateString: createdAt)
+        } else {
+            dateStack = createDateStack(date: nil)
+        }
         
-        // Buttons
         let buttonStack = createButtonStack(approveTag: index, declineTag: index, type: .student)
         
-        // Add all subviews to card
         card.addSubview(avatarView)
         card.addSubview(avatarLabel)
         card.addSubview(nameLabel)
@@ -309,7 +278,6 @@ class AdminApprovalViewController: UIViewController {
         card.addSubview(dateStack)
         card.addSubview(buttonStack)
         
-        // Constraints
         NSLayoutConstraint.activate([
             avatarView.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
             avatarView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
@@ -345,8 +313,8 @@ class AdminApprovalViewController: UIViewController {
         return card
     }
     
-    // MARK: - Mentor Card
-    private func createMentorCard(for mentor: MentorRegistration, at index: Int) -> UIView {
+    // MARK: - Mentor Card (adapted for Supabase model)
+    private func createMentorCard(for mentor: SupabaseManager.MentorRegistration, at index: Int) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
         card.layer.cornerRadius = 20
@@ -356,47 +324,44 @@ class AdminApprovalViewController: UIViewController {
         card.layer.shadowOpacity = 0.06
         card.translatesAutoresizingMaskIntoConstraints = false
         
-        // Avatar circle
         let avatarView = UIView()
-        avatarView.backgroundColor = getAvatarColor(for: mentor.fullName)
+        avatarView.backgroundColor = getAvatarColor(for: mentor.full_name)
         avatarView.layer.cornerRadius = 30
         avatarView.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarLabel = UILabel()
-        avatarLabel.text = String(mentor.fullName.prefix(1)).uppercased()
+        avatarLabel.text = String(mentor.full_name.prefix(1)).uppercased()
         avatarLabel.font = .systemFont(ofSize: 24, weight: .semibold)
-        avatarLabel.textColor = getAvatarTextColor(for: mentor.fullName)
+        avatarLabel.textColor = getAvatarTextColor(for: mentor.full_name)
         avatarLabel.textAlignment = .center
         avatarLabel.translatesAutoresizingMaskIntoConstraints = false
         avatarView.addSubview(avatarLabel)
         
-        // Mentor name
         let nameLabel = UILabel()
-        nameLabel.text = mentor.fullName
+        nameLabel.text = mentor.full_name
         nameLabel.font = .systemFont(ofSize: 20, weight: .semibold)
         nameLabel.textColor = .label
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        // Employee ID and designation
         let empDesigLabel = UILabel()
-        empDesigLabel.text = "\(mentor.employeeId) • \(mentor.designation)"
+        empDesigLabel.text = "\(mentor.employee_id) • \(mentor.designation)"
         empDesigLabel.font = .systemFont(ofSize: 14, weight: .regular)
         empDesigLabel.textColor = .systemGray
         empDesigLabel.translatesAutoresizingMaskIntoConstraints = false
         
-        // Email with icon
         let emailStack = createInfoStack(icon: "envelope.fill", text: mentor.email)
-        
-        // Department with icon
         let departmentStack = createInfoStack(icon: "building.2.fill", text: mentor.department)
         
-        // Date with icon
-        let dateStack = createDateStack(date: mentor.createdAt)
+        // ✅ Parse created_at date from Supabase
+        let dateStack: UIStackView
+        if let createdAt = mentor.created_at {
+            dateStack = createDateStackFromString(dateString: createdAt)
+        } else {
+            dateStack = createDateStack(date: nil)
+        }
         
-        // Buttons
         let buttonStack = createButtonStack(approveTag: index, declineTag: index, type: .mentor)
         
-        // Add all subviews to card
         card.addSubview(avatarView)
         card.addSubview(avatarLabel)
         card.addSubview(nameLabel)
@@ -406,7 +371,6 @@ class AdminApprovalViewController: UIViewController {
         card.addSubview(dateStack)
         card.addSubview(buttonStack)
         
-        // Constraints
         NSLayoutConstraint.activate([
             avatarView.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
             avatarView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
@@ -501,6 +465,13 @@ class AdminApprovalViewController: UIViewController {
         return stack
     }
     
+    // ✅ NEW: Parse ISO date string from Supabase
+    private func createDateStackFromString(dateString: String) -> UIStackView {
+        let isoFormatter = ISO8601DateFormatter()
+        let date = isoFormatter.date(from: dateString)
+        return createDateStack(date: date)
+    }
+    
     enum CardType {
         case student
         case mentor
@@ -509,18 +480,18 @@ class AdminApprovalViewController: UIViewController {
     private func createButtonStack(approveTag: Int, declineTag: Int, type: CardType) -> UIStackView {
         let approveButton = UIButton(type: .system)
         approveButton.setTitle("Approve", for: .normal)
-        approveButton.setTitleColor(.systemGreen, for: .normal)  // ✅ Green text
+        approveButton.setTitleColor(.systemGreen, for: .normal)
         approveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        approveButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.15)  // ✅ Soft green background
+        approveButton.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.15)
         approveButton.layer.cornerRadius = 12
         approveButton.translatesAutoresizingMaskIntoConstraints = false
         approveButton.tag = approveTag
         
         let declineButton = UIButton(type: .system)
         declineButton.setTitle("Decline", for: .normal)
-        declineButton.setTitleColor(.systemRed, for: .normal)  // ✅ Red text
+        declineButton.setTitleColor(.systemRed, for: .normal)
         declineButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)  // ✅ Soft red background
+        declineButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.15)
         declineButton.layer.cornerRadius = 12
         declineButton.translatesAutoresizingMaskIntoConstraints = false
         declineButton.tag = declineTag
@@ -569,26 +540,8 @@ class AdminApprovalViewController: UIViewController {
     }
     
     @objc private func refreshData() {
-        Task {
-            do {
-                async let students = FirebaseManager.shared.getPendingStudents(forDomain: instituteDomain)
-                async let mentors = FirebaseManager.shared.getPendingMentors(forInstituteName: instituteName)
-                
-                let (loadedStudents, loadedMentors) = try await (students, mentors)
-                
-                await MainActor.run {
-                    self.pendingStudents = loadedStudents
-                    self.pendingMentors = loadedMentors
-                    self.updateUI()
-                    self.refreshControl.endRefreshing()
-                }
-            } catch {
-                await MainActor.run {
-                    self.refreshControl.endRefreshing()
-                    self.showAlert(title: "Error", message: "Failed to refresh: \(error.localizedDescription)")
-                }
-            }
-        }
+        loadPendingData()
+        refreshControl.endRefreshing()
     }
     
     // MARK: - Actions - Students
@@ -605,7 +558,7 @@ class AdminApprovalViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Approve Student",
-            message: "Approve registration for \(student.fullName)?",
+            message: "Approve registration for \(student.full_name)?",
             preferredStyle: .alert
         )
         
@@ -617,19 +570,20 @@ class AdminApprovalViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func performStudentApproval(student: StudentRegistration, at index: Int) {
+    private func performStudentApproval(student: SupabaseManager.StudentRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.approveStudent(studentId: student.id, adminEmail: adminEmail)
+                // ✅ Approve in Supabase
+                try await SupabaseManager.shared.approveStudent(studentId: student.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingStudents.remove(at: index)
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Success", message: "\(student.fullName) has been approved and can now login.")
+                    self.showAlert(title: "Success", message: "\(student.full_name) has been approved and can now login.")
                 }
             } catch {
                 await MainActor.run {
@@ -645,7 +599,7 @@ class AdminApprovalViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Decline Student",
-            message: "Decline registration for \(student.fullName)?",
+            message: "Decline registration for \(student.full_name)?",
             preferredStyle: .alert
         )
         
@@ -657,19 +611,20 @@ class AdminApprovalViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func performStudentDecline(student: StudentRegistration, at index: Int) {
+    private func performStudentDecline(student: SupabaseManager.StudentRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.declineStudent(studentId: student.id, adminEmail: adminEmail)
+                // ✅ Decline in Supabase
+                try await SupabaseManager.shared.declineStudent(studentId: student.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingStudents.remove(at: index)
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Declined", message: "\(student.fullName)'s registration has been declined.")
+                    self.showAlert(title: "Declined", message: "\(student.full_name)'s registration has been declined.")
                 }
             } catch {
                 await MainActor.run {
@@ -694,7 +649,7 @@ class AdminApprovalViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Approve Mentor",
-            message: "Approve registration for \(mentor.fullName)?",
+            message: "Approve registration for \(mentor.full_name)?",
             preferredStyle: .alert
         )
         
@@ -706,19 +661,20 @@ class AdminApprovalViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func performMentorApproval(mentor: MentorRegistration, at index: Int) {
+    private func performMentorApproval(mentor: SupabaseManager.MentorRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.approveMentor(mentorId: mentor.id, adminEmail: adminEmail)
+                // ✅ Approve in Supabase
+                try await SupabaseManager.shared.approveMentor(mentorId: mentor.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingMentors.remove(at: index)
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Success", message: "\(mentor.fullName) has been approved and can now login.")
+                    self.showAlert(title: "Success", message: "\(mentor.full_name) has been approved and can now login.")
                 }
             } catch {
                 await MainActor.run {
@@ -734,7 +690,7 @@ class AdminApprovalViewController: UIViewController {
         
         let alert = UIAlertController(
             title: "Decline Mentor",
-            message: "Decline registration for \(mentor.fullName)?",
+            message: "Decline registration for \(mentor.full_name)?",
             preferredStyle: .alert
         )
         
@@ -746,19 +702,20 @@ class AdminApprovalViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func performMentorDecline(mentor: MentorRegistration, at index: Int) {
+    private func performMentorDecline(mentor: SupabaseManager.MentorRegistration, at index: Int) {
         showLoadingIndicator()
         
         Task {
             do {
-                try await FirebaseManager.shared.declineMentor(mentorId: mentor.id, adminEmail: adminEmail)
+                // ✅ Decline in Supabase
+                try await SupabaseManager.shared.declineMentor(mentorId: mentor.id, adminEmail: adminEmail)
                 
                 await MainActor.run {
                     self.pendingMentors.remove(at: index)
                     self.updateUI()
                     self.hideLoadingIndicator()
                     
-                    self.showAlert(title: "Declined", message: "\(mentor.fullName)'s registration has been declined.")
+                    self.showAlert(title: "Declined", message: "\(mentor.full_name)'s registration has been declined.")
                 }
             } catch {
                 await MainActor.run {
@@ -774,12 +731,12 @@ class AdminApprovalViewController: UIViewController {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Logout", style: .destructive) { _ in
-            do {
-                try Auth.auth().signOut()
-                self.navigateToLogin()
-            } catch {
-                self.showAlert(title: "Error", message: "Failed to logout: \(error.localizedDescription)")
-            }
+            // ✅ Clear UserDefaults instead of Firebase Auth
+            UserDefaults.standard.removeObject(forKey: "current_user_email")
+            UserDefaults.standard.removeObject(forKey: "current_person_id")
+            UserDefaults.standard.removeObject(forKey: "is_logged_in")
+            
+            self.navigateToLogin()
         })
         
         present(alert, animated: true)
@@ -853,70 +810,5 @@ class AdminApprovalViewController: UIViewController {
             completion?()
         })
         present(alert, animated: true)
-    }
-}
-
-
-
-extension AdminApprovalViewController {
-    
-    /// Approve student and migrate to Supabase
-    func performStudentApprovalWithMigration(student: StudentRegistration, at index: Int) {
-        showLoadingIndicator()
-        
-        Task {
-            do {
-                // 1. Approve in Firebase
-                try await FirebaseManager.shared.approveStudent(studentId: student.id, adminEmail: adminEmail)
-                print("✅ Student approved in Firebase")
-                
-                // 2. Migrate to Supabase
-                try await FirebaseToSupabaseMigration.shared.migrateApprovedStudent(email: student.email)
-                print("✅ Student migrated to Supabase")
-                
-                await MainActor.run {
-                    self.pendingStudents.remove(at: index)
-                    self.updateUI()
-                    self.hideLoadingIndicator()
-                    
-                    self.showAlert(title: "Success", message: "\(student.fullName) has been approved and synced to the system. They can now login.")
-                }
-            } catch {
-                await MainActor.run {
-                    self.hideLoadingIndicator()
-                    self.showAlert(title: "Error", message: "Failed to approve student: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-    
-    /// Approve mentor and migrate to Supabase
-    func performMentorApprovalWithMigration(mentor: MentorRegistration, at index: Int) {
-        showLoadingIndicator()
-        
-        Task {
-            do {
-                // 1. Approve in Firebase
-                try await FirebaseManager.shared.approveMentor(mentorId: mentor.id, adminEmail: adminEmail)
-                print("✅ Mentor approved in Firebase")
-                
-                // 2. Migrate to Supabase
-                try await FirebaseToSupabaseMigration.shared.migrateApprovedMentor(email: mentor.email)
-                print("✅ Mentor migrated to Supabase")
-                
-                await MainActor.run {
-                    self.pendingMentors.remove(at: index)
-                    self.updateUI()
-                    self.hideLoadingIndicator()
-                    
-                    self.showAlert(title: "Success", message: "\(mentor.fullName) has been approved and synced to the system. They can now login.")
-                }
-            } catch {
-                await MainActor.run {
-                    self.hideLoadingIndicator()
-                    self.showAlert(title: "Error", message: "Failed to approve mentor: \(error.localizedDescription)")
-                }
-            }
-        }
     }
 }

@@ -2,12 +2,12 @@
 //  ApprovedMentorsViewController.swift
 //  iCohort3
 //
-//  Beautiful UI with profile avatars and styled cards
-//  FIXED: Removed sorting to work without Firebase index
+//  ✅ FIXED: Uses Supabase instead of Firebase
 //
 
 import UIKit
-import FirebaseFirestore
+import PostgREST
+import Supabase
 
 class ApprovedMentorsViewController: UIViewController {
     
@@ -44,12 +44,11 @@ class ApprovedMentorsViewController: UIViewController {
     
     // MARK: - Setup
     private func setupUI() {
-        view.backgroundColor = UIColor(red: 239/255, green: 239/255, blue: 245/255, alpha: 1.0) // #EFEFF5
+        view.backgroundColor = UIColor(red: 239/255, green: 239/255, blue: 245/255, alpha: 1.0)
         
         navigationItem.title = "Approved Mentors"
         navigationItem.largeTitleDisplayMode = .never
         
-        // Setup custom back button
         backButton.backgroundColor = .white
         backButton.layer.cornerRadius = 22
         backButton.layer.shadowColor = UIColor.black.cgColor
@@ -66,14 +65,12 @@ class ApprovedMentorsViewController: UIViewController {
         
         view.addSubview(backButton)
         
-        // Setup search bar
         searchBar.delegate = self
         searchBar.placeholder = "Search mentors..."
         searchBar.searchBarStyle = .minimal
         searchBar.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(searchBar)
         
-        // Setup table view
         mentorsTableView.delegate = self
         mentorsTableView.dataSource = self
         mentorsTableView.register(BeautifulMentorCell.self, forCellReuseIdentifier: "BeautifulMentorCell")
@@ -83,11 +80,9 @@ class ApprovedMentorsViewController: UIViewController {
         mentorsTableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(mentorsTableView)
         
-        // Add refresh control
         refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
         mentorsTableView.refreshControl = refreshControl
         
-        // Layout
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -132,30 +127,48 @@ class ApprovedMentorsViewController: UIViewController {
         }
     }
     
+    // ✅ FIXED: Query Supabase instead of Firebase
     private func fetchApprovedMentors() async throws -> [ApprovedMentor] {
-        // Filter by instituteName (now properly saved during approval!)
-        let query = FirebaseManager.shared.db.collection("approved_mentors")
-            .whereField("instituteName", isEqualTo: instituteName)
-        
-        let snapshot = try await query.getDocuments()
-        
-        print("📊 Found \(snapshot.documents.count) approved mentors for institute: \(instituteName)")
-        
-        var mentors = snapshot.documents.compactMap { doc in
-            let data = doc.data()
-            return ApprovedMentor(
-                id: doc.documentID,
-                fullName: data["fullName"] as? String ?? "",
-                employeeId: data["employeeId"] as? String ?? "",
-                designation: data["designation"] as? String ?? "",
-                department: data["department"] as? String ?? "",
-                email: data["email"] as? String ?? "",
-                approvedAt: (data["approvedAt"] as? Timestamp)?.dateValue() ?? Date()
-            )
+        struct MentorProfileDB: Codable {
+            let person_id: String
+            let first_name: String?
+            let last_name: String?
+            let email: String?
+            let employee_id: String?
+            let designation: String?
+            let department: String?
+            let institute_name: String?
+            let approved_at: String?
         }
         
-        mentors.sort { $0.approvedAt > $1.approvedAt }
+        let profiles: [MentorProfileDB] = try await SupabaseManager.shared.client
+            .from("mentor_profiles")
+            .select("person_id, first_name, last_name, email, employee_id, designation, department, institute_name, approved_at")
+            .eq("institute_name", value: instituteName)
+            .execute()
+            .value
         
+        let isoFormatter = ISO8601DateFormatter()
+        
+        let mentors = profiles.compactMap { profile -> ApprovedMentor? in
+            let fullName = [profile.first_name, profile.last_name]
+                .compactMap { $0 }
+                .joined(separator: " ")
+            
+            let approvedDate = profile.approved_at.flatMap { isoFormatter.date(from: $0) } ?? Date()
+            
+            return ApprovedMentor(
+                id: profile.person_id,
+                fullName: fullName.isEmpty ? (profile.email ?? "Unknown") : fullName,
+                employeeId: profile.employee_id ?? "",
+                designation: profile.designation ?? "",
+                department: profile.department ?? "",
+                email: profile.email ?? "",
+                approvedAt: approvedDate
+            )
+        }.sorted { $0.approvedAt > $1.approvedAt }
+        
+        print("✅ Found \(mentors.count) approved mentors for institute: \(instituteName)")
         return mentors
     }
     
@@ -254,7 +267,6 @@ class BeautifulMentorCell: UITableViewCell {
         backgroundColor = .clear
         selectionStyle = .none
         
-        // Container
         containerView.backgroundColor = .white
         containerView.layer.cornerRadius = 16
         containerView.layer.shadowColor = UIColor.black.cgColor
@@ -264,7 +276,6 @@ class BeautifulMentorCell: UITableViewCell {
         containerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(containerView)
         
-        // Profile Image
         profileImageView.contentMode = .scaleAspectFill
         profileImageView.clipsToBounds = true
         profileImageView.layer.cornerRadius = 30
@@ -272,19 +283,16 @@ class BeautifulMentorCell: UITableViewCell {
         profileImageView.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(profileImageView)
         
-        // Name Label
         nameLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         nameLabel.textColor = .label
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(nameLabel)
         
-        // Email Label
         emailLabel.font = .systemFont(ofSize: 14, weight: .regular)
         emailLabel.textColor = .secondaryLabel
         emailLabel.translatesAutoresizingMaskIntoConstraints = false
         containerView.addSubview(emailLabel)
         
-        // Department Badge
         departmentBadge.font = .systemFont(ofSize: 13, weight: .medium)
         departmentBadge.textColor = .systemBlue
         departmentBadge.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.12)
@@ -324,7 +332,6 @@ class BeautifulMentorCell: UITableViewCell {
         emailLabel.text = mentor.email
         departmentBadge.text = "  \(mentor.department)  "
         
-        // Set profile image with generated avatar
         let initial = String(mentor.fullName.prefix(1)).uppercased()
         profileImageView.image = generateProfileImage(initial: initial, name: mentor.fullName)
     }
