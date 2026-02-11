@@ -2,7 +2,7 @@
 //  AdminDashboardViewController.swift
 //  iCohort3
 //
-//  ✅ FIXED: Uses Supabase instead of Firebase
+//  ✅ FIXED: Uses correct UserDefaults key "admin_email" instead of "current_user_email"
 //
 
 import UIKit
@@ -261,65 +261,129 @@ class AdminDashboardViewController: UIViewController {
     
     // MARK: - Data Loading
     private func getAdminInfo() {
-        adminEmail = UserDefaults.standard.string(forKey: "current_user_email") ?? ""
+        // ✅ FIXED: Changed from "current_user_email" to "admin_email"
+        adminEmail = UserDefaults.standard.string(forKey: "admin_email") ?? ""
+        
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🔍 ADMIN DASHBOARD - GET ADMIN INFO")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("📧 Admin email from UserDefaults:", adminEmail)
+        
+        guard !adminEmail.isEmpty else {
+            print("❌ ERROR: Admin email is EMPTY!")
+            print("   UserDefaults keys:", UserDefaults.standard.dictionaryRepresentation().keys)
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            
+            DispatchQueue.main.async {
+                self.institutionLabel.text = "Error: No admin email found"
+                self.showAlert(title: "Error", message: "Admin session not found. Please login again.")
+            }
+            return
+        }
         
         Task {
             do {
+                print("🔍 Fetching institute for admin email:", adminEmail)
+                
                 if let institute = try await SupabaseManager.shared.getInstitute(byAdminEmail: adminEmail) {
+                    print("✅ INSTITUTE FOUND!")
+                    print("   ID:", institute.id)
+                    print("   Name:", institute.name)
+                    print("   Domain:", institute.domain)
+                    print("   Admin Email:", institute.admin_email)
+                    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    
                     await MainActor.run {
                         self.instituteName = institute.name
                         self.instituteDomain = institute.domain
                         self.institutionLabel.text = institute.name
-                        loadAllData()
+                        
+                        print("✅ Updated UI with institute name:", institute.name)
+                        print("🔄 Now loading pending data...")
+                        
+                        self.loadAllData()
+                    }
+                } else {
+                    print("❌ ERROR: No institute found for admin:", adminEmail)
+                    print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    
+                    await MainActor.run {
+                        self.institutionLabel.text = "Institute not found"
+                        self.showAlert(title: "Error", message: "No institute found for admin email: \(self.adminEmail)\n\nPlease register your institute first.")
                     }
                 }
             } catch {
-                print("Error fetching institute:", error.localizedDescription)
+                print("❌ EXCEPTION fetching institute:", error.localizedDescription)
+                print("   Error type:", type(of: error))
+                print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                
+                await MainActor.run {
+                    self.institutionLabel.text = "Error loading institute"
+                    self.showAlert(title: "Error", message: "Failed to load institute: \(error.localizedDescription)")
+                }
             }
         }
     }
     
+    // In AdminDashboardViewController.swift
+
     private func loadAllData() {
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🔄 LOAD ALL DATA (INSTITUTE-FILTERED)")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("📧 Admin Email:", adminEmail)
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        guard !adminEmail.isEmpty else {
+            print("❌ ERROR: Admin email is EMPTY")
+            return
+        }
+        
         showLoadingIndicator()
         
         Task {
             do {
-                async let students = SupabaseManager.shared.getPendingStudents(forDomain: instituteDomain)
-                async let mentors = SupabaseManager.shared.getPendingMentors(forInstituteName: instituteName)
-                async let approvedStudents = SupabaseManager.shared.countApprovedStudents(forDomain: instituteDomain)
-                async let approvedMentors = SupabaseManager.shared.countApprovedMentors(forInstituteName: instituteName)
+                // ✅ Use new institute-aware function
+                let stats = try await SupabaseManager.shared.getInstituteStatistics(adminEmail: adminEmail)
                 
-                let teamsCount: Int
-                do {
-                    teamsCount = try await SupabaseManager.shared.fetchTeamsCount()
-                } catch {
-                    print("⚠️ Error fetching teams count:", error.localizedDescription)
-                    teamsCount = 0
-                }
+                print("✅ STATISTICS LOADED:")
+                print("   Institute: \(stats.instituteName)")
+                print("   Domain: \(stats.instituteDomain)")
+                print("   Pending Students: \(stats.pendingStudents)")
+                print("   Pending Mentors: \(stats.pendingMentors)")
+                print("   Approved Students: \(stats.approvedStudents)")
+                print("   Approved Mentors: \(stats.approvedMentors)")
+                print("   Teams: \(stats.totalTeams)")
                 
-                let (loadedStudents, loadedMentors, studentsCount, mentorsCount) =
-                    try await (students, mentors, approvedStudents, approvedMentors)
+                // Get detailed pending lists
+                let students = try await SupabaseManager.shared.getPendingStudentsForAdmin(adminEmail: adminEmail)
+                let mentors = try await SupabaseManager.shared.getPendingMentorsForAdmin(adminEmail: adminEmail)
                 
                 await MainActor.run {
-                    self.pendingStudents = loadedStudents
-                    self.pendingMentors = loadedMentors
-                    self.approvedStudentsCount = studentsCount
-                    self.approvedMentorsCount = mentorsCount
-                    self.teamsCount = teamsCount
+                    self.instituteName = stats.instituteName
+                    self.instituteDomain = stats.instituteDomain
+                    self.pendingStudents = students
+                    self.pendingMentors = mentors
+                    self.approvedStudentsCount = stats.approvedStudents
+                    self.approvedMentorsCount = stats.approvedMentors
+                    self.teamsCount = stats.totalTeams
+                    
                     self.updateUI()
                     self.hideLoadingIndicator()
+                    
+                    print("✅ UI UPDATED with institute-filtered data")
                 }
+                
             } catch {
+                print("❌ ERROR loading data:", error.localizedDescription)
+                
                 await MainActor.run {
                     self.hideLoadingIndicator()
-                    print("❌ Load data error: \(error.localizedDescription)")
-                    self.teamsCount = 0
-                    self.updateUI()
+                    self.showAlert(title: "Error", message: "Failed to load data: \(error.localizedDescription)")
                 }
             }
         }
     }
-    
     private func updateUI() {
         approvedStudentsCard.updateCount("\(approvedStudentsCount)")
         approvedMentorsCard.updateCount("\(approvedMentorsCount)")
@@ -722,6 +786,11 @@ class AdminDashboardViewController: UIViewController {
         
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Logout", style: .destructive) { _ in
+            // ✅ Clear all admin-related UserDefaults keys
+            UserDefaults.standard.removeObject(forKey: "admin_email")
+            UserDefaults.standard.removeObject(forKey: "admin_institute_name")
+            UserDefaults.standard.removeObject(forKey: "admin_institute_domain")
+            UserDefaults.standard.removeObject(forKey: "is_admin")
             UserDefaults.standard.removeObject(forKey: "current_user_email")
             UserDefaults.standard.removeObject(forKey: "current_person_id")
             UserDefaults.standard.removeObject(forKey: "is_logged_in")

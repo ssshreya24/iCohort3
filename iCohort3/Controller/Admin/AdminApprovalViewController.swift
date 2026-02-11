@@ -148,21 +148,35 @@ class AdminApprovalViewController: UIViewController {
     }
     
     private func getAdminInfo() {
-        // ✅ Get admin email from UserDefaults (saved during login)
-        adminEmail = UserDefaults.standard.string(forKey: "current_user_email") ?? ""
+        // ✅ Use consistent key with AdminDashboardViewController
+        adminEmail = UserDefaults.standard.string(forKey: "admin_email") ?? ""
+        
+        // Add debug logging
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🔍 ADMIN APPROVAL - GET ADMIN INFO")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("📧 Admin email from UserDefaults:", adminEmail)
+        
+        guard !adminEmail.isEmpty else {
+            print("❌ ERROR: Admin email is EMPTY!")
+            print("   UserDefaults keys:", UserDefaults.standard.dictionaryRepresentation().keys)
+            return
+        }
         
         Task {
             do {
-                // ✅ Get institute from Supabase
                 if let institute = try await SupabaseManager.shared.getInstitute(byAdminEmail: adminEmail) {
                     await MainActor.run {
                         self.instituteDomain = institute.domain
                         self.instituteName = institute.name
+                        print("✅ Institute loaded:", institute.name)
                         loadPendingData()
                     }
+                } else {
+                    print("❌ No institute found for admin:", adminEmail)
                 }
             } catch {
-                print("Error fetching institute:", error.localizedDescription)
+                print("❌ Error fetching institute:", error.localizedDescription)
             }
         }
     }
@@ -171,20 +185,20 @@ class AdminApprovalViewController: UIViewController {
         updateUI()
     }
     
+    // In AdminApprovalViewController.swift
+
     private func loadPendingData() {
         showLoadingIndicator()
         
         Task {
             do {
-                // ✅ Load from Supabase
-                async let students = SupabaseManager.shared.getPendingStudents(forDomain: instituteDomain)
-                async let mentors = SupabaseManager.shared.getPendingMentors(forInstituteName: instituteName)
-                
-                let (loadedStudents, loadedMentors) = try await (students, mentors)
+                // ✅ Use institute-aware functions
+                let students = try await SupabaseManager.shared.getPendingStudentsForAdmin(adminEmail: adminEmail)
+                let mentors = try await SupabaseManager.shared.getPendingMentorsForAdmin(adminEmail: adminEmail)
                 
                 await MainActor.run {
-                    self.pendingStudents = loadedStudents
-                    self.pendingMentors = loadedMentors
+                    self.pendingStudents = students
+                    self.pendingMentors = mentors
                     self.updateUI()
                     self.hideLoadingIndicator()
                 }

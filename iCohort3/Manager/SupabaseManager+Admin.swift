@@ -35,15 +35,49 @@ extension SupabaseManager {
     
     // MARK: - Get Teams Count
     
-    /// ✅ NEW: Fetch total teams count
+    /// ✅ IMPROVED: Fetch total teams count with error handling
     func fetchTeamsCount() async throws -> Int {
-        let rows: [AdminTeamRow] = try await client
-            .from("teams")
-            .select("id")
-            .execute()
-            .value
+        print("🔍 Fetching teams count from database...")
         
-        return rows.count
+        do {
+            // Try to use count query first (more efficient)
+            let response = try await client
+                .from("teams")
+                .select("id", head: false, count: .exact)
+                .execute()
+
+            // Try to get count from response directly (it's already an Int?)
+            if let count = response.count {
+                print("✅ Found \(count) teams (from count)")
+                return count
+            }
+            
+            // Fallback: decode the actual rows
+            let rows: [AdminTeamRow] = try await client
+                .from("teams")
+                .select("id")
+                .execute()
+                .value
+            
+            print("✅ Found \(rows.count) teams (from rows)")
+            return rows.count
+            
+        } catch {
+            print("⚠️ Error fetching teams count:", error.localizedDescription)
+            print("   Error details:", error)
+            
+            // Check if it's a "table doesn't exist" error
+            if error.localizedDescription.contains("relation") ||
+               error.localizedDescription.contains("does not exist") ||
+               error.localizedDescription.contains("missing") {
+                print("ℹ️ Teams table may not exist yet, returning 0")
+                return 0
+            }
+            
+            // For other errors, return 0 to prevent dashboard crash
+            print("ℹ️ Returning 0 to prevent dashboard crash")
+            return 0
+        }
     }
     
     // MARK: - Fetch Teams for Institute
@@ -144,3 +178,4 @@ extension SupabaseManager {
         print("✅ Mentor removed from team \(teamId)")
     }
 }
+

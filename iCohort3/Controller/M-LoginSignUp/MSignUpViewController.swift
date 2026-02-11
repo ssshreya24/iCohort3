@@ -2,237 +2,253 @@
 //  MSignUpViewController.swift
 //  iCohort3
 //
-//  ✅ SUPABASE ONLY - No Firebase dependencies
+//  ✅ ENHANCED: Institute selection with domain-based approval routing
 //
 
 import UIKit
 
 class MSignUpViewController: UIViewController {
-
+    
     @IBOutlet weak var fullNameContainer: UIView!
     @IBOutlet weak var emailContainer: UIView!
-    @IBOutlet weak var employeeField: UITextField!
-    @IBOutlet weak var employeeView: UIView!
-    @IBOutlet weak var designationField: UITextField!
-    @IBOutlet weak var designationView: UIView!
+    @IBOutlet weak var employeeIdContainer: UIView!
+    @IBOutlet weak var designationContainer: UIView!
+    @IBOutlet weak var departmentContainer: UIView!
+    @IBOutlet weak var instituteContainer: UIView!
     @IBOutlet weak var passwordContainer: UIView!
-    @IBOutlet weak var confirmContainer: UIView!
-    @IBOutlet weak var signUpButton: UIButton!
+    @IBOutlet weak var confirmPasswordContainer: UIView!
+    
     @IBOutlet weak var fullNameField: UITextField!
     @IBOutlet weak var emailField: UITextField!
+    @IBOutlet weak var employeeIdField: UITextField!
+    @IBOutlet weak var designationField: UITextField!
     @IBOutlet weak var departmentField: UITextField!
-    @IBOutlet weak var departmentView: UIView!
-    @IBOutlet weak var passwordField: UITextField!
-    @IBOutlet weak var confirmField: UITextField!
-    @IBOutlet weak var instituteView: UIView!
     @IBOutlet weak var instituteField: UITextField!
-    @IBOutlet weak var instituteButton: UIButton!
+    @IBOutlet weak var passwordField: UITextField!
+    @IBOutlet weak var confirmPasswordField: UITextField!
+    
+    @IBOutlet weak var signUpButton: UIButton!
+    @IBOutlet weak var backButton: UIButton!
     
     private var loadingIndicator: UIActivityIndicatorView?
-
+    private var selectedInstitute: SupabaseManager.Institute?
+    private var availableInstitutes: [SupabaseManager.Institute] = []
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupBackButton()
-        roundViews()
-        setupInstituteDropdownTextField()
+        setupUI()
         setupPlaceholders()
+        loadInstitutes()
     }
     
-    private let institutes = [
-        "SRM Institute of Science and Technology",
-        "Maharashtra Institute of Technology World Peace University (MIT-WPU)",
-        "Galgotias University",
-        "Graphic Era University, Dehradun",
-        "Chandigarh University",
-    ]
-
-    func setupPlaceholders() {
-        fullNameField.placeholder = "Enter your full name"
-        emailField.placeholder = "Enter your email address"
-        employeeField.placeholder = "Enter your employee ID"
-        designationField.placeholder = "Enter your designation"
-        departmentField.placeholder = "Enter your department"
-        passwordField.placeholder = "Enter your password"
-        confirmField.placeholder = "Confirm your password"
-        
-        passwordField.isSecureTextEntry = true
-        confirmField.isSecureTextEntry = true
-    }
+    // MARK: - Setup
     
-    func roundViews() {
-        let containers = [fullNameContainer, emailContainer, designationView, employeeView, departmentView, passwordContainer, confirmContainer, instituteView]
+    func setupUI() {
+        let containers = [
+            fullNameContainer, emailContainer, employeeIdContainer,
+            designationContainer, departmentContainer, instituteContainer,
+            passwordContainer, confirmPasswordContainer
+        ]
         
-        for view in containers {
-            view?.layer.cornerRadius = 20
-            view?.layer.borderWidth  = 0
-            view?.layer.borderColor  = UIColor.systemGray4.cgColor
-            view?.layer.masksToBounds = true
-            view?.backgroundColor    = .white
+        for container in containers {
+            container?.layer.cornerRadius = 20
+            container?.layer.masksToBounds = true
+            container?.backgroundColor = .white
         }
         
         signUpButton.layer.cornerRadius = 20
         signUpButton.layer.masksToBounds = true
-        signUpButton.backgroundColor = UIColor(named: "Primary")
         
-        signUpButton.layer.shadowColor = UIColor.black.cgColor
-        signUpButton.layer.shadowOpacity = 0.15
-        signUpButton.layer.shadowOffset = CGSize(width: 0, height: 4)
-        signUpButton.layer.shadowRadius = 8
-        signUpButton.layer.masksToBounds = false
+        passwordField.isSecureTextEntry = true
+        confirmPasswordField.isSecureTextEntry = true
+        
+        // Setup institute picker
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(showInstitutePicker))
+        instituteContainer.addGestureRecognizer(tapGesture)
+        instituteField.isUserInteractionEnabled = false
     }
     
-    private func setupInstituteDropdownTextField() {
-        instituteField.placeholder = "Select Institute"
-        instituteField.textColor = .label
-
-        // Disable typing & keyboard
-        instituteField.tintColor = .clear
-        instituteField.delegate = self
-
-        // Container view for proper sizing & centering
-        let rightContainer = UIView(frame: CGRect(x: 0, y: 0, width: 44, height: 44))
-
-        // Chevron button
-        let chevronButton = UIButton(type: .system)
-
-        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-        let chevronImage = UIImage(systemName: "chevron.down", withConfiguration: config)
-
-        chevronButton.setImage(chevronImage, for: .normal)
-        chevronButton.tintColor = .gray
-        chevronButton.frame = CGRect(x: 10, y: 10, width: 24, height: 24)
-
-        // Dropdown menu
-        let actions = institutes.map { institute in
-            UIAction(title: institute) { _ in
-                self.instituteField.text = institute
+    func setupPlaceholders() {
+        fullNameField.placeholder = "Enter your full name"
+        emailField.placeholder = "Enter your institutional email"
+        employeeIdField.placeholder = "Enter your employee ID"
+        designationField.placeholder = "e.g., Assistant Professor"
+        departmentField.placeholder = "e.g., Computer Science"
+        instituteField.placeholder = "Select your institute"
+        passwordField.placeholder = "Enter your password"
+        confirmPasswordField.placeholder = "Confirm your password"
+        
+        emailField.autocapitalizationType = .none
+        emailField.keyboardType = .emailAddress
+    }
+    
+    // MARK: - Load Institutes
+    
+    private func loadInstitutes() {
+        Task {
+            do {
+                let institutes = try await SupabaseManager.shared.getAllInstitutes()
+                await MainActor.run {
+                    self.availableInstitutes = institutes
+                    print("✅ Loaded \(institutes.count) institutes")
+                }
+            } catch {
+                print("❌ Error loading institutes:", error.localizedDescription)
+                await MainActor.run {
+                    self.showAlert(title: "Error", message: "Failed to load institutes. Please try again.")
+                }
             }
         }
-
-        chevronButton.menu = UIMenu(children: actions)
-        chevronButton.showsMenuAsPrimaryAction = true
-
-        rightContainer.addSubview(chevronButton)
-
-        instituteField.rightView = rightContainer
-        instituteField.rightViewMode = .always
-    }
-
-    private func setupBackButton() {
-        let backButton = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
-        let image = UIImage(systemName: "chevron.left", withConfiguration: config)
-        backButton.setImage(image, for: .normal)
-        
-        backButton.tintColor = UIColor.black
-        backButton.backgroundColor = UIColor.white
-        backButton.layer.cornerRadius = 22
-        backButton.layer.masksToBounds = true
-        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        view.addSubview(backButton)
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            backButton.widthAnchor.constraint(equalToConstant: 44),
-            backButton.heightAnchor.constraint(equalToConstant: 44)
-        ])
     }
     
-    @objc private func backTapped() {
-        if let navigationController = self.navigationController {
-            navigationController.popViewController(animated: true)
-        } else {
-            dismiss(animated: true, completion: nil)
+    @objc private func showInstitutePicker() {
+        guard !availableInstitutes.isEmpty else {
+            showAlert(title: "No Institutes", message: "No institutes are registered yet. Please contact support.")
+            return
         }
+        
+        let alert = UIAlertController(title: "Select Institute", message: nil, preferredStyle: .actionSheet)
+        
+        for institute in availableInstitutes {
+            let action = UIAlertAction(title: "\(institute.name) (@\(institute.domain))", style: .default) { [weak self] _ in
+                self?.selectInstitute(institute)
+            }
+            alert.addAction(action)
+        }
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = instituteContainer
+            popover.sourceRect = instituteContainer.bounds
+        }
+        
+        present(alert, animated: true)
     }
+    
+    private func selectInstitute(_ institute: SupabaseManager.Institute) {
+        selectedInstitute = institute
+        instituteField.text = "\(institute.name) (@\(institute.domain))"
+        print("✅ Selected institute:", institute.name, "with domain:", institute.domain)
+    }
+    
+    // MARK: - Validation
+    
+    private func validateInputs() -> (isValid: Bool, message: String?) {
+        guard let fullName = fullNameField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !fullName.isEmpty else {
+            return (false, "Please enter your full name")
+        }
+        
+        guard let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !email.isEmpty else {
+            return (false, "Please enter your email address")
+        }
+        
+        // Email validation
+        let emailRegex = "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}$"
+        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        guard emailPredicate.evaluate(with: email) else {
+            return (false, "Please enter a valid email address")
+        }
+        
+        // ✅ Validate email domain matches selected institute
+        guard let institute = selectedInstitute else {
+            return (false, "Please select your institute")
+        }
+        
+        guard email.hasSuffix("@\(institute.domain)") else {
+            return (false, "Email must be from \(institute.domain) domain for \(institute.name)")
+        }
+        
+        guard let employeeId = employeeIdField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !employeeId.isEmpty else {
+            return (false, "Please enter your employee ID")
+        }
+        
+        guard let designation = designationField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !designation.isEmpty else {
+            return (false, "Please enter your designation")
+        }
+        
+        guard let department = departmentField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !department.isEmpty else {
+            return (false, "Please enter your department")
+        }
+        
+        guard let password = passwordField.text, !password.isEmpty else {
+            return (false, "Please enter a password")
+        }
+        
+        guard password.count >= 6 else {
+            return (false, "Password must be at least 6 characters")
+        }
+        
+        guard let confirmPassword = confirmPasswordField.text, !confirmPassword.isEmpty else {
+            return (false, "Please confirm your password")
+        }
+        
+        guard password == confirmPassword else {
+            return (false, "Passwords do not match")
+        }
+        
+        return (true, nil)
+    }
+    
+    // MARK: - Actions
     
     @IBAction func signUpTapped(_ sender: UIButton) {
         view.endEditing(true)
         
-        // Validate all fields
-        guard let name = fullNameField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
-            showAlert(title: "Error", message: "Please enter your full name")
+        let validation = validateInputs()
+        guard validation.isValid else {
+            showAlert(title: "Validation Error", message: validation.message ?? "Please check your inputs")
             return
         }
         
-        guard let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
-            showAlert(title: "Error", message: "Please enter your email address")
+        guard let fullName = fullNameField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let email = emailField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              let employeeId = employeeIdField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let designation = designationField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let department = departmentField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let password = passwordField.text,
+              let institute = selectedInstitute else {
             return
         }
         
-        guard let employeeID = employeeField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !employeeID.isEmpty else {
-            showAlert(title: "Error", message: "Please enter your employee ID")
-            return
-        }
-        
-        guard let designation = designationField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !designation.isEmpty else {
-            showAlert(title: "Error", message: "Please enter your designation")
-            return
-        }
-        
-        guard let department = departmentField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !department.isEmpty else {
-            showAlert(title: "Error", message: "Please enter your department")
-            return
-        }
-        
-        guard let institute = instituteField.text, !institute.isEmpty else {
-            showAlert(title: "Error", message: "Please select your institute")
-            return
-        }
-        
-        guard let password = passwordField.text, !password.isEmpty else {
-            showAlert(title: "Error", message: "Please enter a password")
-            return
-        }
-        
-        guard let confirm = confirmField.text, !confirm.isEmpty else {
-            showAlert(title: "Error", message: "Please confirm your password")
-            return
-        }
-        
-        // Validate password match
-        guard password == confirm else {
-            showAlert(title: "Error", message: "Passwords do not match")
-            return
-        }
-        
-        // Validate password strength
-        guard password.count >= 6 else {
-            showAlert(title: "Weak Password", message: "Password must be at least 6 characters")
-            return
-        }
-        
-        // Disable button and show loading
         signUpButton.isEnabled = false
         showLoadingIndicator()
         
-        // Perform registration
         performRegistration(
-            name: name,
+            fullName: fullName,
             email: email,
-            employeeID: employeeID,
+            employeeId: employeeId,
             designation: designation,
             department: department,
-            institute: institute,
+            instituteName: institute.name,
+            instituteDomain: institute.domain,
             password: password
         )
     }
     
     private func performRegistration(
-        name: String,
+        fullName: String,
         email: String,
-        employeeID: String,
+        employeeId: String,
         designation: String,
         department: String,
-        institute: String,
+        instituteName: String,
+        instituteDomain: String,
         password: String
     ) {
         Task {
             do {
-                print("📝 Starting mentor registration in Supabase:", email)
+                print("📝 Starting mentor registration...")
+                print("   Email:", email)
+                print("   Institute:", instituteName)
+                print("   Domain:", instituteDomain)
                 
-                // ✅ Check if mentor already registered in Supabase
+                // ✅ Check if mentor already registered
                 let status = try? await SupabaseManager.shared.checkMentorApproval(email: email)
                 
                 if let status = status {
@@ -244,11 +260,11 @@ class MSignUpViewController: UIViewController {
                         
                         switch status {
                         case "pending":
-                            showAlert(title: "Pending Approval", message: "Your registration is pending approval from the institute. Please wait for confirmation.")
+                            showAlert(title: "Pending Approval", message: "Your registration is pending approval from \(instituteName). Please wait for confirmation.")
                         case "approved":
                             showAlert(title: "Already Registered", message: "You are already registered and approved. Please login.")
                         case "declined":
-                            showAlert(title: "Registration Declined", message: "Your registration was declined by the institute. Please contact your administrator.")
+                            showAlert(title: "Registration Declined", message: "Your registration was declined. Please contact your administrator.")
                         default:
                             showAlert(title: "Already Registered", message: "This email is already registered.")
                         }
@@ -256,20 +272,21 @@ class MSignUpViewController: UIViewController {
                     return
                 }
                 
-                print("✅ No existing registration found, proceeding with new registration")
+                print("✅ No existing registration found, proceeding...")
                 
-                // ✅ Register mentor in Supabase with pending status
-                let mentorId = try await SupabaseManager.shared.registerMentor(
-                    fullName: name,
+                // ✅ Register with BOTH institute name and domain
+                let mentorId = try await SupabaseManager.shared.registerMentorWithDomain(
+                    fullName: fullName,
                     email: email,
-                    employeeId: employeeID,
+                    employeeId: employeeId,
                     designation: designation,
                     department: department,
-                    instituteName: institute,
+                    instituteName: instituteName,
+                    instituteDomain: instituteDomain,
                     password: password
                 )
                 
-                print("✅ Mentor registered in Supabase with ID:", mentorId)
+                print("✅ Mentor registered with ID:", mentorId)
                 
                 await MainActor.run {
                     hideLoadingIndicator()
@@ -277,14 +294,13 @@ class MSignUpViewController: UIViewController {
                     
                     showAlert(
                         title: "Registration Submitted",
-                        message: "Your mentor registration has been submitted for approval. You will be able to login once your institute (\(institute)) approves your registration."
+                        message: "Your registration has been submitted for approval to \(instituteName). You will be able to login once approved."
                     ) {
                         self.navigationController?.popViewController(animated: true)
                     }
                 }
                 
             } catch SupabaseError.alreadyRegistered {
-                print("❌ Error: Already registered")
                 await MainActor.run {
                     hideLoadingIndicator()
                     signUpButton.isEnabled = true
@@ -300,6 +316,10 @@ class MSignUpViewController: UIViewController {
                 }
             }
         }
+    }
+    
+    @IBAction func backButtonTapped(_ sender: UIButton) {
+        navigationController?.popViewController(animated: true)
     }
     
     // MARK: - Helper Methods
@@ -322,8 +342,6 @@ class MSignUpViewController: UIViewController {
             self.view.isUserInteractionEnabled = false
             
             self.loadingIndicator = indicator
-            
-            print("🔄 Loading indicator shown")
         }
     }
     
@@ -334,8 +352,6 @@ class MSignUpViewController: UIViewController {
             self.loadingIndicator?.removeFromSuperview()
             self.loadingIndicator = nil
             self.view.isUserInteractionEnabled = true
-            
-            print("✋ Loading indicator hidden")
         }
     }
     
@@ -347,17 +363,5 @@ class MSignUpViewController: UIViewController {
             })
             self.present(alert, animated: true)
         }
-    }
-}
-
-extension MSignUpViewController: UITextFieldDelegate {
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        if textField == instituteField { return false }
-        return true
-    }
-
-    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
-        if textField == instituteField { return false }
-        return true
     }
 }

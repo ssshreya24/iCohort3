@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24506" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24504"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
@@ -11,20 +11,21 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="MSignUpViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
-                <outlet property="confirmContainer" destination="gdX-iy-WKd" id="V38-Nz-CKY"/>
-                <outlet property="confirmField" destination="a1J-kr-NO9" id="Wba-N0-Z2V"/>
+                <outlet property="backButton" destination="ayy-Rv-iPf" id="cqQ-fI-sAl"/>
+                <outlet property="confirmPasswordContainer" destination="gdX-iy-WKd" id="Xw0-B9-AFd"/>
+                <outlet property="confirmPasswordField" destination="a1J-kr-NO9" id="Zuq-PL-vHW"/>
+                <outlet property="departmentContainer" destination="5Ce-jT-22a" id="5RB-Xo-1fZ"/>
                 <outlet property="departmentField" destination="Eso-mg-3Yk" id="gFr-8G-n1V"/>
-                <outlet property="departmentView" destination="5Ce-jT-22a" id="F9H-fm-mO3"/>
+                <outlet property="designationContainer" destination="PCZ-Re-eUU" id="Sbu-5C-6wK"/>
                 <outlet property="designationField" destination="piI-L1-503" id="I3l-dE-zLr"/>
-                <outlet property="designationView" destination="PCZ-Re-eUU" id="2lC-d6-kz3"/>
                 <outlet property="emailContainer" destination="oDK-s3-RoQ" id="g4a-uC-xyL"/>
                 <outlet property="emailField" destination="D4R-9N-Btr" id="MSG-di-AdN"/>
-                <outlet property="employeeField" destination="ygO-Fe-vYj" id="pCC-ba-LVY"/>
-                <outlet property="employeeView" destination="acO-n1-ZeK" id="zDD-Ic-NSb"/>
+                <outlet property="employeeIdContainer" destination="acO-n1-ZeK" id="5A6-LG-dcN"/>
+                <outlet property="employeeIdField" destination="ygO-Fe-vYj" id="4EI-pn-Plh"/>
                 <outlet property="fullNameContainer" destination="itF-mb-fpM" id="b1p-Rm-ezJ"/>
                 <outlet property="fullNameField" destination="nYg-0V-9d2" id="xBD-ZX-8fT"/>
+                <outlet property="instituteContainer" destination="svf-Nq-PYS" id="imf-jC-5e2"/>
                 <outlet property="instituteField" destination="YqM-uY-FAt" id="Mct-DY-764"/>
-                <outlet property="instituteView" destination="svf-Nq-PYS" id="O5u-0l-eNU"/>
                 <outlet property="passwordContainer" destination="EuO-hn-6Bv" id="tVx-Wz-O63"/>
                 <outlet property="passwordField" destination="zc7-E5-5no" id="55O-M6-P4m"/>
                 <outlet property="signUpButton" destination="9EV-0k-yKs" id="fR5-3a-l9W"/>
@@ -393,15 +394,32 @@
                         <constraint firstItem="mEo-hE-ur1" firstAttribute="top" secondItem="Bs6-MH-fVH" secondAttribute="top" id="xwf-zL-BZ6"/>
                     </constraints>
                 </scrollView>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="ayy-Rv-iPf">
+                    <rect key="frame" x="20" y="79" width="44" height="44"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="44" id="p7M-uP-wnN"/>
+                        <constraint firstAttribute="width" constant="44" id="uso-uV-Lj3"/>
+                    </constraints>
+                    <state key="normal" title="Button"/>
+                    <buttonConfiguration key="configuration" style="filled" image="chevron.left" catalog="system" cornerStyle="capsule">
+                        <color key="baseForegroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <color key="baseBackgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    </buttonConfiguration>
+                    <connections>
+                        <action selector="backButtonTapped:" destination="-1" eventType="touchUpInside" id="ZHu-qV-djf"/>
+                    </connections>
+                </button>
             </subviews>
             <viewLayoutGuide key="safeArea" id="op6-be-gYx"/>
             <color key="backgroundColor" name="bg"/>
             <constraints>
+                <constraint firstItem="ayy-Rv-iPf" firstAttribute="top" secondItem="cG0-a1-eDN" secondAttribute="top" constant="79" id="Kt5-SA-0xN"/>
                 <constraint firstItem="Bs6-MH-fVH" firstAttribute="bottom" secondItem="op6-be-gYx" secondAttribute="bottom" id="XQj-m3-rfs"/>
                 <constraint firstItem="op6-be-gYx" firstAttribute="trailing" secondItem="Bs6-MH-fVH" secondAttribute="trailing" id="ZtC-fj-ul0"/>
                 <constraint firstItem="mEo-hE-ur1" firstAttribute="width" secondItem="cG0-a1-eDN" secondAttribute="width" id="nR2-v7-fh5"/>
                 <constraint firstItem="Bs6-MH-fVH" firstAttribute="top" secondItem="op6-be-gYx" secondAttribute="top" id="pAe-wi-fIv"/>
                 <constraint firstItem="Bs6-MH-fVH" firstAttribute="leading" secondItem="op6-be-gYx" secondAttribute="leading" id="rbi-q1-VtY"/>
+                <constraint firstItem="ayy-Rv-iPf" firstAttribute="leading" secondItem="cG0-a1-eDN" secondAttribute="leading" constant="20" id="z42-nz-pyG"/>
             </constraints>
             <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
             <point key="canvasLocation" x="0.76335877862595414" y="133.80281690140845"/>
@@ -409,6 +427,7 @@
     </objects>
     <resources>
         <image name="briefcase.fill" catalog="system" width="128" height="100"/>
+        <image name="chevron.left" catalog="system" width="97" height="128"/>
         <image name="graduationcap" catalog="system" width="128" height="107"/>
         <image name="lock.fill" catalog="system" width="111" height="128"/>
         <image name="logo" width="356" height="334"/>

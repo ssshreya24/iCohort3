@@ -480,6 +480,8 @@ extension SupabaseManager {
     
     // MARK: - Mentor Registration
     
+    // In SupabaseManager+Authentication.swift
+
     struct MentorRegistration: Codable, Sendable {
         let id: String
         let full_name: String
@@ -488,6 +490,7 @@ extension SupabaseManager {
         let designation: String
         let department: String
         let institute_name: String
+        let institute_domain: String? // ✅ NEW: For domain-based routing
         let approval_status: String
         let approved_by: String?
         let approved_at: String?
@@ -631,7 +634,9 @@ extension SupabaseManager {
         return verified
     }
     
-    /// Approve mentor registration
+    // In SupabaseManager+Authentication.swift
+
+    /// Approve mentor registration (enhanced with domain)
     func approveMentor(mentorId: String, adminEmail: String) async throws {
         print("🔄 Approving mentor:", mentorId)
         
@@ -695,7 +700,7 @@ extension SupabaseManager {
             let is_profile_complete: Bool
         }
         
-        // Get password hash from registration
+        // Get password hash
         struct RegistrationHash: Codable {
             let password_hash: String
         }
@@ -809,39 +814,40 @@ extension SupabaseManager {
     // MARK: - Count Functions
     
     /// Count approved students for a domain
+    // MARK: - Count Functions
+
+    /// Count approved students for a domain
     func countApprovedStudents(forDomain domain: String) async throws -> Int {
-        struct CountResponse: Codable {
-            let count: Int
-        }
+        print("🔍 Counting approved students for domain:", domain)
         
-        let response: [CountResponse] = try await client
+        let students: [StudentRegistration] = try await client
             .from("student_registrations")
-            .select("id", count: .exact)
+            .select()
             .eq("institute_domain", value: domain)
             .eq("approval_status", value: "approved")
             .execute()
             .value
         
-        // Supabase returns count in the header, need to parse differently
-        // For now, just count the results
-        return response.count
+        let count = students.count
+        print("✅ Found \(count) approved students")
+        return count
     }
-    
+
     /// Count approved mentors for an institute
     func countApprovedMentors(forInstituteName name: String) async throws -> Int {
-        struct CountResponse: Codable {
-            let count: Int
-        }
+        print("🔍 Counting approved mentors for institute:", name)
         
-        let response: [CountResponse] = try await client
+        let mentors: [MentorRegistration] = try await client
             .from("mentor_registrations")
-            .select("id", count: .exact)
+            .select()
             .eq("institute_name", value: name)
             .eq("approval_status", value: "approved")
             .execute()
             .value
         
-        return response.count
+        let count = mentors.count
+        print("✅ Found \(count) approved mentors")
+        return count
     }
 }
 
@@ -879,5 +885,136 @@ enum SupabaseError: Error, LocalizedError {
         case .notApproved:
             return "Your registration is not yet approved. Please wait for admin approval."
         }
+    }
+}
+
+
+// Add to SupabaseManager+Authentication.swift
+
+extension SupabaseManager {
+    
+    // MARK: - Enhanced Mentor Registration with Domain
+    
+    /// Register a mentor with both institute name and domain for proper routing
+    func registerMentorWithDomain(
+        fullName: String,
+        email: String,
+        employeeId: String,
+        designation: String,
+        department: String,
+        instituteName: String,
+        instituteDomain: String,
+        password: String
+    ) async throws -> String {
+        print("🔄 Registering mentor with domain routing:")
+        print("   Email:", email)
+        print("   Institute:", instituteName)
+        print("   Domain:", instituteDomain)
+        
+        // Check if already registered
+        let existing: [MentorRegistration] = try await client
+            .from("mentor_registrations")
+            .select()
+            .eq("email", value: email)
+            .limit(1)
+            .execute()
+            .value
+        
+        if !existing.isEmpty {
+            throw SupabaseError.alreadyRegistered
+        }
+        
+        // ✅ NEW: Insert with institute_domain for routing
+        struct MentorInsertWithDomain: Encodable {
+            let full_name: String
+            let email: String
+            let employee_id: String
+            let designation: String
+            let department: String
+            let password_hash: String
+            let institute_name: String
+            let institute_domain: String // ✅ NEW FIELD
+        }
+        
+        let passwordHash = hashPassword(password)
+        
+        let insert = MentorInsertWithDomain(
+            full_name: fullName,
+            email: email,
+            employee_id: employeeId,
+            designation: designation,
+            department: department,
+            password_hash: passwordHash,
+            institute_name: instituteName,
+            institute_domain: instituteDomain
+        )
+        
+        struct RegistrationResponse: Codable {
+            let id: String
+        }
+        
+        let response: [RegistrationResponse] = try await client
+            .from("mentor_registrations")
+            .insert(insert)
+            .select("id")
+            .execute()
+            .value
+        
+        guard let registrationId = response.first?.id else {
+            throw SupabaseError.insertFailed
+        }
+        
+        print("✅ Mentor registered with domain routing. ID:", registrationId)
+        return registrationId
+    }
+    
+    // MARK: - Get All Institutes (for selection)
+    
+    /// Fetch all registered institutes for mentor selection
+    func getAllInstitutes() async throws -> [Institute] {
+        let institutes: [Institute] = try await client
+            .from("institutes")
+            .select()
+            .order("name")
+            .execute()
+            .value
+        
+        return institutes
+    }
+    
+    // MARK: - Domain-Based Mentor Approval Routing
+    
+    /// Get pending mentors for admin's institute BY DOMAIN (not just name)
+    func getPendingMentorsByDomain(instituteDomain: String) async throws -> [MentorRegistration] {
+        print("🔍 Fetching pending mentors for domain:", instituteDomain)
+        
+        let mentors: [MentorRegistration] = try await client
+            .from("mentor_registrations")
+            .select()
+            .eq("institute_domain", value: instituteDomain)
+            .eq("approval_status", value: "pending")
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        
+        print("✅ Found \(mentors.count) pending mentors for domain:", instituteDomain)
+        return mentors
+    }
+    
+    /// Count approved mentors by domain
+    func countApprovedMentorsByDomain(instituteDomain: String) async throws -> Int {
+        print("🔍 Counting approved mentors for domain:", instituteDomain)
+        
+        let mentors: [MentorRegistration] = try await client
+            .from("mentor_registrations")
+            .select()
+            .eq("institute_domain", value: instituteDomain)
+            .eq("approval_status", value: "approved")
+            .execute()
+            .value
+        
+        let count = mentors.count
+        print("✅ Found \(count) approved mentors for domain:", instituteDomain)
+        return count
     }
 }
