@@ -1,6 +1,6 @@
 import UIKit
-import FirebaseAuth
 import SwiftUI
+import Supabase
 
 enum TeamStartMode {
     case create
@@ -33,23 +33,21 @@ final class TeamViewController: UIViewController {
         let avatar: UIImage?
     }
 
-    enum MemberSlot {
-        case filled(UIImage)
-        case empty
-        case addSlot
-    }
-
     var startMode: TeamStartMode = .create
     private var showingSent = true
 
     private var currentTeam: SupabaseManager.NewTeamRow?
 
-    // ✅ Keep BOTH forms once, never convert repeatedly
-    private var myPersonUUID: UUID?
-    private var myUserId: String = ""          // person_id uuidString
+    // Identity
+    private var myUserId: String = ""   // person_id uuidString
     private var myName: String = "Student"
 
+    // ✅ fetched from public.student_profile_complete
+    private var myRegNo: String = ""
+    private var myDept: String = ""
+
     private var members: [MemberSlot] = [.empty, .empty, .empty]
+
     private var sentRequests: [SentRequest] = []
     private var receivedRequests: [ReceivedRequest] = []
 
@@ -74,8 +72,11 @@ final class TeamViewController: UIViewController {
 
         collectionView.register(UINib(nibName: "TeamSummaryCell", bundle: nil),
                                 forCellWithReuseIdentifier: "TeamSummaryCell")
-        collectionView.register(UINib(nibName: "MemberAvatarCell", bundle: nil),
+
+        // ✅ MemberAvatarCell is programmatic
+        collectionView.register(MemberAvatarCell.self,
                                 forCellWithReuseIdentifier: "MemberAvatarCell")
+
         collectionView.register(UINib(nibName: "RequestSwitcherCell", bundle: nil),
                                 forCellWithReuseIdentifier: "RequestSwitcherCell")
         collectionView.register(UINib(nibName: "RequestItemCell", bundle: nil),
@@ -103,16 +104,22 @@ final class TeamViewController: UIViewController {
 
             case .members:
                 let item = NSCollectionLayoutItem(
-                    layoutSize: .init(widthDimension: .fractionalWidth(1.0/3.0),
-                                      heightDimension: .absolute(72))
+                    layoutSize: .init(
+                        widthDimension: .fractionalWidth(1.0/3.0),
+                        heightDimension: .absolute(132)
+                    )
                 )
                 item.contentInsets = .init(top: 0, leading: 8, bottom: 0, trailing: 8)
 
                 let group = NSCollectionLayoutGroup.horizontal(
-                    layoutSize: .init(widthDimension: .fractionalWidth(1.0),
-                                      heightDimension: .absolute(72)),
-                    subitems: [item, item, item]
+                    layoutSize: .init(
+                        widthDimension: .fractionalWidth(1.0),
+                        heightDimension: .absolute(132)
+                    ),
+                    subitem: item,
+                    count: 3
                 )
+
                 let s = NSCollectionLayoutSection(group: group)
                 s.contentInsets = .init(top: 8, leading: 16, bottom: 8, trailing: 16)
                 return s
@@ -153,40 +160,50 @@ final class TeamViewController: UIViewController {
 
     private func bootstrapIdentityAndLoad() async {
 
-        // ✅ 0) Ensure still logged in (optional but safe)
-        let firebaseUid = Auth.auth().currentUser?.uid ?? ""
-        if firebaseUid.isEmpty {
-            await MainActor.run {
-                self.showAlert(title: "Login Required", message: "Please login again.")
-            }
+        if let storedPersonId = UserDefaults.standard.string(forKey: "current_person_id"),
+           !storedPersonId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            myUserId = storedPersonId
+            await loadAllForCurrentUser()
             return
         }
-
-        // ✅ 1) DO NOT MAP UID AGAIN.
-        // Use person_id stored by migration at login.
-        let storedPersonId = UserDefaults.standard.string(forKey: "current_person_id") ?? ""
-        if storedPersonId.isEmpty {
-            await MainActor.run {
-                self.showAlert(title: "Session Missing", message: "No person_id found. Please login again.")
-            }
-            return
-        }
-
-        myUserId = storedPersonId
-        myPersonUUID = UUID(uuidString: storedPersonId) // may be nil if not uuid, but ok
 
         do {
-            // ✅ 2) Fetch name using person_id -> student_profile_complete
-            myName = (try? await SupabaseManager.shared.fetchStudentFullName(personIdString: myUserId)) ?? "Student"
-
-            // ✅ 3) Load or create team
-            await loadOrCreateTeamIfNeeded(personIdString: myUserId)
-
-            // ✅ 4) Load requests
-            await loadRequests()
-
+            let personId = try await SupabaseManager.shared.currentPersonId()
+            myUserId = personId
+            UserDefaults.standard.set(personId, forKey: "current_person_id")
+            await loadAllForCurrentUser()
         } catch {
-            await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
+            await MainActor.run {
+                self.showAlert(title: "Login Required", message: "Session missing. Please login again.")
+            }
+        }
+    }
+
+    private func loadAllForCurrentUser() async {
+        myName = (try? await SupabaseManager.shared.fetchStudentFullName(personIdString: myUserId)) ?? "Student"
+
+        // ✅ fetch from public.student_profile_complete (department, reg_no)
+        do {
+            let mini = try await SupabaseManager.shared.fetchStudentMiniProfile(personIdString: myUserId)
+            myRegNo = mini.reg_no ?? ""
+            myDept  = mini.department ?? ""
+
+            print("✅ student_profile_complete fetched")
+            print("person_id:", myUserId)
+            print("reg_no:", myRegNo)
+            print("department:", myDept)
+        } catch {
+            myRegNo = ""
+            myDept = ""
+            print("❌ student_profile_complete fetch FAILED:", error.localizedDescription)
+            print("person_id:", myUserId)
+        }
+
+        await loadOrCreateTeamIfNeeded(personIdString: myUserId)
+        await loadRequests()
+
+        await MainActor.run {
+            self.collectionView.reloadSections(IndexSet(integer: Section.members.rawValue))
         }
     }
 
@@ -197,14 +214,9 @@ final class TeamViewController: UIViewController {
             if let team = try await SupabaseManager.shared.fetchActiveTeamForUser(userId: personIdString) {
                 currentTeam = team
             } else {
-                if startMode == .create {
-                    currentTeam = try await SupabaseManager.shared.createTeamIfNone(
-                        personIdString: personIdString,
-                        fallbackUserName: myName
-                    )
-                } else {
-                    currentTeam = nil
-                }
+                currentTeam = (startMode == .create)
+                ? try await SupabaseManager.shared.createTeamIfNone(personIdString: personIdString, fallbackUserName: myName)
+                : nil
             }
 
             await MainActor.run {
@@ -212,7 +224,6 @@ final class TeamViewController: UIViewController {
                 self.configureActionButton()
                 self.collectionView.reloadData()
             }
-
         } catch {
             await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
         }
@@ -232,7 +243,7 @@ final class TeamViewController: UIViewController {
                     requestId: $0.id,
                     studentId: $0.toStudentId,
                     studentName: $0.toStudentName,
-                    avatar: UIImage(systemName: "person.circle")
+                    avatar: UIImage(systemName: "person.crop.circle.fill")
                 )
             }
 
@@ -241,7 +252,7 @@ final class TeamViewController: UIViewController {
                     requestId: $0.id,
                     fromStudentId: $0.fromStudentId,
                     studentName: $0.fromStudentName,
-                    avatar: UIImage(systemName: "person.circle.fill")
+                    avatar: UIImage(systemName: "person.crop.circle.fill")
                 )
             }
 
@@ -250,7 +261,6 @@ final class TeamViewController: UIViewController {
                 self.receivedRequests = mappedIncoming
                 self.collectionView.reloadSections(IndexSet(integer: Section.requests.rawValue))
             }
-
         } catch {
             await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
         }
@@ -259,48 +269,48 @@ final class TeamViewController: UIViewController {
     // MARK: - Open Student List (SwiftUI)
 
     private func openStudentListToSendRequest() {
-        // ✅ Pass the required params
         let view = StudentListView(myPersonId: myUserId, myName: myName) { [weak self] in
             guard let self else { return }
-            Task { await self.loadRequests() }   // refresh sent requests after sending
+            Task { await self.loadRequests() }
         }
 
         let hosting = UIHostingController(rootView: view)
-        hosting.title = "Students"
+        hosting.title = "Add Members"
         navigationController?.pushViewController(hosting, animated: true)
     }
-
 
     // MARK: - UI
 
     private func applyTeamToUI() {
         guard let team = currentTeam else {
-            members = (startMode == .create) ? [.addSlot, .empty, .empty] : [.empty, .empty, .empty]
+            if startMode == .create {
+                let initial = String(myName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1))
+                members = [.currentInitial(initial.isEmpty ? "S" : initial), .addSlot, .addSlot]
+            } else {
+                members = [.empty, .empty, .empty]
+            }
             return
         }
 
-        let creatorAvatar = UIImage(systemName: "person.crop.circle.fill") ?? UIImage()
-        let memberAvatar  = UIImage(systemName: "person.circle") ?? UIImage()
+        let icon = UIImage(systemName: "person.crop.circle.fill") ?? UIImage()
 
         var slots: [MemberSlot] = []
-        slots.append(.filled(creatorAvatar))
+        let initial = String(myName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1))
+        slots.append(.currentInitial(initial.isEmpty ? "S" : initial))
 
         if team.member2Id == nil {
             slots.append(team.createdById == myUserId ? .addSlot : .empty)
         } else {
-            slots.append(.filled(memberAvatar))
+            slots.append(.filled(icon))
         }
 
         if team.member3Id == nil {
-            slots.append(.empty)
+            slots.append(team.createdById == myUserId ? .addSlot : .empty)
         } else {
-            slots.append(.filled(memberAvatar))
+            slots.append(.filled(icon))
         }
 
-        while slots.count < 3 { slots.append(.empty) }
-        if slots.count > 3 { slots = Array(slots.prefix(3)) }
-
-        members = slots
+        members = Array(slots.prefix(3))
     }
 
     private func configureActionButton() {
@@ -331,11 +341,9 @@ final class TeamViewController: UIViewController {
     @objc private func didTapDeleteTeam() {
         guard let team = currentTeam, team.createdById == myUserId else { return }
 
-        let alert = UIAlertController(
-            title: "Delete Team?",
-            message: "This will permanently delete the team.",
-            preferredStyle: .alert
-        )
+        let alert = UIAlertController(title: "Delete Team?",
+                                      message: "This will permanently delete the team.",
+                                      preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { _ in
             Task { await self.deleteTeamFlow(teamId: team.id) }
@@ -347,7 +355,6 @@ final class TeamViewController: UIViewController {
         do {
             try await SupabaseManager.shared.deleteTeam(teamId: teamId, creatorId: myUserId)
             currentTeam = nil
-
             await MainActor.run {
                 self.applyTeamToUI()
                 self.configureActionButton()
@@ -367,10 +374,12 @@ final class TeamViewController: UIViewController {
             message: "You will be removed from this team.",
             preferredStyle: .alert
         )
+
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Leave", style: .destructive) { _ in
             Task { await self.leaveTeamFlow(team: team) }
         })
+
         present(alert, animated: true)
     }
 
@@ -378,7 +387,6 @@ final class TeamViewController: UIViewController {
         do {
             try await SupabaseManager.shared.leaveTeam(team: team, userId: myUserId)
             currentTeam = try await SupabaseManager.shared.fetchActiveTeamForUser(userId: myUserId)
-
             await MainActor.run {
                 self.applyTeamToUI()
                 self.configureActionButton()
@@ -397,13 +405,9 @@ final class TeamViewController: UIViewController {
                 receiverId: myUserId,
                 receiverName: myName
             )
-
             await loadOrCreateTeamIfNeeded(personIdString: myUserId)
             await loadRequests()
-
-            await MainActor.run {
-                self.showAlert(title: "Accepted", message: "Request accepted and team updated.")
-            }
+            await MainActor.run { self.showAlert(title: "Accepted", message: "Request accepted and team updated.") }
         } catch {
             await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
         }
@@ -416,8 +420,6 @@ final class TeamViewController: UIViewController {
     }
 }
 
-// MARK: - Collection DataSource/Delegate
-
 extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelegate {
 
     func numberOfSections(in collectionView: UICollectionView) -> Int {
@@ -426,7 +428,6 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         guard let sec = Section(rawValue: section) else { return 0 }
-
         switch sec {
         case .summary:         return 1
         case .members:         return 3
@@ -435,7 +436,8 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
         }
     }
 
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+    func collectionView(_ collectionView: UICollectionView,
+                        cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
 
         guard let sec = Section(rawValue: indexPath.section) else {
             return UICollectionViewCell()
@@ -446,24 +448,14 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
         case .summary:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "TeamSummaryCell", for: indexPath) as! TeamSummaryCell
 
-            let title: String
-            if let team = currentTeam {
-                title = "Team \(team.teamNumber)"
-            } else {
-                title = (startMode == .create) ? "Creating..." : "No Active Team"
-            }
+            let title: String = (currentTeam != nil)
+                ? "Team \(currentTeam!.teamNumber)"
+                : ((startMode == .create) ? "Creating..." : "No Active Team")
 
-            cell.configure(
-                teamName: title,
-                icon: UIImage(systemName: "person.3.fill")?.withRenderingMode(.alwaysTemplate)
-            )
+            cell.configure(teamName: title,
+                           icon: UIImage(systemName: "person.3.fill")?.withRenderingMode(.alwaysTemplate))
 
-            cell.teamImageView.tintColor = UIColor(
-                red: 0x77/255.0,
-                green: 0x9C/255.0,
-                blue: 0xB3/255.0,
-                alpha: 1.0
-            )
+            cell.teamImageView.tintColor = UIColor(red: 0x77/255.0, green: 0x9C/255.0, blue: 0xB3/255.0, alpha: 1.0)
 
             cell.layoutIfNeeded()
             cell.circleView.layer.cornerRadius = cell.circleView.bounds.height / 2
@@ -472,18 +464,49 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
             return cell
 
         case .members:
-            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "MemberAvatarCell", for: indexPath) as! MemberAvatarCell
+            let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: "MemberAvatarCell",
+                for: indexPath
+            ) as! MemberAvatarCell
+
             let slot = members[indexPath.item]
 
-            cell.configure(slot: slot) { [weak self] in
-                guard let self else { return }
-                self.openStudentListToSendRequest()
+            let name: String?
+            let regNo: String?
+            let dept: String?
+
+            switch slot {
+            case .currentInitial:
+                name = myName
+                regNo = myRegNo
+                dept = myDept
+
+                print("🟦 UI currentInitial cell gets:", myName, myRegNo, myDept)
+
+            case .filled:
+                name = ""
+                regNo = ""
+                dept = ""
+
+            case .addSlot, .empty:
+                name = ""
+                regNo = ""
+                dept = ""
             }
+
+            cell.configure(
+                slot: slot,
+                name: name,
+                regNo: regNo,
+                dept: dept,
+                onTapAdd: { [weak self] in
+                    self?.openStudentListToSendRequest()
+                }
+            )
             return cell
 
         case .requestSwitcher:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "RequestSwitcherCell", for: indexPath) as! RequestSwitcherCell
-
             cell.configure(showingSent: showingSent) { [weak self] showSent in
                 guard let self else { return }
                 self.showingSent = showSent
@@ -496,9 +519,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
 
             if showingSent {
                 let item = sentRequests[indexPath.item]
-                cell.configureForSent(name: item.studentName, avatar: item.avatar) {
-                    print("Sent request tapped for \(item.studentName) requestId=\(item.requestId)")
-                }
+                cell.configureForSent(name: item.studentName, avatar: item.avatar) { }
             } else {
                 let item = receivedRequests[indexPath.item]
                 cell.configureForReceived(name: item.studentName, avatar: item.avatar) { [weak self] in

@@ -80,6 +80,8 @@ extension SupabaseManager {
         let regNo: String?
         let department: String?
         let isProfileComplete: Bool?
+        let teamId: String?
+        let teamNo: Int?
 
         enum CodingKeys: String, CodingKey {
             case personId = "person_id"
@@ -89,6 +91,8 @@ extension SupabaseManager {
             case regNo = "reg_no"
             case department
             case isProfileComplete = "is_profile_complete"
+            case teamId = "team_id"
+            case teamNo = "team_no"
         }
 
         var displayName: String {
@@ -238,15 +242,17 @@ extension SupabaseManager {
     }
 }
 
-// MARK: - Student List (✅ only is_profile_complete = true)
+// MARK: - Student List (✅ only is_profile_complete = true, no team)
 
 extension SupabaseManager {
 
     func fetchInvitableStudents(excludingPersonIdString personIdString: String) async throws -> [StudentProfileCompleteRow] {
         let rows: [StudentProfileCompleteRow] = try await self.client
             .from("student_profile_complete")
-            .select("person_id,full_name,first_name,last_name,reg_no,department,is_profile_complete")
+            .select("person_id,full_name,first_name,last_name,reg_no,department,is_profile_complete,team_id,team_no")
             .eq("is_profile_complete", value: true)
+            .is("team_id", value: nil)
+            .is("team_no", value: nil)
             .neq("person_id", value: personIdString)
             .order("full_name", ascending: true)
             .execute()
@@ -426,6 +432,9 @@ extension SupabaseManager {
                               userInfo: [NSLocalizedDescriptionKey: "Team creation failed: no row returned"])
             }
 
+            // Update student_profile_complete with team info
+            try await updateStudentTeamInfo(personId: personIdString, teamId: row.id, teamNo: row.teamNumber)
+
             return row
         } catch {
             if let existingAfterFail = try? await fetchActiveTeamForUser(userId: personIdString) {
@@ -436,6 +445,30 @@ extension SupabaseManager {
     }
 
     func deleteTeam(teamId: UUID, creatorId: String) async throws {
+        // First fetch the team to get all member IDs
+        let team: [NewTeamRow] = try await self.client
+            .from("new_teams")
+            .select("id,team_number,created_by_id,member2_id,member3_id")
+            .eq("id", value: teamId.uuidString)
+            .eq("created_by_id", value: creatorId)
+            .execute()
+            .value
+        
+        guard let teamRow = team.first else {
+            throw NSError(domain: "new_teams", code: -6,
+                          userInfo: [NSLocalizedDescriptionKey: "Team not found or you're not the creator"])
+        }
+        
+        // Clear team info from all members
+        var memberIds = [teamRow.createdById]
+        if let m2 = teamRow.member2Id { memberIds.append(m2) }
+        if let m3 = teamRow.member3Id { memberIds.append(m3) }
+        
+        for memberId in memberIds {
+            try? await clearStudentTeamInfo(personId: memberId)
+        }
+        
+        // Delete the team
         _ = try await self.client
             .from("new_teams")
             .delete()
@@ -456,6 +489,9 @@ extension SupabaseManager {
                 member3Id: team.member3Id, member3Name: team.member3Name
             )
             _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            
+            // Clear team info from student profile
+            try await clearStudentTeamInfo(personId: userId)
             return
         }
 
@@ -465,6 +501,9 @@ extension SupabaseManager {
                 member3Id: nil, member3Name: nil
             )
             _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            
+            // Clear team info from student profile
+            try await clearStudentTeamInfo(personId: userId)
             return
         }
 
@@ -484,6 +523,9 @@ extension SupabaseManager {
                 member3Id: team.member3Id, member3Name: team.member3Name
             )
             _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            
+            // Update student profile with team info
+            try await updateStudentTeamInfo(personId: memberId, teamId: team.id, teamNo: team.teamNumber)
             return
         }
 
@@ -493,11 +535,46 @@ extension SupabaseManager {
                 member3Id: memberId, member3Name: memberName
             )
             _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            
+            // Update student profile with team info
+            try await updateStudentTeamInfo(personId: memberId, teamId: team.id, teamNo: team.teamNumber)
             return
         }
 
         throw NSError(domain: "new_teams", code: -5,
                       userInfo: [NSLocalizedDescriptionKey: "Team is full"])
+    }
+    
+    // MARK: - Student Profile Team Info Management
+    
+    private struct StudentTeamUpdate: Encodable {
+        let teamId: String?
+        let teamNo: Int?
+        
+        enum CodingKeys: String, CodingKey {
+            case teamId = "team_id"
+            case teamNo = "team_no"
+        }
+    }
+    
+    private func updateStudentTeamInfo(personId: String, teamId: UUID, teamNo: Int) async throws {
+        let update = StudentTeamUpdate(teamId: teamId.uuidString, teamNo: teamNo)
+        
+        _ = try await self.client
+            .from("student_profile_complete")
+            .update(update)
+            .eq("person_id", value: personId)
+            .execute()
+    }
+    
+    private func clearStudentTeamInfo(personId: String) async throws {
+        let update = StudentTeamUpdate(teamId: nil, teamNo: nil)
+        
+        _ = try await self.client
+            .from("student_profile_complete")
+            .update(update)
+            .eq("person_id", value: personId)
+            .execute()
     }
 }
 
@@ -549,6 +626,7 @@ extension SupabaseManager {
         try await updateRequestStatus(requestId: requestId, status: "accepted")
     }
 }
+
 // MARK: - Join Teams list support (expects UUID person_id)
 
 extension SupabaseManager {
@@ -581,5 +659,47 @@ extension SupabaseManager {
             .value
 
         return rows
+    }
+}
+extension SupabaseManager {
+
+    struct StudentBasic: Decodable {
+        let reg_no: String?
+        let department: String?
+    }
+
+    func fetchStudentBasic(personId: String) async throws -> (regNo: String?, department: String?) {
+        let row: StudentBasic = try await client
+            .from("student_profile_complete")
+            .select("reg_no, department")
+            .eq("person_id", value: personId)
+            .single()
+            .execute()
+            .value
+
+        return (row.reg_no, row.department)
+    }
+}
+import Foundation
+import Supabase
+
+extension SupabaseManager {
+    
+    // Matches your table columns exactly: department, reg_no
+    struct StudentProfileMini: Decodable, Sendable {
+        let department: String?
+        let reg_no: String?
+    }
+    
+    /// Fetch current student's reg_no + department from public.student_profile_complete by person_id
+    func fetchStudentMiniProfile(personIdString: String) async throws -> StudentProfileMini {
+        let row: StudentProfileMini = try await client
+            .from("student_profile_complete")
+            .select("department, reg_no")
+            .eq("person_id", value: personIdString)
+            .single()
+            .execute()
+            .value
+        return row
     }
 }
