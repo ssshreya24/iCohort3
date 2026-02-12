@@ -2,146 +2,257 @@ import UIKit
 
 final class RequestItemCell: UICollectionViewCell {
 
-    // MARK: - Outlets
-    @IBOutlet weak var avatarView: UIImageView!
-    @IBOutlet weak var nameLabel: UILabel!
-    @IBOutlet weak var subtitleLabel: UILabel!
-    @IBOutlet weak var actionButton: UIButton!
+    private let rootStack = UIStackView()
 
-    // MARK: - Callback
-    private var onAction: (() -> Void)?
-    private var onSecondaryAction: (() -> Void)?   // for Reject (optional)
+    private let avatarCircle = UIView()
+    private let avatarImageView = UIImageView()
+    private let initialLabel = UILabel()
 
-    // MARK: - Lifecycle
-    override func awakeFromNib() {
-        super.awakeFromNib()
-        setupUI()
-        avatarView.tintColor = .systemGray2
+    private let textStack = UIStackView()
+    private let nameLabel = UILabel()
+    private let subtitleLabel = UILabel()
+
+    private let actionButton = UIButton(type: .system)
+    private let divider = UIView()
+
+    private var onTap: (() -> Void)?
+
+    private let accent = UIColor(red: 0x77/255.0, green: 0x9C/255.0, blue: 0xB3/255.0, alpha: 1.0)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        buildUI()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        buildUI()
     }
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        onAction = nil
-        onSecondaryAction = nil
+
+        onTap = nil
         nameLabel.text = nil
         subtitleLabel.text = nil
-        avatarView.image = nil
-        actionButton.isHidden = false
+        initialLabel.text = nil
+        divider.isHidden = false
+
+        avatarImageView.image = nil
+        avatarImageView.isHidden = true
+        initialLabel.isHidden = false
+
         actionButton.setTitle(nil, for: .normal)
-        actionButton.backgroundColor = .systemBlue
+        actionButton.isEnabled = true
+        actionButton.alpha = 1.0
+
+        actionButton.layer.borderColor = accent.withAlphaComponent(0.85).cgColor
+        actionButton.tintColor = accent
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        avatarView.layer.cornerRadius = avatarView.bounds.width / 2
+
+        avatarCircle.layer.cornerRadius = avatarCircle.bounds.height / 2
+        avatarCircle.layer.masksToBounds = true
+
+        // ✅ ensure the image also appears circular
+        avatarImageView.layer.cornerRadius = avatarCircle.bounds.height / 2
+        avatarImageView.layer.masksToBounds = true
+
+        actionButton.layer.cornerRadius = actionButton.bounds.height / 2
+        actionButton.layer.masksToBounds = true
     }
 
-    // MARK: - Setup
-    private func setupUI() {
-        avatarView.contentMode = .scaleAspectFill
-        avatarView.clipsToBounds = true
+    private func buildUI() {
+        contentView.backgroundColor = .clear
 
-        nameLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        subtitleLabel.font = .systemFont(ofSize: 13)
+        // Root stack
+        rootStack.axis = .horizontal
+        rootStack.alignment = .center
+        rootStack.distribution = .fill
+        rootStack.spacing = 12
+        rootStack.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(rootStack)
+
+        NSLayoutConstraint.activate([
+            rootStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            rootStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            rootStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            rootStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+        ])
+
+        // Avatar circle
+        avatarCircle.translatesAutoresizingMaskIntoConstraints = false
+        avatarCircle.backgroundColor = accent.withAlphaComponent(0.22)
+
+        NSLayoutConstraint.activate([
+            avatarCircle.widthAnchor.constraint(equalToConstant: 48),
+            avatarCircle.heightAnchor.constraint(equalToConstant: 48),
+        ])
+
+        // Avatar image (optional)
+        avatarImageView.translatesAutoresizingMaskIntoConstraints = false
+        avatarImageView.contentMode = .scaleAspectFill
+        avatarImageView.clipsToBounds = true
+        avatarImageView.isHidden = true
+        avatarCircle.addSubview(avatarImageView)
+
+        NSLayoutConstraint.activate([
+            avatarImageView.topAnchor.constraint(equalTo: avatarCircle.topAnchor),
+            avatarImageView.leadingAnchor.constraint(equalTo: avatarCircle.leadingAnchor),
+            avatarImageView.trailingAnchor.constraint(equalTo: avatarCircle.trailingAnchor),
+            avatarImageView.bottomAnchor.constraint(equalTo: avatarCircle.bottomAnchor),
+        ])
+
+        // Initial label (fallback)
+        initialLabel.translatesAutoresizingMaskIntoConstraints = false
+        initialLabel.textAlignment = .center
+        initialLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        initialLabel.textColor = .label
+        avatarCircle.addSubview(initialLabel)
+
+        NSLayoutConstraint.activate([
+            initialLabel.centerXAnchor.constraint(equalTo: avatarCircle.centerXAnchor),
+            initialLabel.centerYAnchor.constraint(equalTo: avatarCircle.centerYAnchor),
+        ])
+
+        // Text stack
+        textStack.axis = .vertical
+        textStack.alignment = .leading
+        textStack.distribution = .fill
+        textStack.spacing = 2
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+
+        nameLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        nameLabel.textColor = .label
+        nameLabel.numberOfLines = 1
+
+        subtitleLabel.font = .systemFont(ofSize: 15, weight: .regular)
         subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.numberOfLines = 1
 
-        actionButton.layer.cornerRadius = 6
-        actionButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        actionButton.backgroundColor = .systemBlue
-        actionButton.setTitleColor(.white, for: .normal)
+        textStack.addArrangedSubview(nameLabel)
+        textStack.addArrangedSubview(subtitleLabel)
+
+        // Action button
+        actionButton.translatesAutoresizingMaskIntoConstraints = false
+        actionButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        actionButton.tintColor = accent
+        actionButton.backgroundColor = .clear
+        actionButton.layer.borderWidth = 1.5
+        actionButton.layer.borderColor = accent.withAlphaComponent(0.85).cgColor
+        actionButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 18, bottom: 10, right: 18)
+
+        // ✅ prevent button shrinking weirdly
+        actionButton.setContentHuggingPriority(.required, for: .horizontal)
+        actionButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        actionButton.addTarget(self, action: #selector(didTap), for: .touchUpInside)
+
+        // Spacer
+        let spacer = UIView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        // Assemble
+        rootStack.addArrangedSubview(avatarCircle)
+        rootStack.addArrangedSubview(textStack)
+        rootStack.addArrangedSubview(spacer)
+        rootStack.addArrangedSubview(actionButton)
+
+        // Divider
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        divider.backgroundColor = UIColor.black.withAlphaComponent(0.12)
+        contentView.addSubview(divider)
+
+        NSLayoutConstraint.activate([
+            divider.heightAnchor.constraint(equalToConstant: 1),
+            divider.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 80),
+            divider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            divider.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+        ])
     }
 
-    // MARK: - NEW: Student row for "Send Request" segment
-    /// Shows: Name + "REG • Department" + [Send Request]
-    func configureStudentRow(
+    @objc private func didTap() {
+        onTap?()
+    }
+
+    // MARK: - Public Configs
+
+    /// Student list row (Send Requests tab)
+    func configure(
         name: String,
-        regNo: String,
-        department: String,
+        subtitle: String,
         avatar: UIImage? = nil,
-        onSendRequest: @escaping () -> Void
+        onTap: @escaping () -> Void,
+        showsDivider: Bool = true
     ) {
-        nameLabel.text = name
-        subtitleLabel.text = "\(regNo) • \(department)"
-        avatarView.image = avatar ?? UIImage(systemName: "person.circle")
-        avatarView.backgroundColor = .clear
-
-        actionButton.isHidden = false
-        actionButton.setTitle("Send Request", for: .normal)
-        actionButton.backgroundColor = .systemBlue
-
-        onAction = onSendRequest
-        onSecondaryAction = nil
+        self.onTap = onTap
+        actionButton.setTitle("Add", for: .normal)
+        actionButton.isEnabled = true
+        actionButton.alpha = 1.0
+        apply(name: name, subtitle: subtitle, avatar: avatar, showsDivider: showsDivider)
     }
 
-    // MARK: - NEW: Incoming request row for "Requests" segment
-    /// Shows: Requester name + "Requested to join your team" + [Accept]
-    /// (Reject can be handled in VC via swipe/action sheet; keeping cell simple)
-    func configureIncomingRequestRow(
-        requesterName: String,
-        subtitle: String = "Requested to join your team",
+    /// After invite already sent (optional usage)
+    func configureForSent(
+        name: String,
         avatar: UIImage? = nil,
-        onAccept: @escaping () -> Void
+        showsDivider: Bool = true
     ) {
-        nameLabel.text = requesterName
+        self.onTap = nil
+        actionButton.setTitle("Sent", for: .normal)
+        actionButton.isEnabled = false
+        actionButton.alpha = 0.7
+        apply(name: name, subtitle: "Invite Sent", avatar: avatar, showsDivider: showsDivider)
+    }
+
+    /// Received request row (Received Requests tab)
+    func configureForReceived(
+        name: String,
+        avatar: UIImage? = nil,
+        showsDivider: Bool = true,
+        onTap: @escaping () -> Void
+    ) {
+        self.onTap = onTap
+        actionButton.setTitle("Accept", for: .normal)
+        actionButton.isEnabled = true
+        actionButton.alpha = 1.0
+        apply(name: name, subtitle: "Invited you to join", avatar: avatar, showsDivider: showsDivider)
+    }
+
+    /// ✅ Use this when limit reached OR you want to disable Add for a student
+    func configureDisabled(
+        name: String,
+        subtitle: String,
+        avatar: UIImage? = nil,
+        showsDivider: Bool = true
+    ) {
+        self.onTap = nil
+        actionButton.setTitle("Add", for: .normal)
+        actionButton.isEnabled = false
+        actionButton.alpha = 0.5
+        apply(name: name, subtitle: subtitle, avatar: avatar, showsDivider: showsDivider)
+    }
+
+    // MARK: - Helpers
+
+    private func apply(name: String, subtitle: String, avatar: UIImage?, showsDivider: Bool) {
+        nameLabel.text = name
         subtitleLabel.text = subtitle
-        avatarView.image = avatar ?? UIImage(systemName: "person.circle.fill")
-        avatarView.backgroundColor = .clear
+        divider.isHidden = !showsDivider
 
-        actionButton.isHidden = false
-        actionButton.setTitle("Accept", for: .normal)
-        actionButton.backgroundColor = .systemGreen
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        initialLabel.text = trimmed.first.map { String($0).uppercased() } ?? "?"
 
-        onAction = onAccept
-        onSecondaryAction = nil
-    }
-
-    // MARK: - Existing: Join team card (you already use this)
-    func configureForJoin(
-        adminName: String,
-        avatar: UIImage?,
-        teamNumber: String,
-        members: [String],
-        onJoin: @escaping () -> Void
-    ) {
-        nameLabel.text = "\(adminName) (Team \(teamNumber))"
-        subtitleLabel.text = members.joined(separator: ", ")
-
-        avatarView.image = avatar ?? UIImage(systemName: "person.circle")
-        avatarView.backgroundColor = .systemGray2
-
-        actionButton.setTitle("Join", for: .normal)
-        actionButton.backgroundColor = .systemBlue
-        actionButton.isHidden = false
-
-        onAction = onJoin
-        onSecondaryAction = nil
-    }
-
-    // MARK: - (Optional) Fix your old functions if you still want them
-    func configureForSent(name: String, avatar: UIImage?, onSend: @escaping () -> Void) {
-        nameLabel.text = name
-        subtitleLabel.text = "Ready to send a request"
-        avatarView.image = avatar ?? UIImage(systemName: "person.circle")
-        actionButton.isHidden = false
-        actionButton.setTitle("Send", for: .normal)
-        actionButton.backgroundColor = .systemBlue
-        onAction = onSend
-        onSecondaryAction = nil
-    }
-
-    func configureForReceived(name: String, avatar: UIImage?, onAccept: @escaping () -> Void) {
-        nameLabel.text = name
-        subtitleLabel.text = "Requested you"
-        avatarView.image = avatar ?? UIImage(systemName: "person.circle.fill")
-        actionButton.setTitle("Accept", for: .normal)
-        actionButton.backgroundColor = .systemGreen
-        actionButton.isHidden = false
-        onAction = onAccept
-        onSecondaryAction = nil
-    }
-
-    // MARK: - Actions
-    @IBAction func actionButtonTapped(_ sender: UIButton) {
-        onAction?()
+        if let avatar = avatar {
+            avatarImageView.image = avatar
+            avatarImageView.isHidden = false
+            initialLabel.isHidden = true
+        } else {
+            avatarImageView.image = nil
+            avatarImageView.isHidden = true
+            initialLabel.isHidden = false
+        }
     }
 }

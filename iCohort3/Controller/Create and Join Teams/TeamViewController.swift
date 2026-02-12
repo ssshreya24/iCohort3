@@ -1,5 +1,4 @@
 import UIKit
-import SwiftUI
 import Supabase
 
 enum TeamStartMode {
@@ -19,43 +18,40 @@ final class TeamViewController: UIViewController {
         case requests
     }
 
-    struct SentRequest {
-        let requestId: UUID
-        let studentId: String
-        let studentName: String
-        let avatar: UIImage?
-    }
-
-    struct ReceivedRequest {
-        let requestId: UUID
-        let fromStudentId: String
-        let studentName: String
-        let avatar: UIImage?
-    }
-
     var startMode: TeamStartMode = .create
-    private var showingSent = true
+    private var showingSent = true  // ✅ TRUE = Send Requests (student list), FALSE = Received Requests
 
     private var currentTeam: SupabaseManager.NewTeamRow?
 
     // Identity
-    private var myUserId: String = ""   // person_id uuidString
+    private var myUserId: String = ""   // people.id (person_id uuidString)
     private var myName: String = "Student"
 
-    // ✅ fetched from public.student_profile_complete
+    // fetched from public.student_profile_complete
     private var myRegNo: String = ""
     private var myDept: String = ""
 
     private var members: [MemberSlot] = [.empty, .empty, .empty]
 
-    private var sentRequests: [SentRequest] = []
-    private var receivedRequests: [ReceivedRequest] = []
+    // ✅ Send Requests tab = student list
+    private var eligibleStudents: [SupabaseManager.StudentPickerRow] = []
+
+    // ✅ Used only to enforce max-2 invites
+    private var sentInvites: [SupabaseManager.TeamInviteRow] = []
+
+    // ✅ Received Requests tab = received invites
+    private var receivedInvites: [SupabaseManager.TeamInviteRow] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTitle()
         setupCollection()
         Task { await bootstrapIdentityAndLoad() }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        Task { await loadSendAndReceivedLists() } // ✅ refresh when coming back
     }
 
     private func setupTitle() {
@@ -73,13 +69,14 @@ final class TeamViewController: UIViewController {
         collectionView.register(UINib(nibName: "TeamSummaryCell", bundle: nil),
                                 forCellWithReuseIdentifier: "TeamSummaryCell")
 
-        // ✅ MemberAvatarCell is programmatic
         collectionView.register(MemberAvatarCell.self,
                                 forCellWithReuseIdentifier: "MemberAvatarCell")
 
         collectionView.register(UINib(nibName: "RequestSwitcherCell", bundle: nil),
                                 forCellWithReuseIdentifier: "RequestSwitcherCell")
-        collectionView.register(UINib(nibName: "RequestItemCell", bundle: nil),
+
+        // ✅ RequestItemCell is programmatic in your code snippet
+        collectionView.register(RequestItemCell.self,
                                 forCellWithReuseIdentifier: "RequestItemCell")
     }
 
@@ -104,18 +101,14 @@ final class TeamViewController: UIViewController {
 
             case .members:
                 let item = NSCollectionLayoutItem(
-                    layoutSize: .init(
-                        widthDimension: .fractionalWidth(1.0/3.0),
-                        heightDimension: .absolute(132)
-                    )
+                    layoutSize: .init(widthDimension: .fractionalWidth(1.0/3.0),
+                                      heightDimension: .absolute(132))
                 )
                 item.contentInsets = .init(top: 0, leading: 8, bottom: 0, trailing: 8)
 
                 let group = NSCollectionLayoutGroup.horizontal(
-                    layoutSize: .init(
-                        widthDimension: .fractionalWidth(1.0),
-                        heightDimension: .absolute(132)
-                    ),
+                    layoutSize: .init(widthDimension: .fractionalWidth(1.0),
+                                      heightDimension: .absolute(132)),
                     subitem: item,
                     count: 3
                 )
@@ -156,7 +149,7 @@ final class TeamViewController: UIViewController {
         }
     }
 
-    // MARK: - Bootstrap
+    // MARK: - Bootstrap Identity
 
     private func bootstrapIdentityAndLoad() async {
 
@@ -180,27 +173,22 @@ final class TeamViewController: UIViewController {
     }
 
     private func loadAllForCurrentUser() async {
-        myName = (try? await SupabaseManager.shared.fetchStudentFullName(personIdString: myUserId)) ?? "Student"
+        print("🟦 [TeamVC] myUserId =", myUserId)
 
-        // ✅ fetch from public.student_profile_complete (department, reg_no)
+        myName = (try? await SupabaseManager.shared.fetchStudentFullName(personIdString: myUserId)) ?? "Student"
+        print("🟦 [TeamVC] myName fetched =", myName)
+
         do {
             let mini = try await SupabaseManager.shared.fetchStudentMiniProfile(personIdString: myUserId)
             myRegNo = mini.reg_no ?? ""
             myDept  = mini.department ?? ""
-
-            print("✅ student_profile_complete fetched")
-            print("person_id:", myUserId)
-            print("reg_no:", myRegNo)
-            print("department:", myDept)
+            print("✅ [TeamVC] MiniProfile => reg:", myRegNo, "dept:", myDept)
         } catch {
-            myRegNo = ""
-            myDept = ""
-            print("❌ student_profile_complete fetch FAILED:", error.localizedDescription)
-            print("person_id:", myUserId)
+            print("❌ [TeamVC] MiniProfile fetch FAILED:", error.localizedDescription)
         }
 
         await loadOrCreateTeamIfNeeded(personIdString: myUserId)
-        await loadRequests()
+        await loadSendAndReceivedLists()
 
         await MainActor.run {
             self.collectionView.reloadSections(IndexSet(integer: Section.members.rawValue))
@@ -229,54 +217,97 @@ final class TeamViewController: UIViewController {
         }
     }
 
-    // MARK: - Requests
+    // MARK: - ✅ Send Requests = Student List | Received Requests = Invites
 
-    private func loadRequests() async {
+    private func loadSendAndReceivedLists() async {
         guard !myUserId.isEmpty else { return }
 
         do {
-            let sentRows = try await SupabaseManager.shared.fetchSentRequests(from: myUserId)
-            let incomingRows = try await SupabaseManager.shared.fetchIncomingRequests(for: myUserId)
+            print("🟦 [TeamVC] loadSendAndReceivedLists START")
 
-            let mappedSent: [SentRequest] = sentRows.map {
-                SentRequest(
-                    requestId: $0.id,
-                    studentId: $0.toStudentId,
-                    studentName: $0.toStudentName,
-                    avatar: UIImage(systemName: "person.crop.circle.fill")
-                )
-            }
+            // 1) Students list for SEND tab
+            let students = try await SupabaseManager.shared.fetchProfileCompleteStudents()
+            let filtered = students.filter { $0.person_id != myUserId } // remove self
+            print("✅ [TeamVC] eligibleStudents =", filtered.count)
 
-            let mappedIncoming: [ReceivedRequest] = incomingRows.map {
-                ReceivedRequest(
-                    requestId: $0.id,
-                    fromStudentId: $0.fromStudentId,
-                    studentName: $0.fromStudentName,
-                    avatar: UIImage(systemName: "person.crop.circle.fill")
-                )
+            // 2) Received invites for RECEIVED tab
+            let received = try await SupabaseManager.shared.fetchReceivedInvites(toPersonId: myUserId)
+            print("✅ [TeamVC] receivedInvites =", received.count)
+
+            // 3) Sent invites (only for max-2 rule)
+            if let team = currentTeam {
+                let sent = try await SupabaseManager.shared.fetchSentInvites(fromPersonId: myUserId, teamId: team.id)
+                print("✅ [TeamVC] sentInvites =", sent.count)
+                await MainActor.run { self.sentInvites = sent }
+            } else {
+                await MainActor.run { self.sentInvites = [] }
             }
 
             await MainActor.run {
-                self.sentRequests = mappedSent
-                self.receivedRequests = mappedIncoming
+                self.eligibleStudents = filtered
+                self.receivedInvites = received
                 self.collectionView.reloadSections(IndexSet(integer: Section.requests.rawValue))
             }
         } catch {
+            print("❌ [TeamVC] loadSendAndReceivedLists error:", error.localizedDescription)
             await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
         }
     }
 
-    // MARK: - Open Student List (SwiftUI)
+    // MARK: - Send Invite (max 2)
 
-    private func openStudentListToSendRequest() {
-        let view = StudentListView(myPersonId: myUserId, myName: myName) { [weak self] in
-            guard let self else { return }
-            Task { await self.loadRequests() }
+    private func inviteStudent(_ student: SupabaseManager.StudentPickerRow) {
+        guard let team = currentTeam else {
+            showAlert(title: "No Team", message: "Create a team first.")
+            return
         }
 
-        let hosting = UIHostingController(rootView: view)
-        hosting.title = "Add Members"
-        navigationController?.pushViewController(hosting, animated: true)
+        // ✅ Max 2 pending invites
+        if sentInvites.count >= 2 {
+            showAlert(title: "Limit Reached", message: "You can invite maximum 2 students.")
+            return
+        }
+
+        print("📨 [TeamVC] inviteStudent:", student.displayName, "id:", student.person_id)
+
+        Task {
+            do {
+                try await SupabaseManager.shared.sendInviteToStudent(
+                    teamId: team.id,
+                    teamNumber: team.teamNumber,
+                    fromPersonId: myUserId,
+                    fromName: myName,
+                    toPersonId: student.person_id,
+                    toName: student.displayName
+                )
+
+                await loadSendAndReceivedLists()
+
+                await MainActor.run {
+                    self.showAlert(title: "Invite Sent", message: "Invite sent to \(student.displayName)")
+                }
+            } catch {
+                print("❌ [TeamVC] inviteStudent failed:", error.localizedDescription)
+                await MainActor.run {
+                    self.showAlert(title: "Invite Failed", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func acceptIncomingInvite(_ invite: SupabaseManager.TeamInviteRow) async {
+        do {
+            try await SupabaseManager.shared.acceptInvite(inviteId: invite.id)
+
+            await loadOrCreateTeamIfNeeded(personIdString: myUserId)
+            await loadSendAndReceivedLists()
+
+            await MainActor.run {
+                self.showAlert(title: "Accepted", message: "Invite accepted.")
+            }
+        } catch {
+            await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
+        }
     }
 
     // MARK: - UI
@@ -398,27 +429,14 @@ final class TeamViewController: UIViewController {
         }
     }
 
-    private func acceptIncomingRequest(_ req: ReceivedRequest) async {
-        do {
-            try await SupabaseManager.shared.acceptTeamMemberRequest(
-                requestId: req.requestId,
-                receiverId: myUserId,
-                receiverName: myName
-            )
-            await loadOrCreateTeamIfNeeded(personIdString: myUserId)
-            await loadRequests()
-            await MainActor.run { self.showAlert(title: "Accepted", message: "Request accepted and team updated.") }
-        } catch {
-            await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
-        }
-    }
-
     private func showAlert(title: String, message: String) {
         let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
         present(a, animated: true)
     }
 }
+
+// MARK: - Collection Data Source
 
 extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelegate {
 
@@ -432,7 +450,8 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
         case .summary:         return 1
         case .members:         return 3
         case .requestSwitcher: return 1
-        case .requests:        return showingSent ? sentRequests.count : receivedRequests.count
+        case .requests:
+            return showingSent ? eligibleStudents.count : receivedInvites.count
         }
     }
 
@@ -464,10 +483,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
             return cell
 
         case .members:
-            let cell = collectionView.dequeueReusableCell(
-                withReuseIdentifier: "MemberAvatarCell",
-                for: indexPath
-            ) as! MemberAvatarCell
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "MemberAvatarCell", for: indexPath) as! MemberAvatarCell
 
             let slot = members[indexPath.item]
 
@@ -480,15 +496,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                 name = myName
                 regNo = myRegNo
                 dept = myDept
-
-                print("🟦 UI currentInitial cell gets:", myName, myRegNo, myDept)
-
-            case .filled:
-                name = ""
-                regNo = ""
-                dept = ""
-
-            case .addSlot, .empty:
+            default:
                 name = ""
                 regNo = ""
                 dept = ""
@@ -499,9 +507,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                 name: name,
                 regNo: regNo,
                 dept: dept,
-                onTapAdd: { [weak self] in
-                    self?.openStudentListToSendRequest()
-                }
+                onTapAdd: { } // add button here only if you want separate flow
             )
             return cell
 
@@ -518,13 +524,28 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "RequestItemCell", for: indexPath) as! RequestItemCell
 
             if showingSent {
-                let item = sentRequests[indexPath.item]
-                cell.configureForSent(name: item.studentName, avatar: item.avatar) { }
+                // ✅ STUDENT LIST (Send Requests)
+                let s = eligibleStudents[indexPath.item]
+                let subtitle = s.srm_mail ?? s.reg_no ?? s.department ?? "Student"
+                let isLast = indexPath.item == eligibleStudents.count - 1
+
+                cell.configure(
+                    name: s.displayName,
+                    subtitle: subtitle,
+                    onTap: { [weak self] in
+                        self?.inviteStudent(s)
+                    },
+                    showsDivider: !isLast
+                )
             } else {
-                let item = receivedRequests[indexPath.item]
-                cell.configureForReceived(name: item.studentName, avatar: item.avatar) { [weak self] in
+                // ✅ RECEIVED INVITES
+                let inv = receivedInvites[indexPath.item]
+                cell.configureForReceived(
+                    name: inv.from_name,
+                    avatar: UIImage(systemName: "person.crop.circle.fill")
+                ) { [weak self] in
                     guard let self else { return }
-                    Task { await self.acceptIncomingRequest(item) }
+                    Task { await self.acceptIncomingInvite(inv) }
                 }
             }
             return cell

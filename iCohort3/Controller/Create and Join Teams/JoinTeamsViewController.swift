@@ -249,24 +249,17 @@ extension JoinTeamsViewController: UICollectionViewDataSource, UICollectionViewD
 
         if showingSent {
             let s = students[indexPath.item]
-
-            cell.configureStudentRow(
+            
+            cell.configure(
                 name: s.name,
-                regNo: s.regNo,
-                department: s.department
-            ) { [weak self] in
-                guard let self else { return }
-                Task { await self.sendRequest(to: s) }
-            }
-
-        } else {
-            let r = incoming[indexPath.item]
-
-            cell.configureIncomingRequestRow(requesterName: r.fromStudentName) { [weak self] in
-                guard let self else { return }
-                Task { await self.acceptIncoming(request: r) }
-            }
-
+                subtitle: "\(s.regNo) • \(s.department)",
+                avatar: nil,
+                onTap: { [weak self] in
+                    guard let self else { return }
+                    Task { await self.sendRequest(to: s) }
+                },
+                showsDivider: true
+            )
         }
 
         return cell
