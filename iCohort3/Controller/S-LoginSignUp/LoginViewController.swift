@@ -3,6 +3,7 @@
 //  iCohort3
 //
 //  ✅ SUPABASE ONLY - No Firebase dependencies
+//  ✅ Updated to navigate to EmailVerificationViewController for forgot password
 //
 
 import UIKit
@@ -56,13 +57,14 @@ class LoginViewController: UIViewController {
     }
     
     @IBAction func forgotPasswordTapped(_ sender: UIButton) {
-        let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
+        // ✅ Navigate to EmailVerificationViewController instead of OTP directly
+        let emailVerificationVC = EmailVerificationViewController()
         
         if let nav = navigationController {
-            nav.pushViewController(otpVC, animated: true)
+            nav.pushViewController(emailVerificationVC, animated: true)
         } else {
-            otpVC.modalPresentationStyle = .fullScreen
-            present(otpVC, animated: true, completion: nil)
+            emailVerificationVC.modalPresentationStyle = .fullScreen
+            present(emailVerificationVC, animated: true, completion: nil)
         }
     }
     

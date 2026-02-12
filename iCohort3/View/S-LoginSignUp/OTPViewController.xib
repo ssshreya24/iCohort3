@@ -42,10 +42,10 @@
                     <rect key="frame" x="80" y="423.66666666666669" width="233" height="120.00000000000006"/>
                     <subviews>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="nKF-G1-NiV">
-                            <rect key="frame" x="0.0" y="35" width="49.333333333333336" height="50"/>
+                            <rect key="frame" x="0.0" y="35" width="29" height="50"/>
                             <subviews>
                                 <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="QNP-s7-Rg7">
-                                    <rect key="frame" x="0.0" y="0.0" width="49.333333333333336" height="50"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="29" height="50"/>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                     <textInputTraits key="textInputTraits"/>
@@ -60,11 +60,49 @@
                                 <constraint firstItem="QNP-s7-Rg7" firstAttribute="top" secondItem="nKF-G1-NiV" secondAttribute="top" id="gzH-ec-vCA"/>
                             </constraints>
                         </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="bEt-L7-RP8">
+                            <rect key="frame" x="41" y="35" width="28.666666666666671" height="50"/>
+                            <subviews>
+                                <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="CpY-ya-pMd">
+                                    <rect key="frame" x="0.0" y="0.0" width="28.666666666666668" height="50"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                    <textInputTraits key="textInputTraits"/>
+                                </textField>
+                            </subviews>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstItem="CpY-ya-pMd" firstAttribute="top" secondItem="bEt-L7-RP8" secondAttribute="top" id="KyX-vN-CKf"/>
+                                <constraint firstAttribute="trailing" secondItem="CpY-ya-pMd" secondAttribute="trailing" id="YdE-OM-41h"/>
+                                <constraint firstAttribute="bottom" secondItem="CpY-ya-pMd" secondAttribute="bottom" id="hpn-X3-sg4"/>
+                                <constraint firstItem="CpY-ya-pMd" firstAttribute="leading" secondItem="bEt-L7-RP8" secondAttribute="leading" id="oIB-gb-2Bf"/>
+                                <constraint firstAttribute="height" constant="50" id="r3w-u5-XyO"/>
+                            </constraints>
+                        </view>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="UlP-vq-X9I">
+                            <rect key="frame" x="81.666666666666657" y="35" width="29" height="50"/>
+                            <subviews>
+                                <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="4Ed-lm-CZw">
+                                    <rect key="frame" x="0.0" y="0.0" width="29" height="50"/>
+                                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                    <textInputTraits key="textInputTraits"/>
+                                </textField>
+                            </subviews>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <constraints>
+                                <constraint firstAttribute="trailing" secondItem="4Ed-lm-CZw" secondAttribute="trailing" id="30y-gJ-TbC"/>
+                                <constraint firstItem="4Ed-lm-CZw" firstAttribute="top" secondItem="UlP-vq-X9I" secondAttribute="top" id="OXS-zi-Dv2"/>
+                                <constraint firstAttribute="height" constant="50" id="XxY-NF-7pf"/>
+                                <constraint firstAttribute="bottom" secondItem="4Ed-lm-CZw" secondAttribute="bottom" id="izX-kL-oCD"/>
+                                <constraint firstItem="4Ed-lm-CZw" firstAttribute="leading" secondItem="UlP-vq-X9I" secondAttribute="leading" id="jsh-U6-bYc"/>
+                            </constraints>
+                        </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="5vC-Wa-IQe">
-                            <rect key="frame" x="61.333333333333343" y="35" width="49.333333333333343" height="50"/>
+                            <rect key="frame" x="122.66666666666667" y="35" width="28.666666666666671" height="50"/>
                             <subviews>
                                 <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="aZY-P3-3el">
-                                    <rect key="frame" x="0.0" y="0.0" width="49.333333333333336" height="50"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="28.666666666666668" height="50"/>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                     <textInputTraits key="textInputTraits"/>
@@ -80,10 +118,10 @@
                             </constraints>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="AGm-Ng-rzb">
-                            <rect key="frame" x="122.66666666666666" y="35" width="49" height="50"/>
+                            <rect key="frame" x="163.33333333333334" y="35" width="29" height="50"/>
                             <subviews>
                                 <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="gyk-Z7-1wu">
-                                    <rect key="frame" x="0.0" y="0.0" width="49" height="50"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="29" height="50"/>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                     <textInputTraits key="textInputTraits"/>
@@ -99,10 +137,10 @@
                             </constraints>
                         </view>
                         <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="nw8-HH-fHE">
-                            <rect key="frame" x="183.66666666666669" y="35" width="49.333333333333343" height="50"/>
+                            <rect key="frame" x="204.33333333333331" y="35" width="28.666666666666657" height="50"/>
                             <subviews>
                                 <textField opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="248" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="center" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="IRx-tr-zF0">
-                                    <rect key="frame" x="0.0" y="0.0" width="49.333333333333336" height="50"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="28.666666666666668" height="50"/>
                                     <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                     <textInputTraits key="textInputTraits"/>

@@ -2,7 +2,8 @@
 //  forgotPasswordViewController.swift
 //  iCohort3
 //
-//  Created by user@56 on 07/11/25.
+//  ✅ Updated to work with custom OTP system
+//  ✅ Only updates database password (no Auth dependency)
 //
 
 import UIKit
@@ -12,16 +13,17 @@ class forgotPasswordViewController: UIViewController {
     @IBOutlet weak var confirmButton: UIButton!
     @IBOutlet weak var confirmPassword: UIView!
     @IBOutlet weak var passwordContainer: UIView!
-
     @IBOutlet weak var confirmPasswordTextField: UITextField!
     @IBOutlet weak var newPasswordTextField: UITextField!
     @IBOutlet weak var backButton: UIButton!
+    
+    private var loadingIndicator: UIActivityIndicatorView?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         setupPlaceholders()
-        confirmButton.tintColor = UIColor(red: 0x77/255, green: 0x9C/255, blue: 0xB3/255, alpha: 1)
+        confirmButton.backgroundColor = UIColor(red: 0x77/255, green: 0x9C/255, blue: 0xB3/255, alpha: 1)
         backButton.tintColor = .white
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
     }
@@ -51,9 +53,96 @@ class forgotPasswordViewController: UIViewController {
     }
 
     @IBAction func confirmButtonTapped(_ sender: UIButton) {
-        print("Confirm button tapped - Password reset successful")
-
-        // Always navigate to LoginViewController and replace window root
+        view.endEditing(true)
+        
+        // Validate inputs
+        guard let newPassword = newPasswordTextField.text, !newPassword.isEmpty else {
+            showAlert(title: "Error", message: "Please enter a new password")
+            return
+        }
+        
+        guard let confirmPasswordText = confirmPasswordTextField.text, !confirmPasswordText.isEmpty else {
+            showAlert(title: "Error", message: "Please confirm your password")
+            return
+        }
+        
+        // Check if passwords match
+        guard newPassword == confirmPasswordText else {
+            showAlert(title: "Error", message: "Passwords do not match")
+            return
+        }
+        
+        // Validate password strength
+        guard newPassword.count >= 6 else {
+            showAlert(title: "Weak Password", message: "Password must be at least 6 characters")
+            return
+        }
+        
+        // Get email from UserDefaults
+        guard let email = UserDefaults.standard.string(forKey: "forgot_password_email") else {
+            showAlert(title: "Error", message: "Session expired. Please start the process again.")
+            return
+        }
+        
+        // Disable button and show loading
+        confirmButton.isEnabled = false
+        showLoadingIndicator()
+        
+        // ✅ Update password using custom system (database only)
+        updatePassword(email: email, newPassword: newPassword)
+    }
+    
+    private func updatePassword(email: String, newPassword: String) {
+        Task {
+            do {
+                print("\n===========================================")
+                print("📝 UPDATING PASSWORD (CUSTOM SYSTEM)")
+                print("===========================================")
+                print("Email:", email)
+                
+                // ✅ Update password in student_profiles table
+                try await SupabaseManager.shared.updateStudentPassword(email: email, newPassword: newPassword)
+                
+                print("✅ Password updated successfully in database")
+                
+                // ✅ Clean up OTP from database
+                try await SupabaseManager.shared.deleteOTP(email: email)
+                
+                print("✅ OTP cleaned up")
+                print("===========================================\n")
+                
+                // Clear stored email
+                UserDefaults.standard.removeObject(forKey: "forgot_password_email")
+                
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    confirmButton.isEnabled = true
+                    
+                    // Show success message and navigate to login
+                    showAlert(
+                        title: "Success",
+                        message: "Your password has been reset successfully. Please login with your new password."
+                    ) {
+                        self.navigateToLogin()
+                    }
+                }
+                
+            } catch {
+                print("❌ Password update error:", error.localizedDescription)
+                print("===========================================\n")
+                
+                await MainActor.run {
+                    hideLoadingIndicator()
+                    confirmButton.isEnabled = true
+                    showAlert(title: "Error", message: "Failed to update password. Please try again.")
+                }
+            }
+        }
+    }
+    
+    private func navigateToLogin() {
+        print("Navigating to login screen")
+        
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         guard let loginVC = storyboard.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController else {
             print("❌ Could not load SLoginVC")
@@ -80,17 +169,56 @@ class forgotPasswordViewController: UIViewController {
         present(navController, animated: true, completion: nil)
     }
 
-    // robust back: pop if possible; otherwise dismiss modally
     @objc private func backTapped() {
         print("Back button tapped")
         
         if let nav = navigationController, nav.viewControllers.count > 1 {
-            // We're in a nav stack and not at root
             nav.popViewController(animated: true)
-            return
+        } else {
+            dismiss(animated: true, completion: nil)
         }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func showLoadingIndicator() {
+        hideLoadingIndicator()
         
-        // Otherwise dismiss modally
-        dismiss(animated: true, completion: nil)
+        DispatchQueue.main.async {
+            let indicator = UIActivityIndicatorView(style: .large)
+            indicator.color = UIColor(red: 0x77/255, green: 0x9C/255, blue: 0xB3/255, alpha: 1)
+            indicator.center = self.view.center
+            indicator.startAnimating()
+            
+            let backdrop = UIView(frame: self.view.bounds)
+            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+            backdrop.tag = 9999
+            backdrop.addSubview(indicator)
+            
+            self.view.addSubview(backdrop)
+            self.view.isUserInteractionEnabled = false
+            
+            self.loadingIndicator = indicator
+        }
+    }
+    
+    private func hideLoadingIndicator() {
+        DispatchQueue.main.async {
+            self.view.viewWithTag(9999)?.removeFromSuperview()
+            self.loadingIndicator?.stopAnimating()
+            self.loadingIndicator?.removeFromSuperview()
+            self.loadingIndicator = nil
+            self.view.isUserInteractionEnabled = true
+        }
+    }
+    
+    private func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
+        DispatchQueue.main.async {
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                completion?()
+            })
+            self.present(alert, animated: true)
+        }
     }
 }
