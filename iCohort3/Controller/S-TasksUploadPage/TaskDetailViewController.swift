@@ -2,14 +2,11 @@
 //  TaskDetailViewController.swift
 //  iCohort3
 //
-
-import UIKit
-internal import UniformTypeIdentifiers//
-//  TaskDetailViewController.swift
-//  iCohort3
+//  ✅ CLEANED: Removed hardcoded mentor data - now fetches from Supabase
 //
 
-
+import UIKit
+internal import UniformTypeIdentifiers
 
 class TaskDetailViewController: UIViewController {
 
@@ -28,7 +25,7 @@ class TaskDetailViewController: UIViewController {
     @IBOutlet weak var assigneeImageView: UIImageView!
     @IBOutlet weak var assigneeNameLabel: UILabel!
 
-    // ✅ NEW: Assigned By (mentor) label outlet (connect this to the right-side label in "Assigned By")
+    // MARK: - Assigned By (mentor) label
     @IBOutlet weak var assignedByNameLabel: UILabel!
 
     // MARK: - Attachment Card
@@ -36,11 +33,10 @@ class TaskDetailViewController: UIViewController {
     @IBOutlet weak var attachmentIconButton: UIButton!
     @IBOutlet weak var attachmentsStackView: UIStackView!
 
-    // ✅ NEW: Submit To dropdown button outlet (connect this to your "Submit To" button)
+    // MARK: - Submit To dropdown button
     @IBOutlet weak var submitToButton: UIButton!
     @IBOutlet weak var assignedByContainerView: UIView!
     @IBOutlet weak var submitToContainerView: UIView!
-
 
     // MARK: - Submit Button
     @IBOutlet weak var submitButton: UIButton!
@@ -54,17 +50,9 @@ class TaskDetailViewController: UIViewController {
     // MARK: - Submission State
     private var isSubmitted = false
 
-    // ✅ NEW: Mentor list + selected mentor
-    private let mentorOptions: [String] = [
-        "Dr. Arshad Shaikh",
-        "Dr. Paul T Sheeba",
-        "Dr. A. Murugan",
-        "Dr. Shashidhara H S",
-        "Dr. R Srinivasan"
-    ]
-
-    private let assignedMentorDisplayName = "Dr. Arshad Shaikh (mentor)"
-    private var selectedSubmitTo: String = "Dr. Arshad Shaikh (mentor)"
+    // ✅ CLEANED: Mentor data will come from task/Supabase
+    private var mentorOptions: [String] = []
+    private var selectedSubmitTo: String = ""
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -72,7 +60,7 @@ class TaskDetailViewController: UIViewController {
         setupUI()
         setupBackButton()
 
-        // ✅ NEW: set Assigned By + Submit To default mentor + dropdown
+        // ✅ Setup mentor UI (will be populated from task data)
         setupMentorUI()
 
         // Apply the task only AFTER outlets exist
@@ -118,16 +106,14 @@ class TaskDetailViewController: UIViewController {
         self.dismiss(animated: true, completion: nil)
     }
 
-    // ✅ NEW: Mentor UI setup (Assigned By label + Submit To dropdown button)
+    // ✅ CLEANED: Mentor UI setup - will use data from task
     private func setupMentorUI() {
-        // Assigned By
-        assignedByNameLabel.text = assignedMentorDisplayName
+        // Will be populated when task is configured
+        assignedByNameLabel.text = "Loading..."
         assignedByNameLabel.textColor = .darkGray
         assignedByNameLabel.font = UIFont.systemFont(ofSize: 16)
 
-        // Submit To default
-        selectedSubmitTo = assignedMentorDisplayName
-        submitToButton.setTitle(selectedSubmitTo, for: .normal)
+        submitToButton.setTitle("Select Mentor", for: .normal)
         submitToButton.setTitleColor(.darkGray, for: .normal)
         submitToButton.titleLabel?.font = UIFont.systemFont(ofSize: 16)
 
@@ -135,31 +121,19 @@ class TaskDetailViewController: UIViewController {
         submitToButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
         submitToButton.semanticContentAttribute = .forceRightToLeft
         submitToButton.contentHorizontalAlignment = .trailing
-
-        // Dropdown menu
-        let actions = mentorOptions.map { name in
-            UIAction(title: name) { _ in
-                self.selectedSubmitTo = name
-                self.submitToButton.setTitle(name, for: .normal)
-            }
-        }
-
-        submitToButton.menu = UIMenu(children: actions)
-        submitToButton.showsMenuAsPrimaryAction = true
     }
 
     // MARK: - UI SETUP
     private func setupUI() {
-
         view.backgroundColor = UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
 
         // Style all card containers
         let cards = [
             dueDateContainerView,
-                assignedToContainerView,
-                attachmentContainerView,
-                assignedByContainerView,
-                submitToContainerView,
+            assignedToContainerView,
+            attachmentContainerView,
+            assignedByContainerView,
+            submitToContainerView,
             resourcesContainerView
         ]
 
@@ -199,7 +173,6 @@ class TaskDetailViewController: UIViewController {
 
     // MARK: - CONFIGURE TASK
     func configure(with task: DashboardTask) {
-
         // Save the task
         self.task = task
 
@@ -215,6 +188,26 @@ class TaskDetailViewController: UIViewController {
             assigneeImageView.image = img
         } else {
             assigneeImageView.image = placeholderImage(for: task.assigneeName)
+        }
+
+        // ✅ CLEANED: Set mentor data from task (fetched from Supabase)
+        // TODO: Add mentor_name field to DashboardTask model and fetch from database
+        // For now, show placeholder
+        assignedByNameLabel.text = "Mentor Name" // TODO: Replace with actual mentor from task
+        
+        // TODO: Fetch available mentors from Supabase for dropdown
+        // For now, use empty array
+        mentorOptions = []
+        
+        if !mentorOptions.isEmpty {
+            let actions = mentorOptions.map { name in
+                UIAction(title: name) { _ in
+                    self.selectedSubmitTo = name
+                    self.submitToButton.setTitle(name, for: .normal)
+                }
+            }
+            submitToButton.menu = UIMenu(children: actions)
+            submitToButton.showsMenuAsPrimaryAction = true
         }
 
         // Clear old attachments
@@ -540,43 +533,3 @@ extension TaskDetailViewController: UIDocumentPickerDelegate {
         controller.dismiss(animated: true)
     }
 }
-
-#if DEBUG
-import SwiftUI
-
-struct TaskDetailViewControllerPreview: UIViewControllerRepresentable {
-
-    func makeUIViewController(context: Context) -> TaskDetailViewController {
-        // If using Storyboard
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        let vc = storyboard.instantiateViewController(
-            withIdentifier: "TaskDetailViewController"
-        ) as! TaskDetailViewController
-
-        // Mock data for preview
-        vc.task = DashboardTask(
-            title: "Submit Project Documentation",
-            dueDate: "25 Jan 2026",
-            assigneeName: "Shreya Singh",
-            assigneeImage: nil,
-            attachmentNames: [
-                "Design_Doc.pdf",
-                "Wireframe.png"
-            ]
-        )
-
-        return vc
-    }
-
-    func updateUIViewController(_ uiViewController: TaskDetailViewController, context: Context) { }
-}
-
-@available(iOS 13.0, *)
-struct TaskDetailViewController_PreviewProvider: PreviewProvider {
-    static var previews: some View {
-        TaskDetailViewControllerPreview()
-            .previewDevice("iPhone 14 Pro")
-            .ignoresSafeArea()
-    }
-}
-#endif

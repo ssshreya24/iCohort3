@@ -2,7 +2,7 @@
 //  Supabase+Student.swift
 //  iCohort3
 //
-//  UNIFIED VERSION - All student-related types and functions
+//  ✅ CLEANED: Removed Team 9 auto-assignment
 //
 
 import Foundation
@@ -193,9 +193,8 @@ extension SupabaseManager {
             
         } catch {
             print("❌ Error fetching student greeting from RPC:", error)
-            print("   Error details: \(error.localizedDescription)")
             
-            // Fallback 1: Try to get first name from student profile
+            // Fallback: Try to get first name from student profile
             do {
                 if let profile = try await fetchBasicStudentProfile(personId: personId),
                    let firstName = profile.first_name,
@@ -222,74 +221,6 @@ extension SupabaseManager {
             print("✅ Using default greeting")
             return "Hi Student"
         }
-    }
-    
-    // MARK: - Assign Student to Team
-    
-    func assignStudentToTeam9(studentPersonId: String) async throws {
-        print("🔄 Assigning student to Team 9...")
-        
-        struct TeamRow: Codable {
-            let id: String
-            let team_no: Int
-        }
-        
-        // 1. Get Team 9's ID
-        let teams: [TeamRow] = try await client
-            .from("teams")
-            .select("id, team_no")
-            .eq("team_no", value: 9)
-            .limit(1)
-            .execute()
-            .value
-        
-        guard let team = teams.first else {
-            print("⚠️ Team 9 not found in database - skipping team assignment")
-            print("⚠️ Please create Team 9 in Supabase or update assignment logic")
-            return
-        }
-        
-        let teamId = team.id
-        print("✅ Found Team 9 with ID:", teamId)
-        
-        // 2. Check if student is already assigned
-        struct MemberCheck: Codable {
-            let team_id: String
-            let member_id: String
-        }
-        
-        let existing: [MemberCheck] = try await client
-            .from("team_members")
-            .select("team_id, member_id")
-            .eq("team_id", value: teamId)
-            .eq("member_id", value: studentPersonId)
-            .execute()
-            .value
-        
-        if !existing.isEmpty {
-            print("✅ Student already assigned to Team 9")
-            return
-        }
-        
-        // 3. Insert team member assignment
-        let member: [String: String] = [
-            "team_id": teamId,
-            "member_id": studentPersonId
-        ]
-        
-        struct TeamMemberResponse: Codable {
-            let team_id: String
-            let member_id: String
-        }
-        
-        let _: [TeamMemberResponse] = try await client
-            .from("team_members")
-            .insert(member)
-            .select("team_id, member_id")
-            .execute()
-            .value
-        
-        print("✅ Student successfully assigned to Team 9")
     }
     
     // MARK: - Check Profile Completion
@@ -335,36 +266,6 @@ extension SupabaseManager {
             .value
         
         return profiles.first?.person_id
-    }
-    
-    func fetchStudentId(teamId: String, studentName: String) async throws -> String? {
-        print("🔍 Fetching student ID for team:", teamId, "name:", studentName)
-        
-        struct MemberWithProfile: Codable {
-            let member_id: String
-            let people: PersonInfo?
-            
-            struct PersonInfo: Codable {
-                let full_name: String
-            }
-        }
-        
-        let members: [MemberWithProfile] = try await client
-            .from("team_members")
-            .select("member_id, people!inner(full_name)")
-            .eq("team_id", value: teamId)
-            .execute()
-            .value
-        
-        for member in members {
-            if member.people?.full_name == studentName {
-                print("✅ Found student ID:", member.member_id)
-                return member.member_id
-            }
-        }
-        
-        print("⚠️ Student not found in team")
-        return nil
     }
     
     func getCurrentStudentId() -> String? {

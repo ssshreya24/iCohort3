@@ -2,7 +2,7 @@
 //  StudentProfileViewController.swift
 //  iCohort3
 //
-//  Created by Shreya on 06/11/25.
+//  ✅ CLEANED: Removed Team 9 auto-assignment and dummy data
 //
 
 import UIKit
@@ -40,9 +40,6 @@ class StudentProfileViewController: UIViewController {
         setupInitialState()
         applyRoundedCorners()
         setupLoadingIndicator()
-        
-        // Get current user's person_id (you'll need to implement auth)
-        // For now, using a placeholder
         getCurrentUserPersonId()
     }
     
@@ -61,54 +58,11 @@ class StudentProfileViewController: UIViewController {
     }
     
     private func getCurrentUserPersonId() {
-        // TODO: Implement proper authentication
-        // For now, get from UserDefaults or auth session
         if let storedPersonId = UserDefaults.standard.string(forKey: "current_person_id") {
             currentPersonId = storedPersonId
         } else {
-            // Create a new student person if needed
-            Task {
-                await createNewStudentPerson()
-            }
-        }
-    }
-    
-    private func createNewStudentPerson() async {
-        // This should be called during registration
-        // For demo purposes, we'll create a placeholder
-        do {
-            struct PersonInsert: Encodable {
-                let full_name: String
-                let role: String
-            }
-            
-            struct PersonResponse: Codable {
-                let id: String
-            }
-            
-            let newPerson = PersonInsert(full_name: "New Student", role: "student")
-            
-            let response: [PersonResponse] = try await SupabaseManager.shared.client
-                .from("people")
-                .insert(newPerson)
-                .select("id")
-                .execute()
-                .value
-            
-            if let personId = response.first?.id {
-                currentPersonId = personId
-                UserDefaults.standard.set(personId, forKey: "current_person_id")
-                
-                // Assign to Team 9
-                try await SupabaseManager.shared.assignStudentToTeam9(studentPersonId: personId)
-                
-                await MainActor.run {
-                    loadProfileData(personId: personId)
-                }
-            }
-        } catch {
-            print("Error creating student person: \(error)")
-            await showError("Failed to initialize profile")
+            // Show error - user needs to login
+            showError("Please login to view your profile")
         }
     }
 
@@ -139,9 +93,9 @@ class StudentProfileViewController: UIViewController {
         greetingLabel?.text = "Hi User"
         greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
         uploadButton.isHidden = true
-            uploadButton.alpha = 1.0
-            uploadButton.isUserInteractionEnabled = true
-            view.bringSubviewToFront(uploadButton)
+        uploadButton.alpha = 1.0
+        uploadButton.isUserInteractionEnabled = true
+        view.bringSubviewToFront(uploadButton)
     }
     
     // MARK: - Load Data from Supabase
@@ -258,33 +212,31 @@ class StudentProfileViewController: UIViewController {
     @IBAction func editButtonTapped(_ sender: UIButton) {
         isEditingProfile.toggle()
 
-        // ✅ Always visible on edit toggle too
-            uploadButton.isHidden = false
-            uploadButton.alpha = 1.0
-            uploadButton.isUserInteractionEnabled = true
-            view.bringSubviewToFront(uploadButton)
+        uploadButton.isHidden = false
+        uploadButton.alpha = 1.0
+        uploadButton.isUserInteractionEnabled = true
+        view.bringSubviewToFront(uploadButton)
 
-            if isEditingProfile {
-                editButton.setTitle("Save", for: .normal)
-                editButton.backgroundColor = .systemGreen
+        if isEditingProfile {
+            editButton.setTitle("Save", for: .normal)
+            editButton.backgroundColor = .systemGreen
 
-                for tf in allTextFields.compactMap({ $0 }) {
-                    tf.isEnabled = true
-                    tf.textColor = .label
-                    if tf.text?.isEmpty == true { tf.text = "" }
-                }
-                firstNameField?.becomeFirstResponder()
-            } else {
-                editButton.setTitle("Edit", for: .normal)
-                editButton.backgroundColor = .systemBlue
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.isEnabled = true
+                tf.textColor = .label
+                if tf.text?.isEmpty == true { tf.text = "" }
+            }
+            firstNameField?.becomeFirstResponder()
+        } else {
+            editButton.setTitle("Edit", for: .normal)
+            editButton.backgroundColor = .systemBlue
 
-                view.endEditing(true)
-                saveProfileToSupabase()
+            view.endEditing(true)
+            saveProfileToSupabase()
 
-                for tf in allTextFields.compactMap({ $0 }) {
-                    tf.isEnabled = false
-                }
-
+            for tf in allTextFields.compactMap({ $0 }) {
+                tf.isEnabled = false
+            }
         }
     }
 
@@ -307,13 +259,6 @@ class StudentProfileViewController: UIViewController {
         let personalMail = personalMailField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let contactNumber = contactNumberField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        print("📝 Profile data:")
-        print("   First Name: \(firstName ?? "nil")")
-        print("   Last Name: \(lastName ?? "nil")")
-        print("   Department: \(department ?? "nil")")
-        print("   SRM Mail: \(srmMail ?? "nil")")
-        print("   Reg No: \(regNo ?? "nil")")
-        
         // Validate required fields
         guard let firstName = firstName, !firstName.isEmpty else {
             showError("First name is required")
@@ -331,7 +276,7 @@ class StudentProfileViewController: UIViewController {
             do {
                 print("🔄 Calling upsertStudentProfile...")
                 
-                // Save to Supabase
+                // ✅ CLEANED: Just save profile, no Team 9 assignment
                 let profileId = try await SupabaseManager.shared.upsertStudentProfile(
                     personId: personId,
                     firstName: firstName,
@@ -344,11 +289,6 @@ class StudentProfileViewController: UIViewController {
                 )
                 
                 print("✅ Profile saved with ID: \(profileId)")
-                
-                // Ensure student is in Team 9
-                print("🔄 Assigning to Team 9...")
-                try await SupabaseManager.shared.assignStudentToTeam9(studentPersonId: personId)
-                print("✅ Assigned to Team 9")
                 
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()
@@ -363,9 +303,6 @@ class StudentProfileViewController: UIViewController {
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()
                     print("❌ Error saving profile: \(error)")
-                    print("❌ Error domain: \(error.domain)")
-                    print("❌ Error code: \(error.code)")
-                    print("❌ Error userInfo: \(error.userInfo)")
                     
                     let errorMessage = error.localizedDescription
                     self.showError("Failed to save profile: \(errorMessage)")
@@ -418,4 +355,3 @@ extension UIStackView {
         insertSubview(backgroundLayer, at: 0)
     }
 }
-

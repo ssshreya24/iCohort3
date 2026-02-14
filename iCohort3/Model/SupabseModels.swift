@@ -7,16 +7,15 @@
 
 import Foundation
 
-// MARK: - Student Profile (student_profile_complete)
 
 struct StudentProfileCompleteRow: Decodable {
-    let authId: String
+    let personId: String  // ✅ Changed from authId to personId
     let name: String
     let regNo: String
     let department: String
 
     enum CodingKeys: String, CodingKey {
-        case authId = "auth_id"
+        case personId = "person_id"  // ✅ Changed from auth_id
         case name
         case regNo = "reg_no"
         case department

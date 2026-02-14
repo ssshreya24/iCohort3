@@ -9,6 +9,7 @@ class TeamProfileRowCell: UICollectionViewCell {
     @IBOutlet weak var name1: UILabel!
     @IBOutlet weak var name2: UILabel!
     @IBOutlet weak var name3: UILabel!
+    
     private let emptyTeamLabel: UILabel = {
         let label = UILabel()
         label.text = "No team assigned yet"
@@ -20,18 +21,17 @@ class TeamProfileRowCell: UICollectionViewCell {
         return label
     }()
 
-
     override func awakeFromNib() {
         super.awakeFromNib()
         contentView.addSubview(emptyTeamLabel)
-           emptyTeamLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyTeamLabel.translatesAutoresizingMaskIntoConstraints = false
 
-           NSLayoutConstraint.activate([
-               emptyTeamLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-               emptyTeamLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-               emptyTeamLabel.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 16),
-               emptyTeamLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -16)
-           ])
+        NSLayoutConstraint.activate([
+            emptyTeamLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            emptyTeamLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            emptyTeamLabel.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 16),
+            emptyTeamLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -16)
+        ])
 
         // Style all profile images
         [img1, img2, img3].forEach { img in
@@ -52,30 +52,18 @@ class TeamProfileRowCell: UICollectionViewCell {
     func configureProfiles(images: [UIImage], names: [String], teamNo: Int) {
         if names.isEmpty {
             emptyTeamLabel.isHidden = false
-
             [img1, img2, img3].forEach { $0?.isHidden = true }
             [name1, name2, name3].forEach { $0?.isHidden = true }
-
             return
         } else {
             emptyTeamLabel.isHidden = true
         }
 
-
         let imageViews = [img1, img2, img3]
         let labels = [name1, name2, name3]
 
-        // ✅ Clean names by removing "Team X - " prefix if present
-        let cleanedNames: [String] = names.map { raw in
-            // Remove pattern "Team 9 - " or similar
-            let pattern = "Team \\d+ - "
-            if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
-                let range = NSRange(raw.startIndex..., in: raw)
-                let cleaned = regex.stringByReplacingMatches(in: raw, options: [], range: range, withTemplate: "")
-                return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            return raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        // ✅ CLEANED: Use names as-is from Supabase (no dummy prefix removal)
+        let cleanedNames = names.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 
         // Configure up to 3 members
         for i in 0..<3 {

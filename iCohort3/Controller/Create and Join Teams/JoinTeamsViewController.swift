@@ -1,18 +1,4 @@
 import UIKit
-import FirebaseAuth
-
-struct JoinableStudent {
-    let id: String
-    let name: String
-    let regNo: String
-    let department: String
-}
-
-struct IncomingRequest {
-    let requestId: String
-    let fromId: String
-    let fromName: String
-}
 
 final class JoinTeamsViewController: UIViewController {
 
@@ -22,15 +8,35 @@ final class JoinTeamsViewController: UIViewController {
 
     private var showingSent: Bool = true
 
-    private var students: [JoinableStudent] = []
-    private var incoming: [SupabaseManager.TeamMemberRequestRow] = []
+    // Current user identity
+    private var myUserId: String = ""
+    private var myName: String = "Student"
+    private var myRegNo: String = ""
+    private var myDept: String = ""
+    private var mySrmMail: String = ""
 
+    // ✅ Teams list to show (for sending join requests)
+    private var availableTeams: [(team: SupabaseManager.NewTeamRow, creator: SupabaseManager.StudentPickerRow)] = []
+    
+    // ✅ Received Requests = incoming team join requests to MY team
+    private var incomingRequests: [SupabaseManager.TeamJoinRequestRow] = []
+    
+    // ✅ Sent Requests = outgoing team join requests I've sent
+    private var sentRequests: [SupabaseManager.TeamJoinRequestRow] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTitle()
         setupCollectionView()
+        
+        Task {
+            await bootstrapIdentity()
+            await loadDataForCurrentMode()
+        }
+    }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
         Task { await loadDataForCurrentMode() }
     }
 
@@ -50,7 +56,7 @@ final class JoinTeamsViewController: UIViewController {
         )
 
         collectionView.register(
-            UINib(nibName: "RequestItemCell", bundle: nil),
+            RequestItemCell.self,
             forCellWithReuseIdentifier: "RequestItemCell"
         )
     }
@@ -58,6 +64,7 @@ final class JoinTeamsViewController: UIViewController {
     private func makeLayout() -> UICollectionViewCompositionalLayout {
         UICollectionViewCompositionalLayout { sectionIndex, _ in
             if sectionIndex == 0 {
+                // Switcher section
                 let item = NSCollectionLayoutItem(
                     layoutSize: .init(widthDimension: .fractionalWidth(1.0),
                                       heightDimension: .estimated(44))
@@ -71,6 +78,7 @@ final class JoinTeamsViewController: UIViewController {
                 section.contentInsets = .init(top: 16, leading: 16, bottom: 8, trailing: 16)
                 return section
             } else {
+                // List section
                 let item = NSCollectionLayoutItem(
                     layoutSize: .init(widthDimension: .fractionalWidth(1.0),
                                       heightDimension: .estimated(72))
@@ -92,22 +100,105 @@ final class JoinTeamsViewController: UIViewController {
         dismiss(animated: true)
     }
 
-    private func currentUserId() -> String? {
-        Auth.auth().currentUser?.uid
+    // MARK: - Bootstrap Identity
+
+    private func bootstrapIdentity() async {
+        // Get current user ID
+        if let storedPersonId = UserDefaults.standard.string(forKey: "current_person_id"),
+           !storedPersonId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            myUserId = storedPersonId
+        } else {
+            do {
+                let personId = try await SupabaseManager.shared.currentPersonId()
+                myUserId = personId
+                UserDefaults.standard.set(personId, forKey: "current_person_id")
+            } catch {
+                await MainActor.run {
+                    self.showAlert(title: "Login Required", message: "Session missing. Please login again.")
+                }
+                return
+            }
+        }
+
+        // Get current user name and profile
+        myName = (try? await SupabaseManager.shared.fetchStudentFullName(personIdString: myUserId)) ?? "Student"
+        
+        do {
+            let mini = try await SupabaseManager.shared.fetchStudentMiniProfile(personIdString: myUserId)
+            myRegNo = mini.reg_no ?? ""
+            myDept = mini.department ?? ""
+            mySrmMail = mini.srm_mail ?? ""
+        } catch {
+            print("❌ [JoinTeamsVC] MiniProfile fetch failed:", error.localizedDescription)
+        }
+
+        print("✅ [JoinTeamsVC] Identity loaded - userId:", myUserId, "name:", myName)
     }
 
-    private func currentUserNameFallback() -> String {
-        if let name = Auth.auth().currentUser?.displayName, !name.isEmpty {
-            return name
+    // MARK: - Data Loading
+
+    private func loadDataForCurrentMode() async {
+        guard !myUserId.isEmpty else {
+            print("⚠️ [JoinTeamsVC] myUserId is empty, skipping data load")
+            return
         }
-        if let email = Auth.auth().currentUser?.email, !email.isEmpty {
-            return email.components(separatedBy: "@").first ?? "Student"
+
+        do {
+            if showingSent {
+                // ✅ SEND REQUESTS TAB = Show all teams (to send join requests)
+                print("🟦 [JoinTeamsVC] Loading teams for SEND tab")
+                
+                // Get all active teams
+                let allTeams = try await SupabaseManager.shared.fetchAllActiveTeams()
+                
+                // Filter out my own team
+                let myTeam = try await SupabaseManager.shared.fetchActiveTeamForUser(userId: myUserId)
+                let filteredTeams = allTeams.filter { $0.id != myTeam?.id }
+                
+                // Get creator info for each team
+                var teamsWithCreators: [(team: SupabaseManager.NewTeamRow, creator: SupabaseManager.StudentPickerRow)] = []
+                
+                for team in filteredTeams {
+                    if let creatorInfo = try? await SupabaseManager.shared.fetchStudentPickerInfo(personId: team.createdById) {
+                        teamsWithCreators.append((team: team, creator: creatorInfo))
+                    }
+                }
+                
+                // Also load sent requests to show which ones are already sent
+                let sent = try await SupabaseManager.shared.fetchSentJoinRequests(fromPersonId: myUserId)
+                
+                await MainActor.run {
+                    self.availableTeams = teamsWithCreators
+                    self.sentRequests = sent
+                    self.incomingRequests = []
+                    print("✅ [JoinTeamsVC] Loaded \(teamsWithCreators.count) teams, \(sent.count) sent requests")
+                    self.safeReloadListSection()
+                }
+
+            } else {
+                // ✅ RECEIVED REQUESTS TAB = Show incoming join requests to my team
+                print("🟦 [JoinTeamsVC] Loading incoming requests for RECEIVED tab")
+                
+                let incoming = try await SupabaseManager.shared.fetchReceivedJoinRequests(toPersonId: myUserId)
+                
+                await MainActor.run {
+                    self.incomingRequests = incoming
+                    self.availableTeams = []
+                    self.sentRequests = []
+                    print("✅ [JoinTeamsVC] Loaded \(incoming.count) incoming requests")
+                    self.safeReloadListSection()
+                }
+            }
+
+        } catch {
+            print("❌ [JoinTeamsVC] loadDataForCurrentMode error:", error.localizedDescription)
+            await MainActor.run {
+                self.showAlert(title: "Error", message: error.localizedDescription)
+            }
         }
-        return "Student"
     }
 
     private func safeReloadListSection() {
-        // We always have 2 sections (0 switcher, 1 list)
         guard collectionView.numberOfSections >= 2 else {
             collectionView.reloadData()
             return
@@ -115,102 +206,146 @@ final class JoinTeamsViewController: UIViewController {
         collectionView.reloadSections(IndexSet(integer: 1))
     }
 
-    private func loadDataForCurrentMode() async {
-        guard let uidString = currentUserId() else { return }
-        guard let uidUUID = UUID(uuidString: uidString) else { return }
+    // MARK: - Actions
+
+    /// ✅ Send a join request to another team
+    private func sendJoinRequest(to teamInfo: (team: SupabaseManager.NewTeamRow, creator: SupabaseManager.StudentPickerRow)) async {
+        let team = teamInfo.team
+        let creator = teamInfo.creator
+        
+        print("📨 [JoinTeamsVC] Sending join request to Team #\(team.teamNumber)")
 
         do {
-            if showingSent {
+            // ✅ Send the join request
+            try await SupabaseManager.shared.sendTeamJoinRequest(
+                fromPersonId: myUserId,
+                fromName: myName,
+                fromRegNo: myRegNo,
+                fromDepartment: myDept,
+                fromSrmMail: mySrmMail,
+                toTeamId: team.id,
+                toTeamNumber: team.teamNumber,
+                toCreatedById: team.createdById
+            )
 
-                // ✅ fetchAllStudents expects UUID
-                let rows = try await SupabaseManager.shared.fetchAllStudents(excluding: uidUUID)
-
-                // ✅ StudentProfileCompleteRow has: personId(UUID), fullName(String)
-                let mapped: [JoinableStudent] = rows.map {
-                    JoinableStudent(
-                        id: $0.personId.uuidString,
-                        name: $0.fullName ?? "Unknown Student",
-                        regNo: "",
-                        department: ""
-                    )
-                }
-
-
-                await MainActor.run {
-                    self.students = mapped
-                    self.incoming = []
-                    self.safeReloadListSection()
-                }
-
-            } else {
-
-                // ✅ incoming requests expects String (person_id uuidString)
-                let incomingRows = try await SupabaseManager.shared.fetchIncomingRequests(for: uidString)
-
-                await MainActor.run {
-                    self.incoming = incomingRows
-                    self.students = []
-                    self.safeReloadListSection()
-                }
+            await MainActor.run {
+                self.showToast("Request sent to Team #\(team.teamNumber) ✅")
             }
 
+            // Reload to update UI
+            await loadDataForCurrentMode()
+
         } catch {
+            print("❌ [JoinTeamsVC] sendJoinRequest error:", error.localizedDescription)
+            
+            var errorMessage = error.localizedDescription
+            if errorMessage.contains("row-level security") || errorMessage.contains("RLS") {
+                errorMessage = "Permission denied. Please check your database RLS policies for team_join_requests table."
+            } else if errorMessage.contains("duplicate") || errorMessage.contains("unique") {
+                errorMessage = "You've already sent a request to this team."
+            }
+            
+            await MainActor.run {
+                self.showAlert(title: "Error", message: errorMessage)
+            }
+        }
+    }
+
+    /// ✅ Accept an incoming join request (WITH TEAM SWITCHING)
+    private func acceptJoinRequest(_ request: SupabaseManager.TeamJoinRequestRow) async {
+        print("✅ [JoinTeamsVC] Accepting join request from:", request.from_name)
+
+        // Show confirmation alert
+        let shouldProceed = await MainActor.run { () -> Bool in
+            let alert = UIAlertController(
+                title: "Accept Request",
+                message: "\(request.from_name) will join your team. They will leave their current team if they have one.",
+                preferredStyle: .alert
+            )
+            
+            var result = false
+            let semaphore = DispatchSemaphore(value: 0)
+            
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+                semaphore.signal()
+            })
+            
+            alert.addAction(UIAlertAction(title: "Accept", style: .default) { _ in
+                result = true
+                semaphore.signal()
+            })
+            
+            self.present(alert, animated: true)
+            semaphore.wait()
+            
+            return result
+        }
+        
+        guard shouldProceed else { return }
+
+        do {
+            try await SupabaseManager.shared.acceptTeamJoinRequest(
+                requestId: request.id,
+                receiverId: myUserId
+            )
+
+            await MainActor.run {
+                self.showToast("\(request.from_name) joined your team ✅")
+            }
+
+            // Reload to update UI
+            await loadDataForCurrentMode()
+
+        } catch {
+            print("❌ [JoinTeamsVC] acceptJoinRequest error:", error.localizedDescription)
             await MainActor.run {
                 self.showAlert(title: "Error", message: error.localizedDescription)
             }
         }
     }
+
+    /// ✅ Reject an incoming join request
+    private func rejectJoinRequest(_ request: SupabaseManager.TeamJoinRequestRow) async {
+        print("❌ [JoinTeamsVC] Rejecting join request from:", request.from_name)
+
+        do {
+            try await SupabaseManager.shared.rejectTeamJoinRequest(requestId: request.id)
+
+            await MainActor.run {
+                self.showToast("Request rejected")
+            }
+
+            // Reload to update UI
+            await loadDataForCurrentMode()
+
+        } catch {
+            print("❌ [JoinTeamsVC] rejectJoinRequest error:", error.localizedDescription)
+            await MainActor.run {
+                self.showAlert(title: "Error", message: error.localizedDescription)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
     private func showAlert(title: String, message: String) {
         let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
         present(a, animated: true)
     }
 
-
-    private func sendRequest(to student: JoinableStudent) async {
-        guard let uid = currentUserId() else { return }
-
-        do {
-            try await SupabaseManager.shared.sendTeamMemberRequest(
-                fromId: uid,
-                fromName: currentUserNameFallback(),
-                toId: student.id,
-                toName: student.name
-            )
-
-            await MainActor.run {
-                // Optional: show feedback (you can replace with toast)
-                print("✅ Request sent to:", student.name)
-            }
-        } catch {
-            await MainActor.run {
-                print("❌ Send request error:", error)
-            }
+    private func showToast(_ text: String) {
+        let ac = UIAlertController(title: nil, message: text, preferredStyle: .alert)
+        present(ac, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak ac] in
+            ac?.dismiss(animated: true)
         }
     }
 
-    private func acceptIncoming(request: SupabaseManager.TeamMemberRequestRow) async {
-        guard let myId = currentUserId() else { return }
-
-        do {
-            try await SupabaseManager.shared.acceptTeamMemberRequest(
-                requestId: request.id,        // ✅ UUID (correct)
-                receiverId: myId,             // ✅ String (person_id uuidString)
-                receiverName: nil
-            )
-
-            await MainActor.run {
-                self.incoming.removeAll { $0.id == request.id }   // ✅ use id not requestId
-                self.safeReloadListSection()
-            }
-
-        } catch {
-            await MainActor.run {
-                self.showAlert(title: "Error", message: error.localizedDescription)
-            }
-        }
+    /// Check if a team has already been sent a request
+    private func hasAlreadySentRequest(to teamId: UUID) -> Bool {
+        return sentRequests.contains { $0.to_team_id == teamId }
     }
-
 }
 
 // MARK: - UICollectionViewDataSource / Delegate
@@ -220,14 +355,15 @@ extension JoinTeamsViewController: UICollectionViewDataSource, UICollectionViewD
     func numberOfSections(in collectionView: UICollectionView) -> Int { 2 }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        if section == 0 { return 1 }
-        return showingSent ? students.count : incoming.count
+        if section == 0 { return 1 } // Switcher
+        return showingSent ? availableTeams.count : incomingRequests.count
     }
 
     func collectionView(_ collectionView: UICollectionView,
                         cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
 
         if indexPath.section == 0 {
+            // Switcher cell
             let cell = collectionView.dequeueReusableCell(
                 withReuseIdentifier: "RequestSwitcherCell",
                 for: indexPath
@@ -242,24 +378,72 @@ extension JoinTeamsViewController: UICollectionViewDataSource, UICollectionViewD
             return cell
         }
 
+        // List cell
         let cell = collectionView.dequeueReusableCell(
             withReuseIdentifier: "RequestItemCell",
             for: indexPath
         ) as! RequestItemCell
 
+        let isLast = indexPath.item == (showingSent ? availableTeams.count : incomingRequests.count) - 1
+
         if showingSent {
-            let s = students[indexPath.item]
+            // ✅ SEND REQUESTS TAB - Show all teams
+            let teamInfo = availableTeams[indexPath.item]
+            let team = teamInfo.team
+            let creator = teamInfo.creator
             
-            cell.configure(
-                name: s.name,
-                subtitle: "\(s.regNo) • \(s.department)",
-                avatar: nil,
-                onTap: { [weak self] in
-                    guard let self else { return }
-                    Task { await self.sendRequest(to: s) }
-                },
-                showsDivider: true
-            )
+            let teamName = "Team #\(team.teamNumber)"
+            let subtitle = "Created by \(creator.displayName)"
+            
+            // Check if already sent
+            if hasAlreadySentRequest(to: team.id) {
+                cell.configureForSent(
+                    name: teamName,
+                    showsDivider: !isLast
+                )
+            } else {
+                cell.configure(
+                    name: teamName,
+                    subtitle: subtitle,
+                    onTap: { [weak self] in
+                        guard let self else { return }
+                        Task { await self.sendJoinRequest(to: teamInfo) }
+                    },
+                    showsDivider: !isLast
+                )
+            }
+
+        } else {
+            // ✅ RECEIVED REQUESTS TAB - Show incoming join requests
+            let request = incomingRequests[indexPath.item]
+            let subtitle = "From: \(request.from_department ?? "Student")"
+            
+            cell.configureForReceived(
+                name: request.from_name,
+                avatar: UIImage(systemName: "person.crop.circle.fill"),
+                showsDivider: !isLast
+            ) { [weak self] in
+                guard let self else { return }
+                
+                // Show accept/reject options
+                let alert = UIAlertController(
+                    title: "Join Request",
+                    message: "\(request.from_name) wants to join your team",
+                    preferredStyle: .alert
+                )
+                
+                alert.addAction(UIAlertAction(title: "Accept", style: .default) { _ in
+                    Task { await self.acceptJoinRequest(request) }
+                })
+                
+                alert.addAction(UIAlertAction(title: "Reject", style: .destructive) { _ in
+                    Task { await self.rejectJoinRequest(request) }
+                })
+                
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+                
+                self.present(alert, animated: true)
+            }
         }
 
         return cell

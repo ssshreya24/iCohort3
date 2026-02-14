@@ -432,8 +432,8 @@ extension SupabaseManager {
                               userInfo: [NSLocalizedDescriptionKey: "Team creation failed: no row returned"])
             }
 
-            // Update student_profile_complete with team info
-            try await updateStudentTeamInfo(personId: personIdString, teamId: row.id, teamNo: row.teamNumber)
+            // ✅ FIXED: No need to update student_profile_complete
+            // The view automatically shows team info when user is in new_teams
 
             return row
         } catch {
@@ -445,39 +445,23 @@ extension SupabaseManager {
     }
 
     func deleteTeam(teamId: UUID, creatorId: String) async throws {
-        // First fetch the team to get all member IDs
-        let team: [NewTeamRow] = try await self.client
-            .from("new_teams")
-            .select("id,team_number,created_by_id,member2_id,member3_id")
-            .eq("id", value: teamId.uuidString)
-            .eq("created_by_id", value: creatorId)
-            .execute()
-            .value
+        print("🔄 [deleteTeam] Deleting team \(teamId.uuidString)")
         
-        guard let teamRow = team.first else {
-            throw NSError(domain: "new_teams", code: -6,
-                          userInfo: [NSLocalizedDescriptionKey: "Team not found or you're not the creator"])
-        }
-        
-        // Clear team info from all members
-        var memberIds = [teamRow.createdById]
-        if let m2 = teamRow.member2Id { memberIds.append(m2) }
-        if let m3 = teamRow.member3Id { memberIds.append(m3) }
-        
-        for memberId in memberIds {
-            try? await clearStudentTeamInfo(personId: memberId)
-        }
-        
-        // Delete the team
+        // ✅ FIXED: Just delete from new_teams
+        // The view will automatically update for all members
         _ = try await self.client
             .from("new_teams")
             .delete()
             .eq("id", value: teamId.uuidString)
             .eq("created_by_id", value: creatorId)
             .execute()
+        
+        print("✅ Team deleted")
     }
 
     func leaveTeam(team: NewTeamRow, userId: String) async throws {
+        print("🔄 [leaveTeam] \(userId) leaving team #\(team.teamNumber)")
+        
         if team.createdById == userId {
             throw NSError(domain: "new_teams", code: -2,
                           userInfo: [NSLocalizedDescriptionKey: "Creator cannot leave. Delete the team instead."])
@@ -485,25 +469,38 @@ extension SupabaseManager {
 
         if team.member2Id == userId {
             let update = NewTeamUpdate(
-                member2Id: nil, member2Name: nil,
-                member3Id: team.member3Id, member3Name: team.member3Name
+                member2Id: nil,
+                member2Name: nil,
+                member3Id: team.member3Id,
+                member3Name: team.member3Name
             )
-            _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            _ = try await self.client
+                .from("new_teams")
+                .update(update)
+                .eq("id", value: team.id.uuidString)
+                .execute()
             
-            // Clear team info from student profile
-            try await clearStudentTeamInfo(personId: userId)
+            // ✅ FIXED: No need to clear student_profile_complete
+            // The view automatically updates when new_teams changes
+            print("✅ Removed member2 from team")
             return
         }
 
         if team.member3Id == userId {
             let update = NewTeamUpdate(
-                member2Id: team.member2Id, member2Name: team.member2Name,
-                member3Id: nil, member3Name: nil
+                member2Id: team.member2Id,
+                member2Name: team.member2Name,
+                member3Id: nil,
+                member3Name: nil
             )
-            _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            _ = try await self.client
+                .from("new_teams")
+                .update(update)
+                .eq("id", value: team.id.uuidString)
+                .execute()
             
-            // Clear team info from student profile
-            try await clearStudentTeamInfo(personId: userId)
+            // ✅ FIXED: No need to clear student_profile_complete
+            print("✅ Removed member3 from team")
             return
         }
 
@@ -512,6 +509,8 @@ extension SupabaseManager {
     }
 
     func addMemberToTeam(team: NewTeamRow, memberId: String, memberName: String) async throws {
+        print("🔄 [addMemberToTeam] Adding \(memberName) to team #\(team.teamNumber)")
+        
         if team.createdById == memberId || team.member2Id == memberId || team.member3Id == memberId {
             throw NSError(domain: "new_teams", code: -4,
                           userInfo: [NSLocalizedDescriptionKey: "Already in this team"])
@@ -519,62 +518,43 @@ extension SupabaseManager {
 
         if team.member2Id == nil {
             let update = NewTeamUpdate(
-                member2Id: memberId, member2Name: memberName,
-                member3Id: team.member3Id, member3Name: team.member3Name
+                member2Id: memberId,
+                member2Name: memberName,
+                member3Id: team.member3Id,
+                member3Name: team.member3Name
             )
-            _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            _ = try await self.client
+                .from("new_teams")
+                .update(update)
+                .eq("id", value: team.id.uuidString)
+                .execute()
             
-            // Update student profile with team info
-            try await updateStudentTeamInfo(personId: memberId, teamId: team.id, teamNo: team.teamNumber)
+            // ✅ FIXED: No need to update student_profile_complete
+            // The view automatically shows team info when user is added to new_teams
+            print("✅ Added \(memberName) as member2")
             return
         }
 
         if team.member3Id == nil {
             let update = NewTeamUpdate(
-                member2Id: team.member2Id, member2Name: team.member2Name,
-                member3Id: memberId, member3Name: memberName
+                member2Id: team.member2Id,
+                member2Name: team.member2Name,
+                member3Id: memberId,
+                member3Name: memberName
             )
-            _ = try await self.client.from("new_teams").update(update).eq("id", value: team.id.uuidString).execute()
+            _ = try await self.client
+                .from("new_teams")
+                .update(update)
+                .eq("id", value: team.id.uuidString)
+                .execute()
             
-            // Update student profile with team info
-            try await updateStudentTeamInfo(personId: memberId, teamId: team.id, teamNo: team.teamNumber)
+            // ✅ FIXED: No need to update student_profile_complete
+            print("✅ Added \(memberName) as member3")
             return
         }
 
         throw NSError(domain: "new_teams", code: -5,
                       userInfo: [NSLocalizedDescriptionKey: "Team is full"])
-    }
-    
-    // MARK: - Student Profile Team Info Management
-    
-    private struct StudentTeamUpdate: Encodable {
-        let teamId: String?
-        let teamNo: Int?
-        
-        enum CodingKeys: String, CodingKey {
-            case teamId = "team_id"
-            case teamNo = "team_no"
-        }
-    }
-    
-    private func updateStudentTeamInfo(personId: String, teamId: UUID, teamNo: Int) async throws {
-        let update = StudentTeamUpdate(teamId: teamId.uuidString, teamNo: teamNo)
-        
-        _ = try await self.client
-            .from("student_profile_complete")
-            .update(update)
-            .eq("person_id", value: personId)
-            .execute()
-    }
-    
-    private func clearStudentTeamInfo(personId: String) async throws {
-        let update = StudentTeamUpdate(teamId: nil, teamNo: nil)
-        
-        _ = try await self.client
-            .from("student_profile_complete")
-            .update(update)
-            .eq("person_id", value: personId)
-            .execute()
     }
 }
 
@@ -661,6 +641,7 @@ extension SupabaseManager {
         return rows
     }
 }
+
 extension SupabaseManager {
 
     struct StudentBasic: Decodable {
@@ -680,8 +661,6 @@ extension SupabaseManager {
         return (row.reg_no, row.department)
     }
 }
-import Foundation
-import Supabase
 
 extension SupabaseManager {
     
@@ -689,6 +668,7 @@ extension SupabaseManager {
     struct StudentProfileMini: Decodable, Sendable {
         let department: String?
         let reg_no: String?
+        let srm_mail: String?
     }
     
     /// Fetch current student's reg_no + department from public.student_profile_complete by person_id
@@ -701,5 +681,47 @@ extension SupabaseManager {
             .execute()
             .value
         return row
+    }
+}
+
+extension SupabaseManager {
+    
+    /// Student info for picker/list views
+    struct StudentPickerRow: Codable, Sendable {
+        let person_id: String
+        let full_name: String?
+        let first_name: String?
+        let last_name: String?
+        let department: String?
+        let reg_no: String?
+        let srm_mail: String?
+        
+        var displayName: String {
+            if let fullName = full_name?.trimmingCharacters(in: .whitespacesAndNewlines), !fullName.isEmpty {
+                return fullName
+            }
+            
+            let first = (first_name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let last = (last_name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let combined = "\(first) \(last)".trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            return combined.isEmpty ? "Student" : combined
+        }
+    }
+    
+    /// Fetch students for picker (includes is_profile_complete filter)
+    func fetchProfileCompleteStudents() async throws -> [StudentPickerRow] {
+        print("🔍 [fetchProfileCompleteStudents] START")
+        
+        let rows: [StudentPickerRow] = try await client
+            .from("student_profile_complete")
+            .select("person_id,full_name,first_name,last_name,department,reg_no,srm_mail")
+            .eq("is_profile_complete", value: true)
+            .order("full_name", ascending: true)
+            .execute()
+            .value
+        
+        print("✅ [fetchProfileCompleteStudents] COUNT =", rows.count)
+        return rows
     }
 }
