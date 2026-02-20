@@ -207,7 +207,16 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
             
             // 2) Fetch student names for each team
             for team in teams {
-                let names = try await SupabaseManager.shared.fetchStudentNamesForTeam(teamId: team.id)
+                var names: [String] = []
+                names.append(team.createdByName)
+
+                if let n2 = team.member2Name, !n2.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    names.append(n2)
+                }
+                if let n3 = team.member3Name, !n3.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    names.append(n3)
+                }
+
                 teamMemberNames[team.id] = names
             }
 
@@ -234,9 +243,10 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
 
                 return OngoingTeam(
                     teamId: team.id,
-                    teamNo: team.team_no,
+                    teamNo: team.teamNo,
                     activeTaskCount: active
                 )
+
             }
 
             // 5) Pending review total (card)
@@ -254,9 +264,10 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 return ReviewTask(
                     taskId: "pending-\(team.id)",
                     teamId: team.id,
-                    teamNo: team.team_no,
+                    teamNo: team.teamNo,
                     taskTitle: "Pending reviews: \(reviewCount)"
                 )
+
             }
 
             await MainActor.run {

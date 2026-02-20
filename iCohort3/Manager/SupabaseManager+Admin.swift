@@ -5,24 +5,55 @@
 //  Admin-specific team management functionality with team count
 //
 
+
 import Foundation
 import Supabase
 
 extension SupabaseManager {
     
-    // MARK: - Team Models
+    // MARK: - DB Models (new_teams)
     
     struct AdminTeamRow: Decodable, Sendable {
         let id: String
-        let team_no: Int
-        let mentor_id: String?
-        let created_at: String?
+        let teamNo: Int
+        let mentorId: String?
+        let mentorName: String?
+        let createdByName: String
+        let member2Name: String?
+        let member3Name: String?
+        let status: String
+        let createdAt: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case id
+            case teamNo = "team_number"
+            case mentorId = "mentor_id"
+            case mentorName = "mentor_name"
+            case createdByName = "created_by_name"
+            case member2Name = "member2_name"
+            case member3Name = "member3_name"
+            case status
+            case createdAt = "created_at"
+        }
     }
     
-    struct TeamMemberRow: Decodable, Sendable {
-        let member_id: String
-        let team_id: String
+    // MARK: - Mentor list model (mentor_profile_complete)
+    
+    struct MentorProfileCompleteRow: Decodable, Sendable {
+        let personId: String
+        let fullName: String?
+        let firstName: String?
+        let lastName: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case personId = "person_id"
+            case fullName = "full_name"
+            case firstName = "first_name"
+            case lastName  = "last_name"
+        }
     }
+    
+    // MARK: - App DTO for Admin teams screen
     
     struct TeamWithDetails: Sendable {
         let id: String
@@ -31,151 +62,152 @@ extension SupabaseManager {
         let mentorName: String?
         let memberNames: [String]
         let memberCount: Int
+        let status: String
     }
     
-    // MARK: - Get Teams Count
+    // MARK: - Helpers
     
-    /// ✅ IMPROVED: Fetch total teams count with error handling
-    func fetchTeamsCount() async throws -> Int {
-        print("🔍 Fetching teams count from database...")
+    private func buildMemberNames(from team: AdminTeamRow) -> [String] {
+        var names: [String] = []
         
+        let n1 = team.createdByName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !n1.isEmpty { names.append(n1) }
+        
+        if let m2 = team.member2Name?.trimmingCharacters(in: .whitespacesAndNewlines), !m2.isEmpty {
+            names.append(m2)
+        }
+        
+        if let m3 = team.member3Name?.trimmingCharacters(in: .whitespacesAndNewlines), !m3.isEmpty {
+            names.append(m3)
+        }
+        
+        return names
+    }
+    
+    // MARK: - Count Teams (new_teams)
+    
+    /// ✅ Fetch total teams count from public.new_teams
+    func fetchTeamsCount() async throws -> Int {
         do {
-            // Try to use count query first (more efficient)
             let response = try await client
-                .from("teams")
+                .from("new_teams")
                 .select("id", head: false, count: .exact)
                 .execute()
-
-            // Try to get count from response directly (it's already an Int?)
+            
             if let count = response.count {
-                print("✅ Found \(count) teams (from count)")
                 return count
             }
             
-            // Fallback: decode the actual rows
-            let rows: [AdminTeamRow] = try await client
-                .from("teams")
+            // Fallback
+            let rows: [[String: String]] = try await client
+                .from("new_teams")
                 .select("id")
                 .execute()
                 .value
             
-            print("✅ Found \(rows.count) teams (from rows)")
             return rows.count
-            
         } catch {
-            print("⚠️ Error fetching teams count:", error.localizedDescription)
-            print("   Error details:", error)
-            
-            // Check if it's a "table doesn't exist" error
-            if error.localizedDescription.contains("relation") ||
-               error.localizedDescription.contains("does not exist") ||
-               error.localizedDescription.contains("missing") {
-                print("ℹ️ Teams table may not exist yet, returning 0")
-                return 0
-            }
-            
-            // For other errors, return 0 to prevent dashboard crash
-            print("ℹ️ Returning 0 to prevent dashboard crash")
+            // Do NOT crash admin screen
             return 0
         }
     }
     
-    // MARK: - Fetch Teams for Institute
+    // MARK: - Fetch Teams
     
-    /// Fetch all teams - since there's no institute filter in teams table, fetch all
-    func fetchTeamsForInstitute(instituteName: String) async throws -> [AdminTeamRow] {
-        // Note: The teams table doesn't have institute_name column
-        // So we fetch all teams for now
+    /// ✅ Fetch all teams from public.new_teams
+    /// If you only want active teams, set `onlyActive = true`
+    func fetchAllTeams(onlyActive: Bool = false) async throws -> [AdminTeamRow] {
+
         let rows: [AdminTeamRow] = try await client
-            .from("teams")
-            .select("id, team_no, mentor_id, created_at")
-            .order("team_no", ascending: true)
+            .from("new_teams")
+            .select("""
+                id,
+                team_number,
+                mentor_id,
+                mentor_name,
+                created_by_name,
+                member2_name,
+                member3_name,
+                status,
+                created_at
+            """)
+            .order("team_number", ascending: true)
+            .execute()
+            .value
+
+        if onlyActive {
+            return rows.filter { $0.status.lowercased() == "active" }
+        } else {
+            return rows
+        }
+    }
+
+    /// ✅ Returns teams with member names + memberCount (computed from new_teams columns)
+    func fetchAllTeamsWithDetails(onlyActive: Bool = false) async throws -> [TeamWithDetails] {
+        let teams = try await fetchAllTeams(onlyActive: onlyActive)
+        
+        return teams.map { team in
+            let memberNames = buildMemberNames(from: team)
+            return TeamWithDetails(
+                id: team.id,
+                teamNo: team.teamNo,
+                mentorId: team.mentorId,
+                mentorName: team.mentorName,
+                memberNames: memberNames,
+                memberCount: memberNames.count,
+                status: team.status
+            )
+        }
+    }
+    
+    // MARK: - Fetch Mentors (mentor_profile_complete)
+    
+    /// ✅ Mentors list for assignment sheet (from mentor_profile_complete)
+    func fetchMentorsForAssignment() async throws -> [MentorProfileCompleteRow] {
+        let rows: [MentorProfileCompleteRow] = try await client
+            .from("mentor_profile_complete")
+            .select("person_id, full_name, first_name, last_name")
+            .order("first_name", ascending: true)
             .execute()
             .value
         
         return rows
     }
     
-    /// Fetch team details with members
-    func fetchTeamDetails(teamId: String) async throws -> (members: [String], mentorId: String?) {
-        // Fetch team info
-        let teamRows: [AdminTeamRow] = try await client
-            .from("teams")
-            .select("id, team_no, mentor_id")
-            .eq("id", value: teamId)
-            .execute()
-            .value
-        
-        guard let team = teamRows.first else {
-            throw NSError(domain: "SupabaseManager", code: -1,
-                         userInfo: [NSLocalizedDescriptionKey: "Team not found"])
-        }
-        
-        // Fetch member names from team_student_names view
-        let memberNames = try await fetchStudentNamesForTeam(teamId: teamId)
-        
-        return (memberNames, team.mentor_id)
-    }
+    // MARK: - Assign / Remove Mentor (new_teams)
     
-    /// Fetch all team details with member counts
-    func fetchAllTeamsWithDetails() async throws -> [TeamWithDetails] {
-        let teams = try await fetchTeamsForInstitute(instituteName: "")
-        
-        var teamsWithDetails: [TeamWithDetails] = []
-        
-        for team in teams {
-            let (memberNames, mentorId) = try await fetchTeamDetails(teamId: team.id)
-            
-            // Mentor name will be fetched from Firebase by the ViewController
-            let teamDetail = TeamWithDetails(
-                id: team.id,
-                teamNo: team.team_no,
-                mentorId: mentorId,
-                mentorName: nil, // Will be populated from Firebase
-                memberNames: memberNames,
-                memberCount: memberNames.count
-            )
-            
-            teamsWithDetails.append(teamDetail)
-        }
-        
-        return teamsWithDetails
-    }
+    /// ✅ IMPORTANT: Must update BOTH mentor_id + mentor_name because of new_teams_mentor_pair constraint
+    // MARK: - Assign / Remove Mentor (new_teams)
     
-    // MARK: - Assign Mentor to Team
-    
-    /// Assign a mentor to a team
-    func assignMentorToTeam(teamId: String, mentorId: String) async throws {
-        struct MentorUpdate: Encodable {
+    func assignMentorToTeam(teamId: String, mentorId: String, mentorName: String) async throws {
+        struct MentorAssignPayload: Encodable {
             let mentor_id: String
+            let mentor_name: String
         }
         
-        let update = MentorUpdate(mentor_id: mentorId)
+        let payload = MentorAssignPayload(mentor_id: mentorId, mentor_name: mentorName)
         
-        _ = try await client
-            .from("teams")
-            .update(update)
+        try await client
+            .database
+            .from("new_teams")
+            .update(payload)
             .eq("id", value: teamId)
             .execute()
-        
-        print("✅ Mentor \(mentorId) assigned to team \(teamId)")
     }
     
-    /// Remove mentor from team
     func removeMentorFromTeam(teamId: String) async throws {
-        struct MentorRemove: Encodable {
+        struct MentorRemovePayload: Encodable {
             let mentor_id: String?
+            let mentor_name: String?
         }
         
-        let update = MentorRemove(mentor_id: nil)
+        let payload = MentorRemovePayload(mentor_id: nil, mentor_name: nil)
         
-        _ = try await client
-            .from("teams")
-            .update(update)
+        try await client
+            .database
+            .from("new_teams")
+            .update(payload)
             .eq("id", value: teamId)
             .execute()
-        
-        print("✅ Mentor removed from team \(teamId)")
     }
 }
-

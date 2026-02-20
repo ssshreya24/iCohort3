@@ -136,34 +136,39 @@ class AdminTeamsViewController: UIViewController {
     }
     
     // ✅ FIXED: Fetch approved mentors from Supabase
+    // ✅ Fetch mentors from mentor_profile_complete (as per your screenshot)
     private func fetchApprovedMentorsFromSupabase() async throws -> [ApprovedMentorForAssignment] {
-        struct MentorProfileDB: Codable {
-            let person_id: String
+
+        struct MentorProfileCompleteDB: Decodable {
+            let person_id: String       // UUID stored, decode as String
+            let full_name: String?
             let first_name: String?
             let last_name: String?
-            let email: String?
-            let institute_name: String?
         }
-        
-        let profiles: [MentorProfileDB] = try await SupabaseManager.shared.client
-            .from("mentor_profiles")
-            .select("person_id, first_name, last_name, email, institute_name")
-            .eq("institute_name", value: instituteName)
+
+        let profiles: [MentorProfileCompleteDB] = try await SupabaseManager.shared.client
+            .from("mentor_profile_complete")
+            .select("person_id, full_name, first_name, last_name")
             .execute()
             .value
-        
-        return profiles.map { profile in
-            let fullName = [profile.first_name, profile.last_name]
+
+        return profiles.map { p in
+            let fallback = [p.first_name, p.last_name]
                 .compactMap { $0 }
                 .joined(separator: " ")
-            
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            let name = (p.full_name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "")
+            let finalName = !name.isEmpty ? name : (!fallback.isEmpty ? fallback : "Unknown Mentor")
+
             return ApprovedMentorForAssignment(
-                personId: profile.person_id,
-                fullName: fullName.isEmpty ? (profile.email ?? "Unknown") : fullName,
-                email: profile.email ?? ""
+                personId: p.person_id,
+                fullName: finalName,
+                email: "" // mentor_profile_complete screenshot doesn't show email column
             )
         }
     }
+
     
     @objc private func refreshData() {
         loadData()
@@ -205,11 +210,16 @@ class AdminTeamsViewController: UIViewController {
     
     private func assignMentor(mentorId: String, mentorName: String, to team: TeamDisplayModel) {
         showLoadingIndicator()
-        
+
         Task {
             do {
-                try await SupabaseManager.shared.assignMentorToTeam(teamId: team.id, mentorId: mentorId)
-                
+                // ✅ Must update BOTH mentor_id + mentor_name in new_teams
+                try await SupabaseManager.shared.assignMentorToTeam(
+                    teamId: team.id,
+                    mentorId: mentorId,
+                    mentorName: mentorName
+                )
+
                 await MainActor.run {
                     if let index = self.teams.firstIndex(where: { $0.id == team.id }) {
                         self.teams[index].mentorId = mentorId
@@ -227,6 +237,7 @@ class AdminTeamsViewController: UIViewController {
             }
         }
     }
+
     
     private func removeMentor(from team: TeamDisplayModel) {
         showLoadingIndicator()

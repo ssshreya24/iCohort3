@@ -293,21 +293,7 @@ extension SupabaseManager {
     
     // MARK: - Fetch Tasks
     
-    func fetchTasksForTeam(teamId: String) async throws -> [TaskRow] {
-        print("🔍 Fetching tasks for team: \(teamId)")
-        
-        let tasks: [TaskRow] = try await client
-            .from("tasks")
-            .select()
-            .eq("team_id", value: teamId)
-            .order("assigned_date", ascending: false)
-            .execute()
-            .value
-        
-        print("✅ Fetched \(tasks.count) tasks")
-        return tasks
-    }
-    
+
     func fetchTasksForTeam(teamId: String, status: String) async throws -> [TaskRow] {
         let tasks: [TaskRow] = try await client
             .from("tasks")
@@ -317,8 +303,9 @@ extension SupabaseManager {
             .order("assigned_date", ascending: false)
             .execute()
             .value
-        
+        print("✅ Fetched \(tasks.count) tasks")
         return tasks
+
     }
     
     func fetchTask(taskId: String) async throws -> TaskRow? {
@@ -682,41 +669,73 @@ extension SupabaseManager {
     
     /// Fetch student ID by name for a specific team
     func getStudentIdByName(teamId: String, studentName: String) async throws -> String? {
-        print("🔍 Looking for student: '\(studentName)' in team: \(teamId)")
-        
-        struct TeamMemberWithName: Codable {
-            let member_id: String
-            let people: PersonInfo?
-            
-            struct PersonInfo: Codable {
-                let full_name: String
+        print("🔍 Looking for student: '\(studentName)' in new_teams teamId: \(teamId)")
+
+        struct NewTeamRowMini: Decodable {
+            let id: String
+            let createdById: String
+            let createdByName: String
+            let member2Id: String?
+            let member2Name: String?
+            let member3Id: String?
+            let member3Name: String?
+
+            enum CodingKeys: String, CodingKey {
+                case id
+                case createdById = "created_by_id"
+                case createdByName = "created_by_name"
+                case member2Id = "member2_id"
+                case member2Name = "member2_name"
+                case member3Id = "member3_id"
+                case member3Name = "member3_name"
             }
         }
-        
-        let members: [TeamMemberWithName] = try await client
-            .from("team_members")
-            .select("member_id, people!inner(full_name)")
-            .eq("team_id", value: teamId)
+
+        // ✅ SDK-safe: fetch rows then filter in Swift (avoids .eq/.filter issues)
+        let rows: [NewTeamRowMini] = try await client
+            .from("new_teams")
+            .select("id, created_by_id, created_by_name, member2_id, member2_name, member3_id, member3_name")
             .execute()
             .value
-        
-        print("📋 Found \(members.count) team members")
-        
-        // Find the member with matching name
-        for member in members {
-            if let name = member.people?.full_name {
-                print("   - \(name) (\(member.member_id))")
-                if name == studentName {
-                    print("✅ Match found: \(member.member_id)")
-                    return member.member_id
-                }
-            }
+
+        guard let team = rows.first(where: { $0.id == teamId }) else {
+            print("⚠️ No new_teams row found for id: \(teamId)")
+            return nil
         }
-        
+
+        let target = normalizeName(studentName)
+
+        let candidates: [(name: String, id: String)] = [
+            (team.createdByName, team.createdById),
+            (team.member2Name ?? "", team.member2Id ?? ""),
+            (team.member3Name ?? "", team.member3Id ?? "")
+        ].filter { !$0.name.isEmpty && !$0.id.isEmpty }
+
+        print("📋 Candidates in team:")
+        candidates.forEach { print("   - \($0.name) (\($0.id))") }
+
+        // ✅ match by normalized name (case/spacing tolerant)
+        if let match = candidates.first(where: { normalizeName($0.name) == target }) {
+            print("✅ Match found: \(match.id)")
+            return match.id
+        }
+
+        // Optional: loose match if DB name has extra spaces
+        if let match = candidates.first(where: { normalizeName($0.name).contains(target) || target.contains(normalizeName($0.name)) }) {
+            print("✅ Loose match found: \(match.id)")
+            return match.id
+        }
+
         print("⚠️ No match found for: \(studentName)")
         return nil
     }
-    
+
+    private func normalizeName(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines)
+         .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+         .lowercased()
+    }
+
     /// Fetch student names for a team (excludes mentors and "Team Task")
     func getStudentNamesInTeam(teamId: String) async throws -> [String] {
         print("🔍 Fetching student names for team: \(teamId)")

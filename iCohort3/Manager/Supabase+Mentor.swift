@@ -617,11 +617,29 @@ extension SupabaseManager {
 // MARK: - Mentor Team Management Extension
 extension SupabaseManager {
     
-    struct TeamRow: Decodable, Sendable {
+    struct TeamRow: Decodable {
         let id: String
-        let team_no: Int
-        let mentor_id: String
+        let teamNo: Int
+        let mentorId: String?
+        let mentorName: String?
+
+        let createdByName: String
+        let member2Name: String?
+        let member3Name: String?
+        let status: String
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case teamNo = "team_number"
+            case mentorId = "mentor_id"
+            case mentorName = "mentor_name"
+            case createdByName = "created_by_name"
+            case member2Name = "member2_name"
+            case member3Name = "member3_name"
+            case status
+        }
     }
+
     
     struct TeamTaskRow: Decodable, Sendable {
         let team_id: String
@@ -642,15 +660,26 @@ extension SupabaseManager {
     
     func fetchTeamsForMentor(mentorId: String) async throws -> [TeamRow] {
         let rows: [TeamRow] = try await client
-            .from("teams")
-            .select("id, team_no, mentor_id")
+            .from("new_teams")
+            .select("""
+                id,
+                team_number,
+                mentor_id,
+                mentor_name,
+                created_by_name,
+                member2_name,
+                member3_name,
+                status
+            """)
             .eq("mentor_id", value: mentorId)
-            .order("team_no", ascending: true)
+            .eq("status", value: "active")
+            .order("team_number", ascending: true)
             .execute()
             .value
-        
+
         return rows
     }
+
     
     func fetchTeamTasks(teamIds: [String]) async throws -> [TeamTaskRow] {
         guard !teamIds.isEmpty else { return [] }
