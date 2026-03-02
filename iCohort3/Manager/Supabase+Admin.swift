@@ -2,7 +2,7 @@
 //  Supabase+Admin.swift
 //  iCohort3
 //
-//  Admin-specific functionality with institute filtering
+//  ✅ FIXED: fetchTeamsCount uses new_teams table with status = 'active'
 //
 
 import Foundation
@@ -29,7 +29,6 @@ extension SupabaseManager {
     
     // MARK: - Institute ID Management
     
-    /// Get institute ID for logged-in admin
     func getInstituteIdForAdmin(adminEmail: String) async throws -> String {
         print("🔍 Fetching institute ID for admin:", adminEmail)
         
@@ -49,7 +48,6 @@ extension SupabaseManager {
         return institute.id
     }
     
-    /// Get institute details by ID
     func getInstituteById(instituteId: String) async throws -> Institute {
         let institutes: [Institute] = try await client
             .from("institutes")
@@ -68,18 +66,15 @@ extension SupabaseManager {
     
     // MARK: - Domain-Based Filtering
     
-    /// Get pending students for admin's institute ONLY
     func getPendingStudentsForAdmin(adminEmail: String) async throws -> [StudentRegistration] {
         print("🔍 Fetching pending students for admin:", adminEmail)
         
-        // First get admin's institute
         guard let institute = try await getInstitute(byAdminEmail: adminEmail) else {
             throw SupabaseError.instituteNotFound
         }
         
         print("📍 Admin's institute domain:", institute.domain)
         
-        // Get pending students matching this domain
         let students: [StudentRegistration] = try await client
             .from("student_registrations")
             .select()
@@ -92,47 +87,35 @@ extension SupabaseManager {
         print("✅ Found \(students.count) pending students for domain:", institute.domain)
         return students
     }
-    
-    // Replace in Supabase+Admin.swift
 
-    /// Get pending mentors for admin's institute BY DOMAIN
     func getPendingMentorsForAdmin(adminEmail: String) async throws -> [MentorRegistration] {
         print("🔍 Fetching pending mentors for admin:", adminEmail)
         
-        // Get admin's institute
         guard let institute = try await getInstitute(byAdminEmail: adminEmail) else {
             throw SupabaseError.instituteNotFound
         }
         
         print("📍 Admin's institute domain:", institute.domain)
         
-        // ✅ Use domain-based filtering (more reliable than name matching)
         let mentors = try await getPendingMentorsByDomain(instituteDomain: institute.domain)
         
         print("✅ Found \(mentors.count) pending mentors for domain:", institute.domain)
         return mentors
     }
 
-    /// Count approved mentors for admin's institute BY DOMAIN
     func countApprovedMentorsForAdmin(adminEmail: String) async throws -> Int {
         guard let institute = try await getInstitute(byAdminEmail: adminEmail) else {
             return 0
         }
-        
-        // ✅ Use domain-based counting
         return try await countApprovedMentorsByDomain(instituteDomain: institute.domain)
     }
     
-    /// Count approved students for admin's institute
     func countApprovedStudentsForAdmin(adminEmail: String) async throws -> Int {
         guard let institute = try await getInstitute(byAdminEmail: adminEmail) else {
             return 0
         }
-        
         return try await countApprovedStudents(forDomain: institute.domain)
     }
-    
-
     
     // MARK: - Institute-Aware Statistics
     
@@ -148,6 +131,7 @@ extension SupabaseManager {
     }
     
     /// Get complete statistics for admin's institute
+    /// ✅ totalTeams is fetched from new_teams (status = 'active')
     func getInstituteStatistics(adminEmail: String) async throws -> InstituteStatistics {
         print("📊 Fetching statistics for admin:", adminEmail)
         
@@ -155,19 +139,18 @@ extension SupabaseManager {
             throw SupabaseError.instituteNotFound
         }
         
-        print("✅ Institute found:")
-        print("   Name:", institute.name)
-        print("   Domain:", institute.domain)
+        print("✅ Institute found: \(institute.name) | Domain: \(institute.domain)")
         
-        // ✅ FIXED: Use domain-based filtering for both students AND mentors
-        async let pendingStudents = getPendingStudents(forDomain: institute.domain)
-        async let pendingMentors = getPendingMentorsByDomain(instituteDomain: institute.domain) // ✅ CHANGED
-        async let approvedStudentsCount = countApprovedStudents(forDomain: institute.domain)
-        async let approvedMentorsCount = countApprovedMentorsByDomain(instituteDomain: institute.domain) // ✅ CHANGED
-        async let teamsCount = fetchTeamsCount()
+        // Run all queries concurrently
+        async let pendingStudentsTask = getPendingStudents(forDomain: institute.domain)
+        async let pendingMentorsTask = getPendingMentorsByDomain(instituteDomain: institute.domain)
+        async let approvedStudentsCountTask = countApprovedStudents(forDomain: institute.domain)
+        async let approvedMentorsCountTask = countApprovedMentorsByDomain(instituteDomain: institute.domain)
+        // ✅ fetchTeamsCount() queries new_teams WHERE status = 'active'
+        async let teamsCountTask = fetchTeamsCount()
         
         let (pending_students, pending_mentors, approved_students, approved_mentors, teams) =
-            try await (pendingStudents, pendingMentors, approvedStudentsCount, approvedMentorsCount, teamsCount)
+            try await (pendingStudentsTask, pendingMentorsTask, approvedStudentsCountTask, approvedMentorsCountTask, teamsCountTask)
         
         let stats = InstituteStatistics(
             instituteId: institute.id,
@@ -180,33 +163,29 @@ extension SupabaseManager {
             totalTeams: teams
         )
         
-        print("✅ Statistics loaded for institute:", institute.name)
-        print("   Pending Students:", stats.pendingStudents)
-        print("   Pending Mentors:", stats.pendingMentors)
-        print("   Approved Students:", stats.approvedStudents)
-        print("   Approved Mentors:", stats.approvedMentors)
-        print("   Total Teams:", stats.totalTeams)
+        print("✅ Statistics loaded for institute: \(institute.name)")
+        print("   Pending Students: \(stats.pendingStudents)")
+        print("   Pending Mentors:  \(stats.pendingMentors)")
+        print("   Approved Students:\(stats.approvedStudents)")
+        print("   Approved Mentors: \(stats.approvedMentors)")
+        print("   Total Teams:      \(stats.totalTeams)")
         
         return stats
     }
     
     // MARK: - Fetch All Students (Institute-Filtered)
     
-    /// Fetch all students for admin's institute only
     func fetchAllStudentsForAdmin(adminEmail: String) async throws -> [AdminStudentOverview] {
         guard let institute = try await getInstitute(byAdminEmail: adminEmail) else {
             throw SupabaseError.instituteNotFound
         }
         
-        // Filter students by institute domain
         let students: [AdminStudentOverview] = try await client
             .from("admin_student_overview")
             .select()
             .execute()
             .value
         
-        // Client-side filtering by domain (since view doesn't have institute_domain)
-        // Alternative: Add institute_domain to admin_student_overview view
         return students.filter { student in
             student.srm_mail?.hasSuffix("@\(institute.domain)") ?? false
         }
@@ -282,7 +261,6 @@ extension SupabaseManager {
     
     // MARK: - Validation Helpers
     
-    /// Verify that a student belongs to admin's institute
     func validateStudentBelongsToInstitute(
         studentEmail: String,
         adminEmail: String
@@ -290,11 +268,9 @@ extension SupabaseManager {
         guard let institute = try await getInstitute(byAdminEmail: adminEmail) else {
             return false
         }
-        
         return studentEmail.hasSuffix("@\(institute.domain)")
     }
     
-    /// Verify that a mentor belongs to admin's institute
     func validateMentorBelongsToInstitute(
         mentorInstituteName: String,
         adminEmail: String
@@ -302,7 +278,6 @@ extension SupabaseManager {
         guard let institute = try await getInstitute(byAdminEmail: adminEmail) else {
             return false
         }
-        
         return mentorInstituteName.lowercased() == institute.name.lowercased()
     }
 }

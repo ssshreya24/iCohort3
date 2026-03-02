@@ -128,25 +128,16 @@ extension SupabaseManager {
         let taskId = response.id
         print("✅ Task created with ID: \(taskId)")
         
-        // Assign to students
+        // ✅ FIXED: Assign to students using new_teams (not team_members)
         if assignToAll {
-            struct TeamMember: Codable {
-                let member_id: String
-            }
-            
-            let members: [TeamMember] = try await client
-                .from("team_members")
-                .select("member_id")
-                .eq("team_id", value: teamId)
-                .execute()
-                .value
-            
-            let studentIds = members.map { $0.member_id }
-            print("📋 Found \(studentIds.count) team members")
+            let studentIds = try await getStudentIdsFromNewTeams(teamId: teamId)
+            print("📋 Found \(studentIds.count) team members from new_teams")
             
             if !studentIds.isEmpty {
                 try await assignTaskToStudents(taskId: taskId, studentIds: studentIds)
                 print("✅ Assigned to \(studentIds.count) students")
+            } else {
+                print("⚠️ No students found in new_teams for teamId: \(teamId)")
             }
         } else if let studentId = specificStudentId {
             try await assignTaskToStudents(taskId: taskId, studentIds: [studentId])
@@ -231,7 +222,6 @@ extension SupabaseManager {
         var images: [UIImage] = []
         
         for attachment in attachments {
-            // Handle links
             if attachment.file_type == "link" {
                 let linkImage = createTaskLinkPlaceholder()
                 images.append(linkImage)
@@ -239,7 +229,6 @@ extension SupabaseManager {
                 continue
             }
             
-            // Handle base64 images
             guard let base64Data = attachment.file_data else {
                 print("⚠️ No data for attachment: \(attachment.filename)")
                 continue
@@ -293,7 +282,6 @@ extension SupabaseManager {
     
     // MARK: - Fetch Tasks
     
-
     func fetchTasksForTeam(teamId: String, status: String) async throws -> [TaskRow] {
         let tasks: [TaskRow] = try await client
             .from("tasks")
@@ -303,9 +291,8 @@ extension SupabaseManager {
             .order("assigned_date", ascending: false)
             .execute()
             .value
-        print("✅ Fetched \(tasks.count) tasks")
+        print("✅ Fetched \(tasks.count) tasks for status: \(status)")
         return tasks
-
     }
     
     func fetchTask(taskId: String) async throws -> TaskRow? {
@@ -390,11 +377,10 @@ extension SupabaseManager {
         
         print("✅ Task updated: \(taskId)")
         
-        // Update assignees if requested
+        // ✅ FIXED: Update assignees using new_teams (not team_members)
         if updateAssignees {
             print("🔄 Updating assignees...")
             
-            // Delete existing assignees
             _ = try await client
                 .from("task_assignees")
                 .delete()
@@ -402,25 +388,18 @@ extension SupabaseManager {
                 .execute()
             
             if assignToAll, let teamId = teamId {
-                struct TeamMember: Codable {
-                    let member_id: String
-                }
+                let studentIds = try await getStudentIdsFromNewTeams(teamId: teamId)
+                print("📋 Found \(studentIds.count) members from new_teams for update")
                 
-                let members: [TeamMember] = try await client
-                    .from("team_members")
-                    .select("member_id")
-                    .eq("team_id", value: teamId)
-                    .execute()
-                    .value
-                
-                let studentIds = members.map { $0.member_id }
                 if !studentIds.isEmpty {
                     try await assignTaskToStudents(taskId: taskId, studentIds: studentIds)
                     print("✅ Assigned to \(studentIds.count) students")
+                } else {
+                    print("⚠️ No students found in new_teams for teamId: \(teamId)")
                 }
             } else if let studentId = specificStudentId {
                 try await assignTaskToStudents(taskId: taskId, studentIds: [studentId])
-                print("✅ Assigned to specific student")
+                print("✅ Assigned to specific student: \(studentId)")
             }
         }
         
@@ -493,35 +472,33 @@ extension SupabaseManager {
         func dec(_ v: Int?) -> Int { max((v ?? 0) - 1, 0) }
         func inc(_ v: Int?) -> Int { (v ?? 0) + 1 }
         
-        var newOngoing = r.ongoing_task
+        var newOngoing   = r.ongoing_task
         var newForReview = r.for_review_task
-        var newAssigned = r.assigned_task
-        var newPrepared = r.prepared_task
-        var newApproved = r.approved_task
+        var newAssigned  = r.assigned_task
+        var newPrepared  = r.prepared_task
+        var newApproved  = r.approved_task
         var newCompleted = r.completed_task
-        var newRejected = r.rejected_task
+        var newRejected  = r.rejected_task
         
-        // Decrement old
         switch from {
-        case "ongoing": newOngoing = dec(r.ongoing_task)
+        case "ongoing":    newOngoing   = dec(r.ongoing_task)
         case "for_review": newForReview = dec(r.for_review_task)
-        case "assigned": newAssigned = dec(r.assigned_task)
-        case "prepared": newPrepared = dec(r.prepared_task)
-        case "approved": newApproved = dec(r.approved_task)
-        case "completed": newCompleted = dec(r.completed_task)
-        case "rejected": newRejected = dec(r.rejected_task)
+        case "assigned":   newAssigned  = dec(r.assigned_task)
+        case "prepared":   newPrepared  = dec(r.prepared_task)
+        case "approved":   newApproved  = dec(r.approved_task)
+        case "completed":  newCompleted = dec(r.completed_task)
+        case "rejected":   newRejected  = dec(r.rejected_task)
         default: break
         }
         
-        // Increment new
         switch to {
-        case "ongoing": newOngoing = inc(newOngoing)
+        case "ongoing":    newOngoing   = inc(newOngoing)
         case "for_review": newForReview = inc(newForReview)
-        case "assigned": newAssigned = inc(newAssigned)
-        case "prepared": newPrepared = inc(newPrepared)
-        case "approved": newApproved = inc(newApproved)
-        case "completed": newCompleted = inc(newCompleted)
-        case "rejected": newRejected = inc(newRejected)
+        case "assigned":   newAssigned  = inc(newAssigned)
+        case "prepared":   newPrepared  = inc(newPrepared)
+        case "approved":   newApproved  = inc(newApproved)
+        case "completed":  newCompleted = inc(newCompleted)
+        case "rejected":   newRejected  = inc(newRejected)
         default: break
         }
         
@@ -600,6 +577,154 @@ extension SupabaseManager {
         return result.compactMap { $0.people?.full_name }
     }
     
+    // MARK: - Fetch Tasks for a Specific Student in a Team
+        
+        /// Fetches tasks assigned to a specific student (by person_id UUID)
+        /// that belong to the given team, filtered by status.
+        /// This is what the student dashboard uses.
+        func fetchTasksForStudentInTeam(
+            studentId: String,
+            teamId: String,
+            status: String
+        ) async throws -> [TaskRow] {
+            print("🔍 fetchTasksForStudentInTeam: student=\(studentId) team=\(teamId) status=\(status)")
+
+            // Step 1: Get all task_ids assigned to this student
+            let assignees: [TaskAssigneeRow] = try await client
+                .from("task_assignees")
+                .select()
+                .eq("student_id", value: studentId)
+                .execute()
+                .value
+
+            print("📋 Found \(assignees.count) total assignments for student")
+            guard !assignees.isEmpty else { return [] }
+
+            let taskIds = assignees.map { $0.task_id }
+
+            // Step 2: Fetch tasks matching those IDs, filtered by team + status
+            let tasks: [TaskRow] = try await client
+                .from("tasks")
+                .select()
+                .in("id", values: taskIds)
+                .eq("team_id", value: teamId)
+                .eq("status", value: status)
+                .order("assigned_date", ascending: false)
+                .execute()
+                .value
+
+            print("✅ Found \(tasks.count) tasks for student in team with status '\(status)'")
+            return tasks
+        }
+
+        /// All statuses for a student in a team (for full dashboard)
+        func fetchAllTasksForStudentInTeam(
+            studentId: String,
+            teamId: String
+        ) async throws -> [TaskRow] {
+            print("🔍 fetchAllTasksForStudentInTeam: student=\(studentId) team=\(teamId)")
+
+            let assignees: [TaskAssigneeRow] = try await client
+                .from("task_assignees")
+                .select()
+                .eq("student_id", value: studentId)
+                .execute()
+                .value
+
+            guard !assignees.isEmpty else { return [] }
+
+            let taskIds = assignees.map { $0.task_id }
+
+            let tasks: [TaskRow] = try await client
+                .from("tasks")
+                .select()
+                .in("id", values: taskIds)
+                .eq("team_id", value: teamId)
+                .order("assigned_date", ascending: false)
+                .execute()
+                .value
+
+            print("✅ Found \(tasks.count) total tasks for student in team")
+            return tasks
+        }
+    
+    // MARK: - Resolve Assignee Name from new_teams (KEY FIX)
+    
+    /// Resolves the display name for a task by matching task_assignees IDs
+    /// against new_teams columns directly — bypasses the broken people table join.
+    func resolveAssigneeNameFromNewTeams(taskId: String, teamId: String) async throws -> String {
+        
+        // Step 1: Get assignee IDs stored in task_assignees
+        let assignees = try await fetchTaskAssignees(taskId: taskId)
+        
+        guard !assignees.isEmpty else {
+            print("⚠️ No assignees found for task \(taskId) → showing 'Team Task'")
+            return "Team Task"
+        }
+        
+        let assigneeIds = Set(assignees.map { $0.student_id })
+        
+        // Step 2: Fetch the new_teams row for this team
+        struct NewTeamFull: Decodable {
+            let id: String
+            let createdById: String
+            let createdByName: String
+            let member2Id: String?
+            let member2Name: String?
+            let member3Id: String?
+            let member3Name: String?
+            
+            enum CodingKeys: String, CodingKey {
+                case id
+                case createdById   = "created_by_id"
+                case createdByName = "created_by_name"
+                case member2Id     = "member2_id"
+                case member2Name   = "member2_name"
+                case member3Id     = "member3_id"
+                case member3Name   = "member3_name"
+            }
+        }
+        
+        let rows: [NewTeamFull] = try await client
+            .from("new_teams")
+            .select("id, created_by_id, created_by_name, member2_id, member2_name, member3_id, member3_name")
+            .execute()
+            .value
+        
+        guard let team = rows.first(where: { $0.id == teamId }) else {
+            print("⚠️ No new_teams row found for teamId: \(teamId)")
+            return "Team Task"
+        }
+        
+        // Step 3: Build id → name map from new_teams columns
+        var idToName: [String: String] = [:]
+        idToName[team.createdById] = team.createdByName
+        if let id = team.member2Id, let name = team.member2Name, !id.isEmpty { idToName[id] = name }
+        if let id = team.member3Id, let name = team.member3Name, !id.isEmpty { idToName[id] = name }
+        
+        let totalMembers = idToName.count
+        
+        // Step 4: Match assignee IDs to names
+        let matchedNames = assigneeIds.compactMap { idToName[$0] }
+        
+        print("🔍 Task \(taskId): assigneeIds=\(assigneeIds), matched=\(matchedNames), totalMembers=\(totalMembers)")
+        
+        if matchedNames.count == totalMembers && totalMembers > 1 {
+            return "All Members"
+        } else if matchedNames.count == 1 {
+            return matchedNames[0]
+        } else if matchedNames.count > 1 {
+            return matchedNames.sorted().joined(separator: ", ")
+        }
+        
+        // Fallback: if IDs don't match names (e.g. all members assigned but IDs differ)
+        if assigneeIds.count == totalMembers {
+            return "All Members"
+        }
+        
+        return "Team Task"
+    }
+    
     // MARK: - Task Attachments
     
     func fetchTaskAttachments(taskId: String) async throws -> [TaskAttachmentRow] {
@@ -651,22 +776,53 @@ extension SupabaseManager {
                          userInfo: [NSLocalizedDescriptionKey: "Task not found"])
         }
         
-        let assigneeNames = try await fetchAssigneeNamesForTask(taskId: taskId)
-        
-        let assigneeName: String
-        if assigneeNames.isEmpty {
-            assigneeName = "Team Task"
-        } else if assigneeNames.count == 1 {
-            assigneeName = assigneeNames[0]
-        } else {
-            assigneeName = "All Members"
-        }
+        let assigneeName = try await resolveAssigneeNameFromNewTeams(
+            taskId: taskId,
+            teamId: task.team_id
+        )
         
         return (task, assigneeName)
     }
     
     // MARK: - Student/Team Helpers
     
+    /// Get all student IDs directly from new_teams columns
+    func getStudentIdsFromNewTeams(teamId: String) async throws -> [String] {
+        print("🔍 Fetching student IDs from new_teams for teamId: \(teamId)")
+
+        struct NewTeamIds: Decodable {
+            let id: String
+            let createdById: String
+            let member2Id: String?
+            let member3Id: String?
+
+            enum CodingKeys: String, CodingKey {
+                case id
+                case createdById = "created_by_id"
+                case member2Id   = "member2_id"
+                case member3Id   = "member3_id"
+            }
+        }
+
+        let rows: [NewTeamIds] = try await client
+            .from("new_teams")
+            .select("id, created_by_id, member2_id, member3_id")
+            .execute()
+            .value
+
+        guard let team = rows.first(where: { $0.id == teamId }) else {
+            print("⚠️ No new_teams row found for id: \(teamId)")
+            return []
+        }
+
+        let ids = [team.createdById, team.member2Id, team.member3Id]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+
+        print("✅ Found student IDs: \(ids)")
+        return ids
+    }
+
     /// Fetch student ID by name for a specific team
     func getStudentIdByName(teamId: String, studentName: String) async throws -> String? {
         print("🔍 Looking for student: '\(studentName)' in new_teams teamId: \(teamId)")
@@ -682,16 +838,15 @@ extension SupabaseManager {
 
             enum CodingKeys: String, CodingKey {
                 case id
-                case createdById = "created_by_id"
+                case createdById   = "created_by_id"
                 case createdByName = "created_by_name"
-                case member2Id = "member2_id"
-                case member2Name = "member2_name"
-                case member3Id = "member3_id"
-                case member3Name = "member3_name"
+                case member2Id     = "member2_id"
+                case member2Name   = "member2_name"
+                case member3Id     = "member3_id"
+                case member3Name   = "member3_name"
             }
         }
 
-        // ✅ SDK-safe: fetch rows then filter in Swift (avoids .eq/.filter issues)
         let rows: [NewTeamRowMini] = try await client
             .from("new_teams")
             .select("id, created_by_id, created_by_name, member2_id, member2_name, member3_id, member3_name")
@@ -714,14 +869,14 @@ extension SupabaseManager {
         print("📋 Candidates in team:")
         candidates.forEach { print("   - \($0.name) (\($0.id))") }
 
-        // ✅ match by normalized name (case/spacing tolerant)
         if let match = candidates.first(where: { normalizeName($0.name) == target }) {
             print("✅ Match found: \(match.id)")
             return match.id
         }
 
-        // Optional: loose match if DB name has extra spaces
-        if let match = candidates.first(where: { normalizeName($0.name).contains(target) || target.contains(normalizeName($0.name)) }) {
+        if let match = candidates.first(where: {
+            normalizeName($0.name).contains(target) || target.contains(normalizeName($0.name))
+        }) {
             print("✅ Loose match found: \(match.id)")
             return match.id
         }
@@ -736,7 +891,7 @@ extension SupabaseManager {
          .lowercased()
     }
 
-    /// Fetch student names for a team (excludes mentors and "Team Task")
+    /// Fetch student names for a team
     func getStudentNamesInTeam(teamId: String) async throws -> [String] {
         print("🔍 Fetching student names for team: \(teamId)")
         
@@ -757,30 +912,23 @@ extension SupabaseManager {
             .execute()
             .value
         
-        // Filter to only include students (not mentors)
         let names = members.compactMap { member -> String? in
             guard let person = member.people,
                   person.role == "student",
-                  person.full_name != "Team Task" else {
-                return nil
-            }
+                  person.full_name != "Team Task" else { return nil }
             return person.full_name
         }
         
         print("✅ Found \(names.count) students: \(names)")
-        
         return names
     }
     
     // MARK: - Base64 Image Conversion Helpers
     
-    /// Convert UIImage to Base64 string with size limit
     private func convertImageToBase64(image: UIImage, maxSizeKB: Int = 500) -> String? {
-        // Try JPEG compression first
         var compression: CGFloat = 0.8
         var imageData = image.jpegData(compressionQuality: compression)
         
-        // Reduce quality if image is too large
         while let data = imageData, data.count > maxSizeKB * 1024 && compression > 0.1 {
             compression -= 0.1
             imageData = image.jpegData(compressionQuality: compression)
@@ -790,56 +938,37 @@ extension SupabaseManager {
         return data.base64EncodedString()
     }
     
-    /// Convert Base64 string to UIImage
     private func convertBase64ToImage(base64String: String) -> UIImage? {
-        guard let imageData = Data(base64Encoded: base64String) else {
-            return nil
-        }
+        guard let imageData = Data(base64Encoded: base64String) else { return nil }
         return UIImage(data: imageData)
     }
     
-    /// Detect file type from filename (renamed to avoid conflicts)
     private func detectTaskFileType(filename: String) -> String {
-        // Check if it's a URL first
-        if filename.hasPrefix("http://") || filename.hasPrefix("https://") {
-            return "link"
-        }
+        if filename.hasPrefix("http://") || filename.hasPrefix("https://") { return "link" }
         
         let ext = (filename as NSString).pathExtension.lowercased()
-        
         switch ext {
-        case "jpg", "jpeg":
-            return "image/jpeg"
-        case "png":
-            return "image/png"
-        case "gif":
-            return "image/gif"
-        case "pdf":
-            return "application/pdf"
-        case "doc", "docx":
-            return "application/msword"
-        default:
-            return "image/jpeg" // Default to JPEG
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png":         return "image/png"
+        case "gif":         return "image/gif"
+        case "pdf":         return "application/pdf"
+        case "doc", "docx": return "application/msword"
+        default:            return "image/jpeg"
         }
     }
     
-    /// Create a placeholder image for links (renamed to avoid conflicts)
     private func createTaskLinkPlaceholder() -> UIImage {
         let size = CGSize(width: 100, height: 100)
         let renderer = UIGraphicsImageRenderer(size: size)
         
-        let image = renderer.image { context in
-            // Background
+        return renderer.image { context in
             UIColor.systemBlue.withAlphaComponent(0.1).setFill()
             context.fill(CGRect(origin: .zero, size: size))
             
-            // Link icon
             let iconConfig = UIImage.SymbolConfiguration(pointSize: 40, weight: .regular)
             let linkIcon = UIImage(systemName: "link", withConfiguration: iconConfig)
             linkIcon?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
                 .draw(in: CGRect(x: 30, y: 30, width: 40, height: 40))
         }
-        
-        return image
     }
 }

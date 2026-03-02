@@ -33,17 +33,17 @@ enum TaskCategory: String {
 }
 
 struct TaskModel {
-    var id: String?              // Task UUID from database
-    var name: String             // Assignee name or "All Members"
-    var desc: String             // Task description
-    var date: String             // Display date string (e.g., "03 Nov 2025")
-    var remark: String?          // "Remark" or nil
-    var remarkDesc: String?      // Actual remark text
-    var title: String?           // Task title
-    var attachments: [UIImage]?  // Local images (downloaded from storage)
-    var attachmentFilenames: [String]? // Filenames including URLs for links
-    var assignedDate: Date?      // Actual Date object
-    var status: String           // "assigned", "ongoing", "for_review", "completed", "rejected"
+    var id: String?
+    var name: String
+    var desc: String
+    var date: String
+    var remark: String?
+    var remarkDesc: String?
+    var title: String?
+    var attachments: [UIImage]?
+    var attachmentFilenames: [String]?
+    var assignedDate: Date?
+    var status: String
     
     init(id: String? = nil,
          name: String,
@@ -69,7 +69,7 @@ struct TaskModel {
         self.status = status
     }
     
-    // Helper to convert from Supabase TaskRow (async to download attachments)
+    // MARK: - Convert from Supabase TaskRow (async, resolves name from new_teams)
     static func from(taskRow: SupabaseManager.TaskRow, assigneeName: String = "Team Task") async -> TaskModel {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd MMM yyyy"
@@ -77,6 +77,17 @@ struct TaskModel {
         let iso8601Formatter = ISO8601DateFormatter()
         let assignedDate = iso8601Formatter.date(from: taskRow.assigned_date)
         let dateString = assignedDate.map { dateFormatter.string(from: $0) } ?? taskRow.assigned_date
+        
+        // ✅ Resolve assignee name directly from new_teams (bypasses people table)
+        var resolvedName = "Team Task"
+        do {
+            resolvedName = try await SupabaseManager.shared.resolveAssigneeNameFromNewTeams(
+                taskId: taskRow.id,
+                teamId: taskRow.team_id
+            )
+        } catch {
+            print("⚠️ Could not resolve assignee name for task \(taskRow.id): \(error)")
+        }
         
         // Download attachments asynchronously
         var attachmentImages: [UIImage] = []
@@ -88,11 +99,8 @@ struct TaskModel {
             for attachmentRow in attachmentRows {
                 attachmentFilenames.append(attachmentRow.filename)
                 
-                // Check if it's a link
                 if attachmentRow.file_type == "link" {
-                    // Create placeholder for link
-                    let linkPlaceholder = createLinkPlaceholderImage()
-                    attachmentImages.append(linkPlaceholder)
+                    attachmentImages.append(createLinkPlaceholderImage())
                 } else if let base64Data = attachmentRow.file_data,
                           let imageData = Data(base64Encoded: base64Data),
                           let image = UIImage(data: imageData) {
@@ -107,7 +115,7 @@ struct TaskModel {
         
         return TaskModel(
             id: taskRow.id,
-            name: assigneeName,
+            name: resolvedName,
             desc: taskRow.description ?? "",
             date: dateString,
             remark: taskRow.remark,
@@ -120,7 +128,7 @@ struct TaskModel {
         )
     }
     
-    // Synchronous version (without attachments) for quick display
+    // MARK: - Synchronous version (no attachments, no name resolution)
     static func fromSync(taskRow: SupabaseManager.TaskRow, assigneeName: String = "Team Task") -> TaskModel {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd MMM yyyy"
@@ -144,20 +152,19 @@ struct TaskModel {
         )
     }
     
-    // Helper to create link placeholder image
+    // MARK: - Link placeholder image
     private static func createLinkPlaceholderImage() -> UIImage {
         let size = CGSize(width: 100, height: 100)
         let renderer = UIGraphicsImageRenderer(size: size)
         
-        let image = renderer.image { context in
+        return renderer.image { context in
             UIColor.systemBlue.withAlphaComponent(0.1).setFill()
             context.fill(CGRect(origin: .zero, size: size))
             
             let iconConfig = UIImage.SymbolConfiguration(pointSize: 40, weight: .regular)
             let linkIcon = UIImage(systemName: "link", withConfiguration: iconConfig)
-            linkIcon?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal).draw(in: CGRect(x: 30, y: 30, width: 40, height: 40))
+            linkIcon?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
+                .draw(in: CGRect(x: 30, y: 30, width: 40, height: 40))
         }
-        
-        return image
     }
 }

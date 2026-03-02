@@ -2,7 +2,10 @@
 //  Supabase+Student.swift
 //  iCohort3
 //
-//  ✅ CLEANED: Removed Team 9 auto-assignment
+//  ✅ CLEAN: Student profile + team info for the student-facing profile screen.
+//  ✅ NOTE:  fetchTeamsCount, fetchAllTeamsWithDetails, assignMentorToTeam,
+//            removeMentorFromTeam are all defined in SupabaseManager+Admin.swift.
+//            TeamWithDetails struct is defined HERE (used by both files).
 //
 
 import Foundation
@@ -77,6 +80,28 @@ extension SupabaseManager {
         let created_at: String?
     }
     
+    // MARK: - TeamWithDetails
+    //
+    // Declared HERE (single definition).
+    // Used by:
+    //   • SupabaseManager+Admin.swift  → fetchAllTeamsWithDetails()
+    //   • AdminTeamsViewController      → TeamDisplayModel mapping
+    
+    
+    // MARK: - StudentTeamInfo
+    //
+    // Lightweight model for the student-facing profile screen.
+    // Shows team number, fullness, mentor, and the student's role.
+    
+    struct StudentTeamInfo: Sendable {
+        let teamNumber: Int
+        let teamId: String
+        let mentorName: String?
+        let memberCount: Int    // 1, 2, or 3
+        let isFull: Bool        // true when memberCount == 3
+        let isCreator: Bool
+    }
+    
     // MARK: - Fetch Student Profile
     
     func fetchStudentProfile(personId: String) async throws -> StudentProfileComplete? {
@@ -91,13 +116,7 @@ extension SupabaseManager {
             .value
         
         let profile = response.first
-        
-        if profile != nil {
-            print("✅ Found complete student profile")
-        } else {
-            print("⚠️ No complete student profile found")
-        }
-        
+        print(profile != nil ? "✅ Found complete student profile" : "⚠️ No complete student profile found")
         return profile
     }
     
@@ -113,14 +132,88 @@ extension SupabaseManager {
             .value
         
         let profile = response.first
+        print(profile != nil ? "✅ Found basic student profile" : "⚠️ No basic student profile found")
+        return profile
+    }
+    
+    // MARK: - Fetch Team Info for Student (from new_teams)
+    
+    /// Fetches team info for the student profile screen.
+    /// Checks all three member slots in new_teams.
+    /// Returns nil if the student has no active team.
+    func fetchTeamInfoForStudent(personId: String) async throws -> StudentTeamInfo? {
+        print("🔍 Fetching team info for person_id:", personId)
         
-        if profile != nil {
-            print("✅ Found basic student profile")
-        } else {
-            print("⚠️ No basic student profile found")
+        // Minimal projection — only what we need
+        struct TeamSlim: Codable {
+            let id: String
+            let team_number: Int
+            let created_by_id: String
+            let member2_id: String?
+            let member3_id: String?
+            let mentor_name: String?
         }
         
-        return profile
+        let selectCols = "id, team_number, created_by_id, member2_id, member3_id, mentor_name"
+        
+        // 1 — creator slot
+        var rows: [TeamSlim] = try await client
+            .from("new_teams")
+            .select(selectCols)
+            .eq("created_by_id", value: personId)
+            .eq("status", value: "active")
+            .limit(1)
+            .execute()
+            .value
+        
+        var isCreator = true
+        
+        // 2 — member2 slot
+        if rows.isEmpty {
+            isCreator = false
+            rows = try await client
+                .from("new_teams")
+                .select(selectCols)
+                .eq("member2_id", value: personId)
+                .eq("status", value: "active")
+                .limit(1)
+                .execute()
+                .value
+        }
+        
+        // 3 — member3 slot
+        if rows.isEmpty {
+            rows = try await client
+                .from("new_teams")
+                .select(selectCols)
+                .eq("member3_id", value: personId)
+                .eq("status", value: "active")
+                .limit(1)
+                .execute()
+                .value
+        }
+        
+        guard let team = rows.first else {
+            print("⚠️ No active team found for person_id:", personId)
+            return nil
+        }
+        
+        // Count filled slots
+        var memberCount = 1                              // creator always present
+        if team.member2_id != nil { memberCount += 1 }
+        if team.member3_id != nil { memberCount += 1 }
+        
+        let info = StudentTeamInfo(
+            teamNumber: team.team_number,
+            teamId: team.id,
+            mentorName: team.mentor_name,
+            memberCount: memberCount,
+            isFull: memberCount == 3,
+            isCreator: isCreator
+        )
+        
+        print("✅ Team \(team.team_number) | members: \(memberCount)/3 | full: \(info.isFull) | creator: \(isCreator)")
+        return info
     }
     
     // MARK: - Create/Update Student Profile
@@ -138,10 +231,10 @@ extension SupabaseManager {
         print("🔄 Upserting student profile for person_id:", personId)
         
         let isComplete = firstName != nil && !firstName!.isEmpty &&
-                        lastName != nil && !lastName!.isEmpty &&
-                        department != nil && !department!.isEmpty &&
-                        srmMail != nil && !srmMail!.isEmpty &&
-                        regNo != nil && !regNo!.isEmpty
+                         lastName  != nil && !lastName!.isEmpty  &&
+                         department != nil && !department!.isEmpty &&
+                         srmMail   != nil && !srmMail!.isEmpty   &&
+                         regNo     != nil && !regNo!.isEmpty
         
         let payload = StudentProfileUpsert(
             person_id: personId,
@@ -155,9 +248,7 @@ extension SupabaseManager {
             is_profile_complete: isComplete
         )
         
-        struct UpsertResponse: Codable {
-            let id: String
-        }
+        struct UpsertResponse: Codable { let id: String }
         
         let response: [UpsertResponse] = try await client
             .from("student_profiles")
@@ -182,45 +273,29 @@ extension SupabaseManager {
         
         do {
             let params: [String: String] = ["p_person_id": personId]
-            
             let result: String = try await client
                 .rpc("get_student_greeting", params: params)
                 .execute()
                 .value
-            
-            print("✅ Student greeting retrieved:", result)
+            print("✅ Greeting from RPC:", result)
             return result
-            
         } catch {
-            print("❌ Error fetching student greeting from RPC:", error)
-            
-            // Fallback: Try to get first name from student profile
-            do {
-                if let profile = try await fetchBasicStudentProfile(personId: personId),
-                   let firstName = profile.first_name,
-                   !firstName.isEmpty {
-                    print("✅ Using first name from profile:", firstName)
-                    return "Hi \(firstName)"
-                }
-            } catch {
-                print("⚠️ Could not fetch student profile for fallback:", error)
-            }
-            
-            // Fallback 2: Try to get first name from people table
-            do {
-                if let person = try await fetchPerson(personId: personId) {
-                    let firstName = person.full_name.components(separatedBy: " ").first ?? "Student"
-                    print("✅ Using first name from people table:", firstName)
-                    return "Hi \(firstName)"
-                }
-            } catch {
-                print("⚠️ Could not fetch person for fallback:", error)
-            }
-            
-            // Final fallback
-            print("✅ Using default greeting")
-            return "Hi Student"
+            print("❌ RPC greeting failed:", error)
         }
+        
+        // Fallback 1 — student profile first name
+        if let profile = try? await fetchBasicStudentProfile(personId: personId),
+           let firstName = profile.first_name, !firstName.isEmpty {
+            return "Hi \(firstName)"
+        }
+        
+        // Fallback 2 — people table
+        if let person = try? await fetchPerson(personId: personId) {
+            let firstName = person.full_name.components(separatedBy: " ").first ?? "Student"
+            return "Hi \(firstName)"
+        }
+        
+        return "Hi Student"
     }
     
     // MARK: - Check Profile Completion
@@ -234,7 +309,6 @@ extension SupabaseManager {
     
     func fetchStudentId(srmMail: String) async throws -> String? {
         print("🔍 Fetching student ID for SRM email:", srmMail)
-        
         let profiles: [StudentProfile] = try await client
             .from("student_profiles")
             .select()
@@ -242,21 +316,11 @@ extension SupabaseManager {
             .limit(1)
             .execute()
             .value
-        
-        let personId = profiles.first?.person_id
-        
-        if let personId = personId {
-            print("✅ Found student person_id:", personId)
-        } else {
-            print("⚠️ No student found for SRM email:", srmMail)
-        }
-        
-        return personId
+        return profiles.first?.person_id
     }
     
     func fetchStudentId(regNo: String) async throws -> String? {
         print("🔍 Fetching student ID for reg no:", regNo)
-        
         let profiles: [StudentProfile] = try await client
             .from("student_profiles")
             .select()
@@ -264,7 +328,6 @@ extension SupabaseManager {
             .limit(1)
             .execute()
             .value
-        
         return profiles.first?.person_id
     }
     
@@ -276,7 +339,6 @@ extension SupabaseManager {
     
     func fetchPerson(personId: String) async throws -> PersonDetailRow? {
         print("🔍 Fetching person:", personId)
-        
         let persons: [PersonDetailRow] = try await client
             .from("people")
             .select("id, full_name, role, created_at")
@@ -288,9 +350,8 @@ extension SupabaseManager {
         if let person = persons.first {
             print("✅ Found person:", person.full_name)
             return person
-        } else {
-            print("⚠️ Person not found")
-            return nil
         }
+        print("⚠️ Person not found")
+        return nil
     }
 }

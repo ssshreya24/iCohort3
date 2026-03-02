@@ -2,26 +2,31 @@
 //  AllTasksViewController.swift
 //  iCohort3
 //
+//  Updated: TeamContextReceiver conformance — uses injected teamId/teamNo when available,
+//           falls back to Supabase fetch (existing bootstrapAndLoad logic) if not.
+//
 
 import UIKit
 
-final class AllTasksViewController: UIViewController {
+final class AllTasksViewController: UIViewController, TeamContextReceiver {
 
     @IBOutlet weak var collectionView: UICollectionView!
 
-    private var teamId: String = ""
-    private var teamNo: Int = 0
+    // MARK: - TeamContextReceiver
+    // These are set by SDashboardViewController via injectTeamContext(into:)
+    var teamId: String!
+    var teamNo: Int!
+
+    // Internal working copies (non-optional for existing logic)
+    private var resolvedTeamId: String = ""
+    private var resolvedTeamNo: Int    = 0
 
     private var gradientLayer: CAGradientLayer?
 
+    // MARK: - Task Sections
+
     enum TaskSection: Int, CaseIterable {
-        case notStarted = 0
-        case inProgress
-        case forReview
-        case prepared
-        case approved
-        case rejected
-        case completed
+        case notStarted = 0, inProgress, forReview, prepared, approved, rejected, completed
 
         var title: String {
             switch self {
@@ -58,26 +63,10 @@ final class AllTasksViewController: UIViewController {
             case .completed:  return "completed"
             }
         }
-
-        static func section(forStatus status: String) -> TaskSection? {
-            let s = status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            switch s {
-            case "assigned": return .notStarted
-            case "ongoing": return .inProgress
-            case "for_review": return .forReview
-            case "prepared": return .prepared
-            case "approved": return .approved
-            case "rejected": return .rejected
-            case "completed": return .completed
-            default: return nil
-            }
-        }
     }
 
     private var tasksBySections: [[SupabaseManager.TaskRow]] = Array(
-        repeating: [],
-        count: TaskSection.allCases.count
-    )
+        repeating: [], count: TaskSection.allCases.count)
 
     private let emptyLabel: UILabel = {
         let label = UILabel()
@@ -90,15 +79,15 @@ final class AllTasksViewController: UIViewController {
         return label
     }()
 
+    // MARK: - Lifecycle
+
     override func viewDidLoad() {
         super.viewDidLoad()
-
         setupBackButton()
         applyBackgroundGradient()
         setupEmptyLabel()
         registerCells()
         setupCollectionView()
-
         Task { await bootstrapAndLoad() }
     }
 
@@ -107,11 +96,12 @@ final class AllTasksViewController: UIViewController {
         gradientLayer?.frame = view.bounds
     }
 
-    private func setupCollectionView() {
-        collectionView.dataSource = self
-        collectionView.delegate = self
-        collectionView.backgroundColor = .clear
+    // MARK: - Setup
 
+    private func setupCollectionView() {
+        collectionView.dataSource  = self
+        collectionView.delegate    = self
+        collectionView.backgroundColor = .clear
         collectionView.register(
             TaskSectionHeaderView.self,
             forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
@@ -136,66 +126,34 @@ final class AllTasksViewController: UIViewController {
             "RejectedCollectionViewCell",
             "CompletedCollectionViewCell"
         ]
-        for cellName in cellNames {
-            collectionView.register(UINib(nibName: cellName, bundle: nil), forCellWithReuseIdentifier: cellName)
+        for name in cellNames {
+            collectionView.register(
+                UINib(nibName: name, bundle: nil), forCellWithReuseIdentifier: name)
         }
     }
 
-    private func setupBackButton() {
-        let backButton = UIButton(type: .system)
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        backButton.backgroundColor = UIColor(white: 1.0, alpha: 0.8)
-        backButton.layer.cornerRadius = 22
+    // MARK: - Bootstrap & Load
 
-        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
-        backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        backButton.tintColor = .black
-
-        backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
-        view.addSubview(backButton)
-
-        NSLayoutConstraint.activate([
-            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            backButton.widthAnchor.constraint(equalToConstant: 44),
-            backButton.heightAnchor.constraint(equalToConstant: 44)
-        ])
-    }
-
-    @objc private func backButtonTapped() {
-        if let nav = navigationController {
-            nav.popViewController(animated: true)
-        } else {
-            dismiss(animated: true)
-        }
-    }
-
-    private func applyBackgroundGradient() {
-        let g = CAGradientLayer()
-        g.colors = [
-            UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor,
-            UIColor(white: 0.95, alpha: 1).cgColor
-        ]
-        g.startPoint = CGPoint(x: 0.5, y: 0)
-        g.endPoint = CGPoint(x: 0.5, y: 1)
-        view.layer.insertSublayer(g, at: 0)
-        gradientLayer = g
-    }
-
-    private func setEmptyState(_ message: String?) {
-        emptyLabel.text = message ?? "No tasks available"
-        emptyLabel.isHidden = (message == nil)
-    }
-
-    private func resetUIWithEmpty(_ message: String) async {
-        await MainActor.run {
-            self.setEmptyState(message)
-            self.tasksBySections = Array(repeating: [], count: TaskSection.allCases.count)
-            self.collectionView.reloadData()
-        }
-    }
-
+    /// Resolves teamId/teamNo from injection → UserDefaults cache → Supabase fetch,
+    /// then loads all tasks.
     private func bootstrapAndLoad() async {
+        // Priority 1: injected by SDashboardViewController
+        if let injected = teamId, !injected.isEmpty {
+            resolvedTeamId = injected
+            resolvedTeamNo = teamNo ?? 0
+            await syncCountersAndLoad()
+            return
+        }
+
+        // Priority 2: UserDefaults cache
+        if let cached = UserDefaults.standard.string(forKey: "current_team_id"), !cached.isEmpty {
+            resolvedTeamId = cached
+            resolvedTeamNo = UserDefaults.standard.integer(forKey: "current_team_number")
+            await syncCountersAndLoad()
+            return
+        }
+
+        // Priority 3: Supabase fetch
         guard let personId = UserDefaults.standard.string(forKey: "current_person_id"),
               !personId.isEmpty else {
             await resetUIWithEmpty("No user logged in")
@@ -208,38 +166,43 @@ final class AllTasksViewController: UIViewController {
                 await resetUIWithEmpty("No team assigned yet")
                 return
             }
-
-            teamId = myTeam.id
-            teamNo = myTeam.teamNo
-
-            try await SupabaseManager.shared.ensureTeamTaskRow(teamId: teamId, teamNo: teamNo)
-            try await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId, teamNo: teamNo)
-
-            await loadAllTasksFromSupabase()
+            UserDefaults.standard.set(myTeam.id,     forKey: "current_team_id")
+            UserDefaults.standard.set(myTeam.teamNo, forKey: "current_team_number")
+            resolvedTeamId = myTeam.id
+            resolvedTeamNo = myTeam.teamNo
+            await syncCountersAndLoad()
         } catch {
-            print("❌ bootstrapAndLoad failed:", error)
+            print("❌ AllTasksVC bootstrapAndLoad failed:", error)
             await resetUIWithEmpty("Failed to load")
         }
     }
 
-    private func loadAllTasksFromSupabase() async {
-        guard !teamId.isEmpty else {
-            print("⚠️ teamId is empty, cannot load tasks.")
-            return
+    private func syncCountersAndLoad() async {
+        do {
+            try await SupabaseManager.shared.ensureTeamTaskRow(
+                teamId: resolvedTeamId, teamNo: resolvedTeamNo)
+            try await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(
+                teamId: resolvedTeamId, teamNo: resolvedTeamNo)
+        } catch {
+            print("⚠️ Counter sync failed (non-fatal):", error)
         }
+        await loadAllTasksFromSupabase()
+    }
+
+    private func loadAllTasksFromSupabase() async {
+        guard !resolvedTeamId.isEmpty else { return }
 
         do {
-            async let assignedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: TaskSection.notStarted.dbStatus)
-            async let ongoingRows   = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: TaskSection.inProgress.dbStatus)
-            async let reviewRows    = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: TaskSection.forReview.dbStatus)
-            async let preparedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: TaskSection.prepared.dbStatus)
-            async let approvedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: TaskSection.approved.dbStatus)
-            async let rejectedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: TaskSection.rejected.dbStatus)
-            async let completedRows = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: TaskSection.completed.dbStatus)
+            async let a = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.notStarted.dbStatus)
+            async let b = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.inProgress.dbStatus)
+            async let c = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.forReview.dbStatus)
+            async let d = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.prepared.dbStatus)
+            async let e = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.approved.dbStatus)
+            async let f = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.rejected.dbStatus)
+            async let g = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.completed.dbStatus)
 
-            let (assigned, ongoing, review, prepared, approved, rejected, completed) = try await (
-                assignedRows, ongoingRows, reviewRows, preparedRows, approvedRows, rejectedRows, completedRows
-            )
+            let (assigned, ongoing, review, prepared, approved, rejected, completed) =
+                try await (a, b, c, d, e, f, g)
 
             var buckets = Array(repeating: [SupabaseManager.TaskRow](), count: TaskSection.allCases.count)
             buckets[TaskSection.notStarted.rawValue] = assigned
@@ -250,26 +213,42 @@ final class AllTasksViewController: UIViewController {
             buckets[TaskSection.rejected.rawValue]   = rejected
             buckets[TaskSection.completed.rawValue]  = completed
 
-            let totalCount = buckets.reduce(0) { $0 + $1.count }
+            let total = buckets.reduce(0) { $0 + $1.count }
 
             await MainActor.run {
                 self.tasksBySections = buckets
-                self.setEmptyState(totalCount == 0 ? "No tasks available" : nil)
+                self.setEmptyState(total == 0 ? "No tasks available" : nil)
                 self.collectionView.reloadData()
             }
         } catch {
-            print("❌ Failed to load tasks:", error)
+            print("❌ AllTasksVC load failed:", error)
             await resetUIWithEmpty("Failed to load tasks")
         }
     }
 
+    private func setEmptyState(_ message: String?) {
+        emptyLabel.text    = message ?? "No tasks available"
+        emptyLabel.isHidden = (message == nil)
+    }
+
+    private func resetUIWithEmpty(_ message: String) async {
+        await MainActor.run {
+            self.setEmptyState(message)
+            self.tasksBySections = Array(repeating: [], count: TaskSection.allCases.count)
+            self.collectionView.reloadData()
+        }
+    }
+
+    // MARK: - Status Shift
+
     private func shiftStatus(taskId: String, to newSection: TaskSection) async {
         do {
             try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: newSection.dbStatus)
-            try await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId, teamNo: teamNo)
+            try await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(
+                teamId: resolvedTeamId, teamNo: resolvedTeamNo)
             await loadAllTasksFromSupabase()
         } catch {
-            print("❌ Failed to shift status:", error)
+            print("❌ AllTasksVC status shift failed:", error)
         }
     }
 
@@ -280,11 +259,49 @@ final class AllTasksViewController: UIViewController {
         case .forReview:  return .prepared
         case .prepared:   return .approved
         case .approved:   return .completed
-        case .rejected:   return nil
-        case .completed:  return nil
+        case .rejected, .completed: return nil
         }
     }
+
+    // MARK: - UI Setup
+
+    private func setupBackButton() {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.backgroundColor    = UIColor(white: 1.0, alpha: 0.8)
+        btn.layer.cornerRadius = 22
+        let cfg = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        btn.setImage(UIImage(systemName: "chevron.left", withConfiguration: cfg), for: .normal)
+        btn.tintColor = .black
+        btn.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
+        view.addSubview(btn)
+        NSLayoutConstraint.activate([
+            btn.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            btn.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            btn.widthAnchor.constraint(equalToConstant: 44),
+            btn.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+
+    @objc private func backButtonTapped() {
+        if let nav = navigationController { nav.popViewController(animated: true) }
+        else { dismiss(animated: true) }
+    }
+
+    private func applyBackgroundGradient() {
+        let g = CAGradientLayer()
+        g.colors = [
+            UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor,
+            UIColor(white: 0.95, alpha: 1).cgColor
+        ]
+        g.startPoint = CGPoint(x: 0.5, y: 0)
+        g.endPoint   = CGPoint(x: 0.5, y: 1)
+        view.layer.insertSublayer(g, at: 0)
+        gradientLayer = g
+    }
 }
+
+// MARK: - UICollectionViewDataSource & DelegateFlowLayout
 
 extension AllTasksViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
 
@@ -292,68 +309,43 @@ extension AllTasksViewController: UICollectionViewDataSource, UICollectionViewDe
         TaskSection.allCases.count
     }
 
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+    func collectionView(_ collectionView: UICollectionView,
+                        numberOfItemsInSection section: Int) -> Int {
         guard section < tasksBySections.count else { return 0 }
         return tasksBySections[section].count
     }
 
     func collectionView(_ collectionView: UICollectionView,
                         cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-
         let sectionEnum = TaskSection.allCases[indexPath.section]
-        let task = tasksBySections[indexPath.section][indexPath.row]
-        let id = sectionEnum.cellIdentifier
+        let task        = tasksBySections[indexPath.section][indexPath.row]
+        let id          = sectionEnum.cellIdentifier
+        let teamLabel   = "Team \(resolvedTeamNo)"
 
         switch sectionEnum {
-
         case .approved:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: id, for: indexPath) as! ApprovedCollectionViewCell
-            cell.configure(title: task.title,
-                           desc: task.description ?? "",
-                           remark: task.remark,
-                           image: UIImage(named: "logo"),
-                           name: "Team \(teamNo)")
+            cell.configure(title: task.title, desc: task.description ?? "", remark: task.remark, image: UIImage(named: "logo"), name: teamLabel, dueDate: task.assigned_date)
             return cell
-
         case .rejected:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: id, for: indexPath) as! RejectedCollectionViewCell
-            cell.configure(title: task.title,
-                           desc: task.description ?? "",
-                           remark: task.remark,
-                           image: UIImage(named: "logo"),
-                           name: "Team \(teamNo)")
+            cell.configure(title: task.title, desc: task.description ?? "", remark: task.remark, image: UIImage(named: "logo"), name: teamLabel, dueDate: task.assigned_date)
             return cell
-
         case .inProgress:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: id, for: indexPath) as! InProgressCollectionViewCell
-            cell.configure(title: task.title,
-                           desc: task.description ?? "",
-                           image: UIImage(named: "logo"),
-                           name: "Team \(teamNo)")
+            cell.configure(title: task.title, desc: task.description ?? "", image: UIImage(named: "logo"), name: teamLabel, dueDate: task.assigned_date)
             return cell
-
         case .prepared:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: id, for: indexPath) as! PreparedCollectionViewCell
-            cell.configure(title: task.title,
-                           desc: task.description ?? "",
-                           image: UIImage(named: "logo"),
-                           name: "Team \(teamNo)")
+            cell.configure(title: task.title, desc: task.description ?? "", image: UIImage(named: "logo"), name: teamLabel, dueDate: task.assigned_date)
             return cell
-
         case .completed:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: id, for: indexPath) as! CompletedCollectionViewCell
-            cell.configure(title: task.title,
-                           desc: task.description ?? "",
-                           image: UIImage(named: "logo"),
-                           name: "Team \(teamNo)")
+            cell.configure(title: task.title, desc: task.description ?? "", image: UIImage(named: "logo"), name: teamLabel, dueDate: task.assigned_date)
             return cell
-
         default:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: id, for: indexPath) as! TaskCollectionViewCell
-            cell.configure(title: task.title,
-                           desc: task.description ?? "",
-                           image: UIImage(named: "logo"),
-                           name: "Team \(teamNo)")
+            cell.configure(title: task.title, desc: task.description ?? "", image: UIImage(named: "logo"), name: teamLabel, dueDate: task.assigned_date)
             return cell
         }
     }
@@ -361,13 +353,9 @@ extension AllTasksViewController: UICollectionViewDataSource, UICollectionViewDe
     func collectionView(_ collectionView: UICollectionView,
                         viewForSupplementaryElementOfKind kind: String,
                         at indexPath: IndexPath) -> UICollectionReusableView {
-
         let header = collectionView.dequeueReusableSupplementaryView(
-            ofKind: kind,
-            withReuseIdentifier: "TaskSectionHeader",
-            for: indexPath
+            ofKind: kind, withReuseIdentifier: "TaskSectionHeader", for: indexPath
         ) as! TaskSectionHeaderView
-
         header.titleLabel.text = TaskSection.allCases[indexPath.section].title
         return header
     }
@@ -390,24 +378,22 @@ extension AllTasksViewController: UICollectionViewDataSource, UICollectionViewDe
         UIEdgeInsets(top: 8, left: 20, bottom: 16, right: 20)
     }
 
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+    func collectionView(_ collectionView: UICollectionView,
+                        didSelectItemAt indexPath: IndexPath) {
         let currentSection = TaskSection.allCases[indexPath.section]
-        let task = tasksBySections[indexPath.section][indexPath.row]
-
-        guard let moveTo = nextSection(for: currentSection) else { return }
+        let task           = tasksBySections[indexPath.section][indexPath.row]
+        guard let moveTo   = nextSection(for: currentSection) else { return }
         Task { await shiftStatus(taskId: task.id, to: moveTo) }
     }
 }
-import Foundation
+
+// MARK: - Array async helper
 
 extension Array {
     func asyncMap<T>(_ transform: (Element) async -> T) async -> [T] {
         var results: [T] = []
         results.reserveCapacity(count)
-        for element in self {
-            let value = await transform(element)
-            results.append(value)
-        }
+        for element in self { results.append(await transform(element)) }
         return results
     }
 }

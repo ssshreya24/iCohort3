@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24506" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24504"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -21,7 +21,7 @@
                         <rect key="frame" x="12" y="8" width="400" height="200"/>
                         <subviews>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="5Eh-Ng-atf">
-                                <rect key="frame" x="16" y="112.66666666666667" width="368" height="1"/>
+                                <rect key="frame" x="16" y="167" width="368" height="1"/>
                                 <color key="backgroundColor" systemColor="separatorColor"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="1" id="87n-sa-N8f"/>
@@ -47,7 +47,7 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="252" text="Task Description" textAlignment="natural" lineBreakMode="wordWrap" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="piz-V1-aVr">
-                                <rect key="frame" x="16" y="67" width="354" height="15.666666666666671"/>
+                                <rect key="frame" x="16" y="67" width="354" height="70"/>
                                 <fontDescription key="fontDescription" type="system" pointSize="13"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
@@ -72,7 +72,10 @@
                                 <nil key="highlightedColor"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Due Date: 3 Nov 2025" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="sM9-id-A3Z">
-                                <rect key="frame" x="245.33333333333331" y="115.66666666666667" width="138.66666666666669" height="15.666666666666671"/>
+                                <rect key="frame" x="245.33333333333331" y="170" width="138.66666666666669" height="15"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="15" id="ePs-0I-fdh"/>
+                                </constraints>
                                 <fontDescription key="fontDescription" type="system" weight="semibold" pointSize="13"/>
                                 <color key="textColor" red="0.36078431370000003" green="0.36078431370000003" blue="0.36078431370000003" alpha="1" colorSpace="custom" customColorSpace="calibratedRGB"/>
                                 <nil key="highlightedColor"/>
@@ -90,6 +93,7 @@
                             <constraint firstAttribute="trailing" secondItem="Qem-ph-0Kd" secondAttribute="trailing" constant="10" id="PHg-3r-3Tr"/>
                             <constraint firstItem="Vrn-HC-FRe" firstAttribute="centerY" secondItem="DVF-G8-wjD" secondAttribute="centerY" id="Y6P-kD-aC9"/>
                             <constraint firstItem="DVF-G8-wjD" firstAttribute="leading" secondItem="FK6-Ks-GSV" secondAttribute="leading" constant="12" id="YCI-ZL-AYr"/>
+                            <constraint firstAttribute="bottom" secondItem="sM9-id-A3Z" secondAttribute="bottom" constant="15" id="dr1-sW-nLC"/>
                             <constraint firstItem="piz-V1-aVr" firstAttribute="top" secondItem="DVF-G8-wjD" secondAttribute="bottom" constant="30" id="jHn-gr-Rb4"/>
                             <constraint firstItem="5Eh-Ng-atf" firstAttribute="leading" secondItem="FK6-Ks-GSV" secondAttribute="leading" constant="16" id="keW-Fk-YN1"/>
                             <constraint firstAttribute="height" constant="200" id="kgN-5q-iIi"/>

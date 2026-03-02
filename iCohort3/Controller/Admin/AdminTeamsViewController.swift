@@ -216,8 +216,7 @@ class AdminTeamsViewController: UIViewController {
                 // ✅ Must update BOTH mentor_id + mentor_name in new_teams
                 try await SupabaseManager.shared.assignMentorToTeam(
                     teamId: team.id,
-                    mentorId: mentorId,
-                    mentorName: mentorName
+                    mentorId: mentorId
                 )
 
                 await MainActor.run {
