@@ -13,7 +13,12 @@ final class SupabaseManager {
 
         client = SupabaseClient(
             supabaseURL: url,
-            supabaseKey: key
+            supabaseKey: key,
+            options: SupabaseClientOptions(
+                        auth: SupabaseClientOptions.AuthOptions(
+                            emitLocalSessionAsInitialSession: true  // ✅ Fix the warning
+                )
+            )
         )
     }
 

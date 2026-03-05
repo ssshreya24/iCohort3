@@ -491,6 +491,24 @@ extension SupabaseManager {
         let updated_at: String?
     }
     
+    func verifyStudentFromProfiles(email: String, password: String) async throws -> Bool {
+        struct ProfileWithHash: Codable {
+            let password_hash: String
+            let is_profile_complete: Bool?
+        }
+        let results: [ProfileWithHash] = try await client
+            .from("student_profiles")
+            .select("password_hash, is_profile_complete")
+            .eq("srm_mail", value: email)
+            .limit(1)
+            .execute()
+            .value
+        guard let profile = results.first else {
+            throw SupabaseError.studentNotFound
+        }
+        return hashPassword(password) == profile.password_hash
+    }
+    
     /// Register a mentor
     func registerMentor(
         fullName: String,

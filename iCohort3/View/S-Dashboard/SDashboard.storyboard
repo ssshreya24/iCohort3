@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24412" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="24506" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_3" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24405"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24504"/>
         <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
@@ -34,7 +34,7 @@
                                                         <nil key="highlightedColor"/>
                                                     </label>
                                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Tasks Status Overview" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="MwR-k6-jHe">
-                                                        <rect key="frame" x="16" y="79" width="199.66666666666666" height="24"/>
+                                                        <rect key="frame" x="16" y="79" width="197.33333333333334" height="24"/>
                                                         <fontDescription key="fontDescription" type="system" pointSize="20"/>
                                                         <nil key="textColor"/>
                                                         <nil key="highlightedColor"/>
@@ -73,7 +73,6 @@
                                                     <constraint firstItem="LCc-1i-dX0" firstAttribute="leading" secondItem="3f9-ob-PuI" secondAttribute="leading" constant="337" id="bvx-Gv-2a4"/>
                                                     <constraint firstItem="LCc-1i-dX0" firstAttribute="top" secondItem="3f9-ob-PuI" secondAttribute="top" constant="-15" id="cIv-e5-KUH"/>
                                                     <constraint firstItem="Led-d8-4z5" firstAttribute="leading" secondItem="MwR-k6-jHe" secondAttribute="leading" id="slR-D8-H3l"/>
-                                                    <constraint firstItem="11x-Xo-cA0" firstAttribute="leading" secondItem="MwR-k6-jHe" secondAttribute="trailing" constant="89.5" id="xgR-9l-eIK"/>
                                                     <constraint firstAttribute="height" constant="120" id="yeO-Ax-QmK"/>
                                                 </constraints>
                                             </view>

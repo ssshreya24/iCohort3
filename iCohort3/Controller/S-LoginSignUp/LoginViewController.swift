@@ -3,7 +3,7 @@
 //  iCohort3
 //
 //  ✅ SUPABASE ONLY - No Firebase dependencies
-//  ✅ Updated to navigate to EmailVerificationViewController for forgot password
+//  ✅ Fixed: login hang, loading indicator race condition, 15s timeout added
 //
 
 import UIKit
@@ -19,6 +19,7 @@ class LoginViewController: UIViewController {
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var emailTextField: UITextField!
     
+    private var backdropView: UIView?
     private var loadingIndicator: UIActivityIndicatorView?
     
     override func viewDidLoad() {
@@ -33,49 +34,39 @@ class LoginViewController: UIViewController {
     
     func setupUI() {
         passwordTextField.isSecureTextEntry = true
-        
         passwordVisibilityToggle.setImage(UIImage(systemName: "eye.slash.fill"), for: .normal)
-        
         rememberMeButton.isSelected = false
         rememberMeButton.setImage(UIImage(systemName: "square"), for: .normal)
         rememberMeButton.setImage(UIImage(systemName: "checkmark.square.fill"), for: .selected)
-        
         signInButton.layer.cornerRadius = 20
         signInButton.layer.masksToBounds = true
-        
         emailTextField.layer.cornerRadius = 0
         emailTextField.layer.masksToBounds = true
-        
         passwordTextField.layer.cornerRadius = 0
         passwordTextField.layer.masksToBounds = true
-        
         containerView.layer.cornerRadius = 23
         containerView.layer.masksToBounds = true
-        
         containerView2.layer.cornerRadius = 23
         containerView2.layer.masksToBounds = true
     }
     
     @IBAction func forgotPasswordTapped(_ sender: UIButton) {
-        // ✅ Navigate to EmailVerificationViewController instead of OTP directly
         let emailVerificationVC = EmailVerificationViewController()
-        
         if let nav = navigationController {
             nav.pushViewController(emailVerificationVC, animated: true)
         } else {
             emailVerificationVC.modalPresentationStyle = .fullScreen
-            present(emailVerificationVC, animated: true, completion: nil)
+            present(emailVerificationVC, animated: true)
         }
     }
     
     @IBAction func signUpButtonTapped(_ sender: UIButton) {
         let signUpVC = SignUpViewController(nibName: "SignUpViewController", bundle: nil)
-        
         if let nav = navigationController {
             nav.pushViewController(signUpVC, animated: true)
         } else {
             signUpVC.modalPresentationStyle = .fullScreen
-            present(signUpVC, animated: true, completion: nil)
+            present(signUpVC, animated: true)
         }
     }
     
@@ -94,12 +85,10 @@ class LoginViewController: UIViewController {
             nav.popViewController(animated: true)
             return
         }
-        
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         if let userSelection = storyboard.instantiateViewController(withIdentifier: "UserSelectionVC") as? UserSelectionViewController {
             let navRoot = UINavigationController(rootViewController: userSelection)
             navRoot.modalPresentationStyle = .fullScreen
-            
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
                 window.rootViewController = navRoot
@@ -108,7 +97,7 @@ class LoginViewController: UIViewController {
                 window.rootViewController = navRoot
                 window.makeKeyAndVisible()
             } else {
-                present(navRoot, animated: true, completion: nil)
+                present(navRoot, animated: true)
             }
         }
     }
@@ -118,11 +107,11 @@ class LoginViewController: UIViewController {
         print("🔐 STUDENT LOGIN STARTED (SUPABASE)")
         print("===========================================")
         
-        guard let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !email.isEmpty else {
+        guard let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !email.isEmpty else {
             showAlert(title: "Error", message: "Please enter your email address")
             return
         }
-        
         guard let password = passwordTextField.text, !password.isEmpty else {
             showAlert(title: "Error", message: "Please enter your password")
             return
@@ -130,151 +119,176 @@ class LoginViewController: UIViewController {
         
         signInButton.isEnabled = false
         showLoadingIndicator()
-        
         performLogin(email: email, password: password)
     }
+    
+    // MARK: - Login Logic
     
     private func performLogin(email: String, password: String) {
         Task {
             do {
                 print("📝 Verifying student credentials in Supabase...")
                 
-                // ✅ Verify credentials directly in Supabase
-                let isValid = try await SupabaseManager.shared.verifyStudent(email: email, password: password)
+                // ✅ Verify password hash from student_profiles with 15s timeout
+                let isValid = try await withLoginTimeout {
+                    try await SupabaseManager.shared.verifyStudentFromProfiles(
+                        email: email,
+                        password: password
+                    )
+                }
                 
                 guard isValid else {
-                    await MainActor.run {
-                        hideLoadingIndicator()
-                        signInButton.isEnabled = true
-                        showAlert(title: "Login Failed", message: "Invalid email or password")
+                    await finishLogin {
+                        self.showAlert(title: "Login Failed", message: "Invalid email or password. Please try again.")
                     }
                     return
                 }
-                
                 print("✅ Credentials verified")
                 
-                // ✅ Get student person_id from Supabase
+                // ✅ Fetch person_id
                 guard let personId = try await SupabaseManager.shared.fetchStudentId(srmMail: email) else {
                     throw SupabaseError.studentNotFound
                 }
+                print("✅ Person ID:", personId)
                 
-                print("✅ Person ID found:", personId)
-                
-                // ✅ Get full name
-                let fullName = try await SupabaseManager.shared.fetchStudentFullName(personIdString: personId)
-                
+                // ✅ Fetch full name (non-fatal if missing)
+                let fullName = (try? await SupabaseManager.shared.fetchStudentFullName(personIdString: personId)) ?? "Student"
                 print("✅ Student name:", fullName)
                 
-                // ✅ Store session
-                await MainActor.run {
-                    UserDefaults.standard.set(personId, forKey: "current_person_id")
-                    UserDefaults.standard.set(fullName, forKey: "current_user_name")
-                    UserDefaults.standard.set(email, forKey: "current_user_email")
-                    UserDefaults.standard.set("student", forKey: "current_user_role")
-                    UserDefaults.standard.set(true, forKey: "is_logged_in")
-                    
-                    if rememberMeButton.isSelected {
-                        UserDefaults.standard.set(true, forKey: "remember_me")
-                        UserDefaults.standard.set(email, forKey: "remembered_email")
-                    }
-                    
-                    print("✅ Student login success")
-                    
-                    hideLoadingIndicator()
-                    signInButton.isEnabled = true
-                    handleLoginSuccess()
+                // ✅ Save session to UserDefaults
+                UserDefaults.standard.set(personId,   forKey: "current_person_id")
+                UserDefaults.standard.set(fullName,   forKey: "current_user_name")
+                UserDefaults.standard.set(email,      forKey: "current_user_email")
+                UserDefaults.standard.set("student",  forKey: "current_user_role")
+                UserDefaults.standard.set(true,       forKey: "is_logged_in")
+                
+                if await rememberMeButton.isSelected {
+                    UserDefaults.standard.set(true,  forKey: "remember_me")
+                    UserDefaults.standard.set(email, forKey: "remembered_email")
                 }
                 
+                print("✅ Student login success — navigating to home")
+                await finishLogin { self.handleLoginSuccess() }
+                
             } catch SupabaseError.notApproved {
-                print("❌ Error: Not approved")
-                await MainActor.run {
-                    hideLoadingIndicator()
-                    signInButton.isEnabled = true
-                    showAlert(title: "Pending Approval", message: "Your registration is still pending approval from your institute. Please wait for confirmation.")
+                print("❌ Not approved")
+                await finishLogin {
+                    self.showAlert(
+                        title: "Pending Approval",
+                        message: "Your registration is pending admin approval. Please wait for confirmation."
+                    )
                 }
                 
             } catch SupabaseError.studentNotFound {
-                print("❌ Error: Student not found")
-                await MainActor.run {
-                    hideLoadingIndicator()
-                    signInButton.isEnabled = true
-                    showAlert(title: "Not Registered", message: "This email is not registered. Please sign up first.")
+                print("❌ Student not found")
+                await finishLogin {
+                    self.showAlert(
+                        title: "Not Registered",
+                        message: "No account found for this email. Please sign up first."
+                    )
+                }
+                
+            } catch let error as NSError where error.domain == "LoginTimeout" {
+                print("❌ Login timed out")
+                await finishLogin {
+                    self.showAlert(
+                        title: "Connection Timeout",
+                        message: "Could not connect to the server. Please check your internet and try again."
+                    )
                 }
                 
             } catch {
                 print("❌ Login error:", error.localizedDescription)
-                await MainActor.run {
-                    hideLoadingIndicator()
-                    signInButton.isEnabled = true
-                    showAlert(title: "Login Failed", message: "An error occurred: \(error.localizedDescription)")
+                await finishLogin {
+                    self.showAlert(title: "Login Failed", message: error.localizedDescription)
                 }
             }
         }
     }
     
+    /// Always called at end of login — hides loader, re-enables button, runs optional UI block.
+    /// Marked @MainActor so it's always safe to update UI directly — no DispatchQueue needed.
+    @MainActor
+    private func finishLogin(action: (() -> Void)? = nil) {
+        hideLoadingIndicator()
+        signInButton.isEnabled = true
+        action?()
+    }
+    
+    /// Races the login operation against a 15-second timeout.
+    private func withLoginTimeout<T>(_ operation: @escaping () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 15_000_000_000)
+                throw NSError(
+                    domain: "LoginTimeout",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Request timed out"]
+                )
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+    
+    // MARK: - Navigation
+    
     func handleLoginSuccess() {
         let tab = MainTabBarViewController()
-        
-        let win = view.window ?? UIApplication.shared.connectedScenes
+        let window = view.window ?? UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }
             .first { $0.isKeyWindow }
-        
-        guard let window = win else { return }
-        
+        guard let window else { return }
         UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
             window.rootViewController = tab
         }
     }
     
-    // MARK: - Helper Methods
+    // MARK: - Loading Indicator
+    // ✅ @MainActor eliminates the need for DispatchQueue.main.async wrappers,
+    //    which caused race conditions with the previous implementation.
     
+    @MainActor
     func showLoadingIndicator() {
-        // Remove any existing indicator first
-        hideLoadingIndicator()
+        hideLoadingIndicator() // clear stale state first
         
-        DispatchQueue.main.async {
-            let indicator = UIActivityIndicatorView(style: .large)
-            indicator.color = .systemBlue
-            indicator.center = self.view.center
-            indicator.startAnimating()
-            
-            // Add backdrop
-            let backdrop = UIView(frame: self.view.bounds)
-            backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-            backdrop.tag = 9999
-            backdrop.addSubview(indicator)
-            
-            self.view.addSubview(backdrop)
-            self.view.isUserInteractionEnabled = false
-            
-            self.loadingIndicator = indicator
-            
-            print("🔄 Loading indicator shown")
-        }
+        let backdrop = UIView(frame: view.bounds)
+        backdrop.backgroundColor = UIColor.black.withAlphaComponent(0.35)
+        backdrop.tag = 9999
+        
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.color = .white
+        indicator.center = CGPoint(x: backdrop.bounds.midX, y: backdrop.bounds.midY)
+        indicator.startAnimating()
+        
+        backdrop.addSubview(indicator)
+        view.addSubview(backdrop)
+        view.isUserInteractionEnabled = false
+        
+        backdropView = backdrop
+        loadingIndicator = indicator
+        print("🔄 Loading indicator shown")
     }
     
+    @MainActor
     func hideLoadingIndicator() {
-        DispatchQueue.main.async {
-            // Remove backdrop
-            self.view.viewWithTag(9999)?.removeFromSuperview()
-            
-            // Remove indicator
-            self.loadingIndicator?.stopAnimating()
-            self.loadingIndicator?.removeFromSuperview()
-            self.loadingIndicator = nil
-            
-            self.view.isUserInteractionEnabled = true
-            
-            print("✋ Loading indicator hidden")
-        }
+        backdropView?.removeFromSuperview()
+        backdropView = nil
+        loadingIndicator?.stopAnimating()
+        loadingIndicator?.removeFromSuperview()
+        loadingIndicator = nil
+        view.isUserInteractionEnabled = true
+        print("✋ Loading indicator hidden")
     }
+    
+    // MARK: - Alert
     
     func showAlert(title: String, message: String) {
-        DispatchQueue.main.async {
-            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            self.present(alert, animated: true)
-        }
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }
