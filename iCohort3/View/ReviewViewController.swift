@@ -28,6 +28,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
     // MARK: - Outlets
     @IBOutlet weak var backButton:               UIButton!
     @IBOutlet weak var titleLabel:               UILabel!
+    @IBOutlet weak var scrollView:               UIScrollView!
 
     @IBOutlet weak var titleCardView:            UIView!
     @IBOutlet weak var attachmentCardView:       UIView!
@@ -49,6 +50,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
     // MARK: - Private
     private let remarkPlaceholder    = "Add remark"
     private var firstAttachmentName: String?
+    private var fetchedAttachments: [SupabaseManager.TaskAttachmentRow] = []
     private var isUpdating           = false
 
     // MARK: - Lifecycle
@@ -80,8 +82,19 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
 
         setupCards()
         setupRemarkTextView()
+        setupRefreshControl()
         applyStatusUI(for: "for_review")
 
+        Task { await loadFromSupabase() }
+    }
+    
+    private func setupRefreshControl() {
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        scrollView?.refreshControl = refreshControl
+    }
+    
+    @objc private func handleRefresh() {
         Task { await loadFromSupabase() }
     }
 
@@ -95,7 +108,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
 
     private func loadFromSupabase() async {
         guard !taskId.isEmpty else { return }
-
+        
         do {
             // ── 1. Task row ───────────────────────────────────────────────────
             struct TaskRow: Decodable {
@@ -113,7 +126,12 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                 .execute()
                 .value
 
-            guard let row = rows.first else { return }
+            guard let row = rows.first else { 
+                await MainActor.run { 
+                    self.scrollView?.refreshControl?.endRefreshing()
+                }
+                return 
+            }
 
             // ── 2. Assignee name ──────────────────────────────────────────────
             var assignee = "Team"
@@ -123,8 +141,9 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
             }
 
             // ── 3. Attachments ────────────────────────────────────────────────
-            let attachments = (try? await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId)) ?? []
-            let firstName   = attachments.first?.filename
+            let allAttachments = (try? await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId)) ?? []
+            let studentAttachments = allAttachments.filter { $0.mentor_attachment == false || $0.mentor_attachment == nil }
+            let firstName   = studentAttachments.first?.filename
 
             // ── 4. Format date ────────────────────────────────────────────────
             let dueDateStr = formatISO(row.assigned_date)
@@ -152,6 +171,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                 }
 
                 // Attachment card — ALWAYS visible, show content or "No attachment"
+                self.fetchedAttachments      = studentAttachments
                 firstAttachmentName          = firstName
                 attachmentCardView.isHidden  = false
 
@@ -166,6 +186,8 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                     attachmentFileNameButton.setTitleColor(.systemGray3, for: .normal)
                     attachmentFileNameButton.isEnabled = false
                 }
+                
+                self.scrollView?.refreshControl?.endRefreshing()
             }
 
         } catch {
@@ -175,6 +197,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                 attachmentFileNameButton.setTitle("Could not load", for: .normal)
                 attachmentFileNameButton.setTitleColor(.systemGray3, for: .normal)
                 attachmentFileNameButton.isEnabled = false
+                self.scrollView?.refreshControl?.endRefreshing()
             }
         }
     }
@@ -189,6 +212,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
     private func displayStatus(for raw: String) -> String {
         switch raw {
         case "for_review": return "In Review"
+        case "approved":   return "Approved"
         case "completed":  return "Completed"
         case "rejected":   return "Rejected"
         case "assigned":   return "Assigned"
@@ -200,6 +224,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
     private func statusColor(for raw: String) -> UIColor {
         switch raw {
         case "for_review": return .systemYellow
+        case "approved":   return .systemGreen
         case "completed":  return .systemGreen
         case "rejected":   return .systemRed
         default:           return .systemBlue
@@ -267,16 +292,32 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
 
     @IBAction func attachmentButtonTapped(_ sender: UIButton) {
         guard let name = firstAttachmentName else { return }
+        
+        // 1. Handle Link
         let isLink = name.hasPrefix("http://") || name.hasPrefix("https://")
         if isLink, let url = URL(string: name) {
             let safari = SFSafariViewController(url: url)
             safari.modalPresentationStyle = .pageSheet
             present(safari, animated: true)
-        } else {
-            let a = UIAlertController(title: "Attachment", message: name, preferredStyle: .alert)
-            a.addAction(UIAlertAction(title: "OK", style: .default))
-            present(a, animated: true)
+            return
         }
+        
+        // 2. Decode Base64 Image
+        if let attachmentRow = fetchedAttachments.first(where: { $0.filename == name }),
+           let base64 = attachmentRow.file_data,
+           let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters),
+           let image = UIImage(data: data) {
+            
+            let viewer = AttachmentViewerViewController(attachments: [image], attachmentFilenames: [name])
+            viewer.modalPresentationStyle = UIModalPresentationStyle.fullScreen
+            present(viewer, animated: true)
+            return
+        }
+        
+        // 3. Fallback for files with no base64 content
+        let a = UIAlertController(title: "Attachment", message: name, preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: "OK", style: .default))
+        present(a, animated: true)
     }
 
     @IBAction func rejectButtonTapped(_ sender: UIButton) {
@@ -293,12 +334,12 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
 
     @IBAction func completeButtonTapped(_ sender: UIButton) {
         guard !isUpdating else { return }
-        let a = UIAlertController(title: "Complete Task",
-                                  message: "Mark this task as complete?",
+        let a = UIAlertController(title: "Approve Task",
+                                  message: "Mark this task as approved?",
                                   preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        a.addAction(UIAlertAction(title: "Complete", style: .default) { [weak self] _ in
-            self?.commitStatusUpdate("completed")
+        a.addAction(UIAlertAction(title: "Approve", style: .default) { [weak self] _ in
+            self?.commitStatusUpdate("approved")
         })
         present(a, animated: true)
     }
@@ -338,6 +379,11 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                     .update(payload)
                     .eq("id", value: taskId)
                     .execute()
+                
+                // Sync counters for mentor dashboard
+                if !teamId.isEmpty {
+                    try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId)
+                }
 
                 await MainActor.run {
                     self.isUpdating = false
@@ -347,10 +393,10 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                                                        didChangeStatusTo: newStatus,
                                                        forTaskId: self.taskId)
 
-                    let title   = newStatus == "rejected" ? "Task Rejected"  : "Task Completed"
+                    let title   = newStatus == "rejected" ? "Task Rejected"  : "Task Approved"
                     let message = newStatus == "rejected"
                         ? "The task has been rejected successfully."
-                        : "The task has been marked as complete."
+                        : "The task has been marked as approved."
 
                     let ok = UIAlertController(title: title, message: message, preferredStyle: .alert)
                     ok.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in

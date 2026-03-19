@@ -31,13 +31,36 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
         let window = UIWindow(windowScene: windowScene)
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        let initialVC = storyboard.instantiateInitialViewController()!
-        
-        window.rootViewController = initialVC
+        window.rootViewController = makeInitialRootViewController()
         window.makeKeyAndVisible()
         self.window = window
         
         print("✅ App initialization complete")
+    }
+
+    private func makeInitialRootViewController() -> UIViewController {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+
+        let shouldAutoLogin =
+            UserDefaults.standard.bool(forKey: "remember_me") &&
+            UserDefaults.standard.bool(forKey: "is_logged_in") &&
+            !(UserDefaults.standard.string(forKey: "current_person_id") ?? "").isEmpty
+
+        guard shouldAutoLogin else {
+            let initialVC = storyboard.instantiateInitialViewController()!
+            return initialVC
+        }
+
+        let role = UserDefaults.standard.string(forKey: "current_user_role")
+
+        switch role {
+        case "student":
+            return MainTabBarViewController()
+        case "mentor":
+            return MentorMainTabBarViewController()
+        default:
+            let initialVC = storyboard.instantiateInitialViewController()!
+            return initialVC
+        }
     }
 }

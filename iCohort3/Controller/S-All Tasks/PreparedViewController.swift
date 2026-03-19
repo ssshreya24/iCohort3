@@ -131,6 +131,39 @@ class PreparedViewController: UIViewController, TeamContextReceiver {
         }
     }
 
+    // MARK: - Move Prepared -> Completed
+
+    private func promptMoveToCompleted(for task: SupabaseManager.TaskRow) {
+        let alert = UIAlertController(
+            title: "Move to Completed?",
+            message: "Mark this prepared task as completed?",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "Move", style: .default) { [weak self] _ in
+            Task { await self?.movePreparedTaskToCompleted(taskId: task.id) }
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func movePreparedTaskToCompleted(taskId: String) async {
+        do {
+            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "completed")
+            if let teamId, !teamId.isEmpty {
+                try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId, teamNo: teamNo)
+            }
+            await loadTasksFromSupabase()
+        } catch {
+            print("❌ PreparedVC movePreparedTaskToCompleted error:", error)
+            await MainActor.run {
+                let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(alert, animated: true)
+            }
+        }
+    }
+
     // MARK: - UI Setup
 
     private func setupBackButton() {
@@ -190,15 +223,27 @@ extension PreparedViewController: UICollectionViewDataSource, UICollectionViewDe
             name:  "Team \(teamNo ?? 0)",
             dueDate: task.assigned_date
         )
-        cell.circleButton.isUserInteractionEnabled = false
+        cell.circleButton.removeTarget(nil, action: nil, for: .allEvents)
+        cell.circleButton.tag = indexPath.row
+        cell.circleButton.addTarget(self, action: #selector(completePreparedTask(_:)), for: .touchUpInside)
         cell.circleButton.backgroundColor = UIColor(red: 0/255, green: 123/255, blue: 255/255, alpha: 1)
         cell.circleButton.layer.cornerRadius = cell.circleButton.frame.height / 2
         return cell
+    }
+
+    @objc private func completePreparedTask(_ sender: UIButton) {
+        guard sender.tag < tasks.count else { return }
+        promptMoveToCompleted(for: tasks[sender.tag])
     }
 
     func collectionView(_ collectionView: UICollectionView,
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
         CGSize(width: collectionView.frame.width - 40, height: 160)
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard indexPath.item < tasks.count else { return }
+        promptMoveToCompleted(for: tasks[indexPath.item])
     }
 }

@@ -167,6 +167,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     private func loadDashboardFromSupabase() async {
         guard !currentMentorId.isEmpty else {
             await MainActor.run {
+                self.collectionView.refreshControl?.endRefreshing()
                 self.ongoingTeams        = []
                 self.reviewTasks         = []
                 self.todayCountLabel.text = "0"
@@ -188,8 +189,12 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 teamMemberNames[team.id] = names
             }
 
-            // ── 3. Team task counters ─────────────────────────────────────────
-            let taskRows = try await SupabaseManager.shared.fetchTeamTasks(teamIds: teamIds)
+            // ── 3. Parallel fetch counters & real review tasks ────────────────
+            async let taskRowsFetch = SupabaseManager.shared.fetchTeamTasks(teamIds: teamIds)
+            async let mappedReviewFetch = fetchRealReviewTasks(teamIds: teamIds)
+            
+            let (taskRows, mappedReview) = try await (taskRowsFetch, mappedReviewFetch)
+            
             // Build dictionary in smaller, explicit steps to aid type-checker
             let pairs: [(String, SupabaseManager.TeamTaskRow)] = taskRows.map { row in
                 return (row.team_id, row)
@@ -210,20 +215,21 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 mappedOngoing.append(OngoingTeam(teamId: team.id, teamNo: team.teamNo, activeTaskCount: active))
             }
 
-            // ── 5. Real for_review tasks from Supabase ────────────────────────
-            let mappedReview = try await fetchRealReviewTasks(teamIds: teamIds)
-
-            // ── 6. "Today" badge = total for_review count ─────────────────────
-            var todayCount = 0
+            // ── 5. "Today" badge = total for_review count ─────────────────────
+            var totalReviewCount  = 0
+            var totalTasksOverall = 0
             for t in teams {
-                todayCount += (taskMap[t.id]?.for_review_task ?? 0)
+                totalReviewCount  += (taskMap[t.id]?.for_review_task ?? 0)
+                totalTasksOverall += (taskMap[t.id]?.total_task ?? 0)
             }
 
             await MainActor.run {
                 self.ongoingTeams         = mappedOngoing
                 self.reviewTasks          = mappedReview
-                self.todayCountLabel.text = "\(todayCount)"
+                self.todayTitleLabel.text = "Tasks to Review"
+                self.todayCountLabel.text = "\(totalReviewCount)"
                 self.collectionView.reloadData()
+                self.collectionView.refreshControl?.endRefreshing()
             }
 
         } catch {
@@ -233,6 +239,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 self.reviewTasks          = []
                 self.todayCountLabel.text = "0"
                 self.collectionView.reloadData()
+                self.collectionView.refreshControl?.endRefreshing()
             }
         }
     }
@@ -299,10 +306,18 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         collectionView.isUserInteractionEnabled = true
         collectionView.allowsSelection       = true
 
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        collectionView.refreshControl = refreshControl
+
         collectionView.register(
             EmptyStateCollectionViewCell.self,
             forCellWithReuseIdentifier: "EmptyCell"
         )
+    }
+
+    @objc private func handleRefresh() {
+        Task { await loadDashboardFromSupabase() }
     }
 }
 

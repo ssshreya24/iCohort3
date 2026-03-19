@@ -18,6 +18,18 @@ class SDashboardViewController: UIViewController {
     @IBOutlet weak var tasksDueTodayLabel: UILabel!
     @IBOutlet weak var contentView: UIView!
     @IBOutlet weak var greetingLabel: UILabel!
+
+    private let codeGreetingLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: 28, weight: .bold)
+        label.textColor = .label
+        label.text = "Hi user"
+        label.numberOfLines = 1
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.75
+        return label
+    }()
     
     private let noTasksLabel: UILabel = {
         let label = UILabel()
@@ -44,10 +56,9 @@ class SDashboardViewController: UIViewController {
         UserDefaults.standard.integer(forKey: "current_team_number")
     }
     
-    var taskCount: Int = 0 {
-        didSet { updateTableViewVisibility() }
-    }
-    
+    var statusCounts: [String: Int] = [:]
+    private var tasksForTable: [SupabaseManager.TaskRow] = []
+
     var isEditingMode = false
     
     let allStatuses: [(iconName: String, title: String, color: UIColor)] = [
@@ -86,6 +97,7 @@ class SDashboardViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         loadStudentGreeting()
+        loadDashboardData()
         updateCollectionViewHeight()
         updateTableViewVisibility()
         scrollView.isScrollEnabled = true
@@ -149,22 +161,95 @@ class SDashboardViewController: UIViewController {
     
     private func loadStudentGreeting() {
         guard let personId = UserDefaults.standard.string(forKey: "current_person_id") else {
-            greetingLabel?.text = "Hi Student"
+            codeGreetingLabel.text = "Hi user"
             return
         }
         Task {
             do {
                 let greeting = try await SupabaseManager.shared.getStudentGreeting(personId: personId)
-                await MainActor.run { self.greetingLabel?.text = greeting }
+                await MainActor.run { self.codeGreetingLabel.text = greeting }
             } catch {
-                if let storedName = UserDefaults.standard.string(forKey: "current_user_name") {
-                    let firstName = storedName.components(separatedBy: " ").first ?? "Student"
-                    await MainActor.run { self.greetingLabel?.text = "Hi \(firstName)" }
-                } else {
-                    await MainActor.run { self.greetingLabel?.text = "Hi Student" }
-                }
+                await MainActor.run { self.codeGreetingLabel.text = "Hi user" }
             }
         }
+    }
+    
+    // MARK: - Dashboard Data
+    
+    private func loadDashboardData() {
+        guard let personId = UserDefaults.standard.string(forKey: "current_person_id"),
+              let teamId = currentTeamId else {
+            print("⚠️ loadDashboardData: missing personId or teamId")
+            return
+        }
+
+        Task {
+            do {
+                let tasks = try await SupabaseManager.shared.fetchAllTasksForStudentInTeam(studentId: personId, teamId: teamId)
+                
+                await MainActor.run {
+                    self.updateUIWithTasks(tasks)
+                    self.scrollView.refreshControl?.endRefreshing()
+                }
+            } catch {
+                print("❌ loadDashboardData error:", error)
+                await MainActor.run { self.scrollView.refreshControl?.endRefreshing() }
+            }
+        }
+    }
+
+    private func updateUIWithTasks(_ tasks: [SupabaseManager.TaskRow]) {
+        var counts: [String: Int] = [:]
+        
+        // Initialize all statuses with 0
+        for status in allStatuses {
+            counts[status.title] = 0
+        }
+        
+        for task in tasks {
+            let statusKey: String
+            switch task.status.lowercased() {
+            case "not_started", "not started", "assigned": statusKey = "Not started"
+            case "ongoing", "in progress", "in_progress": statusKey = "In Progress"
+            case "for_review", "for review": statusKey = "For Review"
+            case "prepared": statusKey = "Prepared"
+            case "approved": statusKey = "Approved"
+            case "completed": statusKey = "Completed"
+            case "rejected": statusKey = "Rejected"
+            default: statusKey = ""
+            }
+            
+            if !statusKey.isEmpty {
+                counts[statusKey] = (counts[statusKey] ?? 0) + 1
+            }
+        }
+        
+        // "All" count
+        counts["All"] = tasks.count
+        self.statusCounts = counts
+        
+        let todayStr = currentLocalDateString()
+        
+        // Filter tasks for table view (only tasks actually due today)
+        self.tasksForTable = tasks.filter { task in
+            let s = task.status.lowercased()
+            let isActive = (s == "not_started" || s == "not started" || s == "assigned" || s == "ongoing" || s == "in progress" || s == "in_progress")
+            
+            // Assuming task.assigned_date holds the deadline or creation date. If there is a deadline field, use it. But in this schema it seems to be assigned_date.
+            // Let's just compare prefix if it's ISO
+            let dateStr = task.assigned_date.prefix(10)
+            return isActive && String(dateStr) == todayStr
+        }
+        
+        let dueTodayCount = self.tasksForTable.count
+        self.tasksDueTodayLabel.text = "You have \(dueTodayCount) tasks due today"
+        
+        self.collectionView.reloadData()
+        updateTableViewVisibility()
+    }
+    
+    @objc private func handleRefresh() {
+        loadDashboardData()
     }
     
     // MARK: - Setup UI
@@ -178,12 +263,8 @@ class SDashboardViewController: UIViewController {
         
         taskCard.layer.cornerRadius = 20
         taskCard.backgroundColor    = .white
-        
-        if greetingLabel != nil {
-            greetingLabel.font      = .systemFont(ofSize: 28, weight: .bold)
-            greetingLabel.textColor = .label
-            greetingLabel.text      = "Hi Student"
-        }
+
+        installCodeGreetingLabel()
         
         collectionView.dataSource             = self
         collectionView.delegate               = self
@@ -196,12 +277,77 @@ class SDashboardViewController: UIViewController {
         tableView.isScrollEnabled    = false
         tableView.backgroundColor    = .clear
         tableView.layer.cornerRadius = 20
+        registerTaskCellIfNeeded()
         
         scrollView.isScrollEnabled              = true
         scrollView.showsVerticalScrollIndicator = false
         
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        scrollView.refreshControl = refreshControl
+        
         taskCard.addSubview(noTasksLabel)
         setupNoTasksLabelConstraints()
+    }
+
+    private func installCodeGreetingLabel() {
+        if let connectedLabel = greetingLabel {
+            connectedLabel.isHidden = true
+            connectedLabel.text = ""
+        }
+
+        guard let legacyLabel = findLegacyStoryboardGreeting(in: cardView) else {
+            if codeGreetingLabel.superview == nil {
+                contentView.addSubview(codeGreetingLabel)
+                NSLayoutConstraint.activate([
+                    codeGreetingLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+                    codeGreetingLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+                    codeGreetingLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -88)
+                ])
+            }
+            return
+        }
+
+        legacyLabel.isHidden = true
+        legacyLabel.text = ""
+
+        guard codeGreetingLabel.superview == nil else { return }
+
+        legacyLabel.superview?.addSubview(codeGreetingLabel)
+        NSLayoutConstraint.activate([
+            codeGreetingLabel.topAnchor.constraint(equalTo: legacyLabel.topAnchor),
+            codeGreetingLabel.leadingAnchor.constraint(equalTo: legacyLabel.leadingAnchor),
+            codeGreetingLabel.trailingAnchor.constraint(lessThanOrEqualTo: legacyLabel.trailingAnchor),
+            codeGreetingLabel.heightAnchor.constraint(equalTo: legacyLabel.heightAnchor)
+        ])
+    }
+
+    private func findLegacyStoryboardGreeting(in rootView: UIView?) -> UILabel? {
+        guard let rootView else { return nil }
+
+        for subview in rootView.subviews {
+            if let label = subview as? UILabel,
+               let text = label.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+               text.lowercased().hasPrefix("hi user") {
+                return label
+            }
+
+            if let found = findLegacyStoryboardGreeting(in: subview) {
+                return found
+            }
+        }
+
+        return nil
+    }
+
+    private func registerTaskCellIfNeeded() {
+        let bundle = Bundle(for: tasksDueTodayTableViewCell.self)
+        if bundle.path(forResource: "tasksDueTodayTableViewCell", ofType: "nib") != nil {
+            let nib = UINib(nibName: "tasksDueTodayTableViewCell", bundle: bundle)
+            tableView.register(nib, forCellReuseIdentifier: "TaskCell")
+        } else {
+            tableView.register(tasksDueTodayTableViewCell.self, forCellReuseIdentifier: "TaskCell")
+        }
     }
     
     private func setupNoTasksLabelConstraints() {
@@ -239,12 +385,13 @@ class SDashboardViewController: UIViewController {
     }
     
     private func updateTableViewVisibility() {
-        if taskCount > 0 {
+        let count = tasksForTable.count
+        if count > 0 {
             tableView.isHidden    = false
             noTasksLabel.isHidden = true
             tableView.reloadData()
             tableView.layoutIfNeeded()
-            tableViewHeight.constant = min(tableView.contentSize.height, 300)
+            tableViewHeight.constant = max(100, tableView.contentSize.height)
         } else {
             tableView.isHidden       = true
             noTasksLabel.isHidden    = false
@@ -258,16 +405,30 @@ class SDashboardViewController: UIViewController {
     
     private func updateContentHeight() {
         view.layoutIfNeeded()
-        let cvHeight: CGFloat  = collectionViewCellHeight.constant
-        let tvHeight: CGFloat  = tableViewHeight.constant
-        let total: CGFloat     = cvHeight + 20 + 60 + tvHeight + 60 + 100
+        
+        let cvBottom = collectionView.frame.origin.y + collectionViewCellHeight.constant
+        
+        // Ensure tableView is placed correctly relative to the collection view
+        // taskCard is taskCard (FFp-f5-vgo) which is placed dynamically via constraints.
+        // Let AutoLayout compute the frame. maxY of tableView is the true bottom.
+        
+        let tvBottom = tableView.frame.origin.y + tableViewHeight.constant
+        var total: CGFloat = tvBottom + 100 // add bottom padding
+        
+        // Fallback safety
+        if total < view.frame.height + 20 {
+            total = view.frame.height + 20
+        }
+        
         contentViewHeight.constant = total
         contentView.setNeedsLayout()
         contentView.layoutIfNeeded()
+        
         let delay: DispatchTime = .now() + 0.1
         DispatchQueue.main.asyncAfter(deadline: delay) {
-            self.scrollView.isScrollEnabled      = true
+            self.scrollView.isScrollEnabled = true
             self.scrollView.alwaysBounceVertical = true
+            self.scrollView.contentSize = CGSize(width: self.view.frame.width, height: total)
         }
     }
     
@@ -416,18 +577,20 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
         if isEditingMode {
             if indexPath.item < visibleStatuses.count {
                 let s = visibleStatuses[indexPath.item]
+                let count = statusCounts[s.title] ?? 0
                 cell.iconImageView.image     = UIImage(systemName: s.iconName)?.withRenderingMode(.alwaysTemplate)
                 cell.iconImageView.tintColor = s.color
-                cell.configure(iconName: s.iconName, title: s.title, count: 0, mode: .editing)
+                cell.configure(iconName: s.iconName, title: s.title, count: count, mode: .editing)
             } else {
                 let removed = removedStatuses[indexPath.item - visibleStatuses.count]
                 cell.configure(iconName: nil, title: removed.title, count: nil, mode: .add)
             }
         } else {
             let s = visibleStatuses[indexPath.item]
+            let count = statusCounts[s.title] ?? 0
             cell.iconImageView.image     = UIImage(systemName: s.iconName)?.withRenderingMode(.alwaysTemplate)
             cell.iconImageView.tintColor = s.color
-            cell.configure(iconName: s.iconName, title: s.title, count: 0, mode: .normal)
+            cell.configure(iconName: s.iconName, title: s.title, count: count, mode: .normal)
         }
         return cell
     }
@@ -466,16 +629,85 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
     }
 }
 
+// MARK: - Date Formatting Helper
+
+extension SDashboardViewController {
+    private func currentLocalDateString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+    
+    private func formatDisplayDate(_ isoString: String) -> String {
+        let inFormatter = DateFormatter()
+        inFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        if let date = inFormatter.date(from: isoString) {
+            let outFormatter = DateFormatter()
+            outFormatter.dateStyle = .medium
+            outFormatter.timeStyle = .none
+            return outFormatter.string(from: date)
+        }
+        return String(isoString.prefix(10))
+    }
+}
+
 // MARK: - UITableViewDataSource & Delegate
 
 extension SDashboardViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView,
-                   numberOfRowsInSection section: Int) -> Int { taskCount }
+                   numberOfRowsInSection section: Int) -> Int { tasksForTable.count }
     
     func tableView(_ tableView: UITableView,
                    cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
+        registerTaskCellIfNeeded()
+
+        let cell: tasksDueTodayTableViewCell
+        if let reused = tableView.dequeueReusableCell(withIdentifier: "TaskCell") as? tasksDueTodayTableViewCell {
+            cell = reused
+        } else if let loaded = Bundle(for: tasksDueTodayTableViewCell.self)
+            .loadNibNamed("tasksDueTodayTableViewCell", owner: nil)?
+            .first as? tasksDueTodayTableViewCell {
+            cell = loaded
+        } else {
+            cell = tasksDueTodayTableViewCell(style: .default, reuseIdentifier: "TaskCell")
+        }
+
+        let task = tasksForTable[indexPath.row]
+        cell.name.text = task.title
+        cell.taskDescription.text = task.description
+        cell.assignedTo.text = "Due: \(formatDisplayDate(task.assigned_date))"
+        cell.selectionStyle = .none
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let task = tasksForTable[indexPath.row]
+        let vc = TaskDetailViewController(nibName: "TaskDetailViewController", bundle: nil)
+        
+        // Define team and mentor identifiers from local bounds or defaults
+        let effectiveTeamId = currentTeamId ?? UserDefaults.standard.string(forKey: "current_team_id") ?? ""
+        let effectiveTeamNo = currentTeamId != nil ? currentTeamNo : UserDefaults.standard.integer(forKey: "current_team_number")
+        
+        let assigneeImage: UIImage? = nil
+        var model = DashboardTask(
+            title:           task.title,
+            dueDate:         formatDisplayDate(task.assigned_date),
+            assigneeName:    "Team \(effectiveTeamNo)",
+            assigneeImage:   assigneeImage,
+            attachmentNames: [],
+            status:          task.status,
+            remark:          task.remark
+        )
+        
+        model.taskId   = task.id
+        model.teamId   = task.team_id ?? effectiveTeamId
+        model.mentorId = task.mentor_id
+        
+        vc.task = model
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true, completion: nil)
     }
     
     func tableView(_ tableView: UITableView,

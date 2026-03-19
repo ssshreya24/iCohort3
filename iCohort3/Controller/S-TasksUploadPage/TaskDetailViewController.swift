@@ -7,10 +7,12 @@ import UIKit
 internal import UniformTypeIdentifiers
 import PostgREST
 import Supabase
+import SafariServices
 
 // NOTE: DashboardTask is declared in DashboardTask.swift (shared model file).
 
 // MARK: - In-memory attachment model
+
 
 private struct AttachmentPayload {
     let filename: String
@@ -62,6 +64,10 @@ class TaskDetailViewController: UIViewController {
     // MARK: - Height Constraint
     @IBOutlet weak var attachmentContainerHeightConstraint: NSLayoutConstraint!
 
+    // MARK: - Resources Section
+    @IBOutlet weak var resourcesStackView: UIStackView!
+    @IBOutlet weak var resourcesContainerHeightConstraint: NSLayoutConstraint!
+
     // MARK: - Task Model
     var task: DashboardTask?
 
@@ -70,6 +76,9 @@ class TaskDetailViewController: UIViewController {
     private var isSubmitted = false
     private var mentorOptions: [(name: String, personId: String)] = []
     private var selectedSubmitTo: String = ""
+    private var mentorFeedbackText: String?
+    private var loadingIndicator: UIActivityIndicatorView?
+    private var loadingOverlayView: UIView?
 
     /// Pending attachments the student has picked — cleared on submit
     private var pendingAttachments: [AttachmentPayload] = []
@@ -81,10 +90,11 @@ class TaskDetailViewController: UIViewController {
         setupUI()
         setupBackButton()
         setupMentorUI()
+        setupLoadingIndicator()
 
         if let t = task { configure(with: t) }
 
-        Task { await loadSupabaseData() }
+        Task { await loadSupabaseData(showOverlayLoader: true) }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -129,15 +139,14 @@ class TaskDetailViewController: UIViewController {
         submitToButton.setTitle("Select Mentor", for: .normal)
         submitToButton.setTitleColor(.darkGray, for: .normal)
         submitToButton.titleLabel?.font       = UIFont.systemFont(ofSize: 16)
-        submitToButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
-        submitToButton.semanticContentAttribute    = .forceRightToLeft
-        submitToButton.contentHorizontalAlignment  = .trailing
     }
 
     // MARK: - UI Setup
 
     private func setupUI() {
         view.backgroundColor = UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        
+        setupRefreshControl()
 
         let cards: [UIView?] = [
             dueDateContainerView, assignedToContainerView, attachmentContainerView,
@@ -165,10 +174,72 @@ class TaskDetailViewController: UIViewController {
         attachmentsStackView.alignment    = .fill
         attachmentsStackView.distribution = .fill
 
-        submitButton.layer.cornerRadius = 25
-        submitButton.backgroundColor    = .systemBlue
-        submitButton.setTitleColor(.white, for: .normal)
+        resourcesStackView.axis         = .vertical
+        resourcesStackView.spacing      = 8
+        resourcesStackView.alignment    = .fill
+        resourcesStackView.distribution = .fill
+
         submitButton.titleLabel?.font   = .systemFont(ofSize: 17, weight: .semibold)
+    }
+    
+    private func setupRefreshControl() {
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        scrollView.refreshControl = refreshControl
+    }
+
+    private func setupLoadingIndicator() {
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.16)
+        overlay.isHidden = true
+        overlay.alpha = 0
+        view.addSubview(overlay)
+
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.hidesWhenStopped = true
+        indicator.color = .white
+        overlay.addSubview(indicator)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            indicator.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            indicator.centerYAnchor.constraint(equalTo: overlay.centerYAnchor)
+        ])
+
+        loadingOverlayView = overlay
+        loadingIndicator = indicator
+    }
+
+    @MainActor
+    private func setLoading(_ isLoading: Bool, showOverlay: Bool = true) {
+        if isLoading {
+            if showOverlay {
+                loadingOverlayView?.isHidden = false
+                loadingIndicator?.startAnimating()
+                UIView.animate(withDuration: 0.18) {
+                    self.loadingOverlayView?.alpha = 1
+                }
+            }
+        } else {
+            scrollView.refreshControl?.endRefreshing()
+            guard showOverlay else { return }
+            UIView.animate(withDuration: 0.18, animations: {
+                self.loadingOverlayView?.alpha = 0
+            }, completion: { _ in
+                self.loadingIndicator?.stopAnimating()
+                self.loadingOverlayView?.isHidden = true
+            })
+        }
+    }
+    
+    @objc private func handleRefresh() {
+        Task { await loadSupabaseData(showOverlayLoader: false) }
     }
 
     // MARK: - Configure with DashboardTask
@@ -181,32 +252,47 @@ class TaskDetailViewController: UIViewController {
         dueDateLabel.text      = task.dueDate
         assigneeNameLabel.text = task.assigneeName
         assigneeImageView.image = task.assigneeImage ?? placeholderImage(for: task.assigneeName)
+        mentorFeedbackText = task.remark
+        applySubmissionState(for: task.status, showAlert: false)
 
-        attachmentsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        resourcesStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         resourcesContainerView.isHidden = false
+        let hasFeedback = !(task.remark?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        if hasFeedback {
+            addMentorFeedbackRow(task.remark ?? "")
+        }
         if task.attachmentNames.isEmpty {
             showNoResourcesLabel()
         } else {
             removeNoResourcesLabel()
-            for file in task.attachmentNames { addAttachmentRow(filename: file, canDelete: !isSubmitted) }
+            for file in task.attachmentNames { addResourceRow(filename: file) }
         }
+        updateResourcesContainerHeight()
         updateAttachmentContainerHeight()
     }
 
     // MARK: - Load Supabase data
 
-    private func loadSupabaseData() async {
+    private func loadSupabaseData(showOverlayLoader: Bool = true) async {
         guard let task = task else { return }
+        await MainActor.run { self.setLoading(true, showOverlay: showOverlayLoader) }
+        
+        async let mentorName    = fetchMentorName(task: task)
+        async let assigneeName  = fetchAssigneeName(task: task)
+        async let mentors       = fetchAllMentors()
+        async let attachments   = fetchAttachments(task: task)
+        async let currentTaskRow = fetchCurrentTaskRow(task: task)
 
-        async let mentorName   = fetchMentorName(task: task)
-        async let assigneeName = fetchAssigneeName(task: task)
-        async let mentors      = fetchAllMentors()
-        async let resources    = fetchResources(task: task)
-
-        let (mentor, assignee, allMentors, attachments) =
-            await (mentorName, assigneeName, mentors, resources)
+        let (mentor, assignee, allMentors, fetchedAttachments, latestTask) =
+            await (mentorName, assigneeName, mentors, attachments, currentTaskRow)
 
         await MainActor.run {
+            if let latestTask {
+                self.task?.status = latestTask.status
+                self.task?.remark = latestTask.remark
+                self.mentorFeedbackText = latestTask.remark
+            }
+
             assignedByNameLabel.text = mentor
             assigneeNameLabel.text   = assignee
             assigneeImageView.image  = placeholderImage(for: assignee)
@@ -225,25 +311,54 @@ class TaskDetailViewController: UIViewController {
                 selectedSubmitTo = allMentors[0].personId
             }
 
-            // Resources section — existing mentor-attached files (read-only display)
-            attachmentsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-            resourcesContainerView.isHidden = false
-            if attachments.isEmpty {
-                showNoResourcesLabel()
-            } else {
-                removeNoResourcesLabel()
-                for name in attachments { addAttachmentRow(filename: name, canDelete: false) }
+            // Resources section — existing files (read-only display)
+            self.resourcesStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            self.resourcesContainerView.isHidden = false
+
+            if let feedback = self.mentorFeedbackText?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !feedback.isEmpty {
+                self.addMentorFeedbackRow(feedback)
             }
-            updateAttachmentContainerHeight()
+            
+            // Filter only mentor attachments for the resources section
+            let mentorResources = fetchedAttachments.filter { $0.mentor_attachment == true }
+            self.fetchedMentorAttachments = mentorResources
+            
+            if mentorResources.isEmpty {
+                self.showNoResourcesLabel()
+            } else {
+                self.removeNoResourcesLabel()
+                for resource in mentorResources { self.addResourceRow(filename: resource.filename) }
+            }
+            self.updateResourcesContainerHeight()
+            self.applySubmissionState(for: self.task?.status, showAlert: false)
+
+            // Filter student attachments for the submission section
+            let studentAttachments = fetchedAttachments.filter { $0.mentor_attachment == false || $0.mentor_attachment == nil }
+            self.fetchedStudentAttachments = studentAttachments
+            
+            // Clear existing rows before adding
+            self.attachmentsStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            if !studentAttachments.isEmpty {
+                for att in studentAttachments {
+                    self.addAttachmentRow(filename: att.filename, canDelete: false)
+                }
+            }
+            self.updateAttachmentContainerHeight()
+            self.setLoading(false, showOverlay: showOverlayLoader)
         }
     }
+    
+    /// Stored attachments so they can be decoded from base64 when tapped
+    private var fetchedMentorAttachments: [SupabaseManager.TaskAttachmentRow] = []
+    private var fetchedStudentAttachments: [SupabaseManager.TaskAttachmentRow] = []
 
     // MARK: - No-resources empty state
 
     private let noResourcesTag = 99_001
 
     private func showNoResourcesLabel() {
-        guard attachmentsStackView.viewWithTag(noResourcesTag) == nil else { return }
+        guard resourcesStackView.viewWithTag(noResourcesTag) == nil else { return }
         let label           = UILabel()
         label.tag           = noResourcesTag
         label.text          = "No resources attached"
@@ -252,14 +367,22 @@ class TaskDetailViewController: UIViewController {
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         label.heightAnchor.constraint(equalToConstant: 40).isActive = true
-        attachmentsStackView.addArrangedSubview(label)
-        attachmentContainerHeightConstraint.constant = 90
+        resourcesStackView.addArrangedSubview(label)
+        resourcesContainerHeightConstraint.constant = 90
     }
 
     private func removeNoResourcesLabel() {
-        if let v = attachmentsStackView.viewWithTag(noResourcesTag) {
-            attachmentsStackView.removeArrangedSubview(v); v.removeFromSuperview()
+        if let v = resourcesStackView.viewWithTag(noResourcesTag) {
+            resourcesStackView.removeArrangedSubview(v); v.removeFromSuperview()
         }
+    }
+
+    private func updateResourcesContainerHeight() {
+        resourcesStackView.layoutIfNeeded()
+        let stackHeight = resourcesStackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height
+        let contentHeight = max(40, stackHeight)
+        resourcesContainerHeightConstraint.constant = 48 + contentHeight + 16
+        UIView.animate(withDuration: 0.3) { self.view.layoutIfNeeded() }
     }
 
     // MARK: - Supabase fetch helpers
@@ -300,13 +423,178 @@ class TaskDetailViewController: UIViewController {
         }
     }
 
-    private func fetchResources(task: DashboardTask) async -> [String] {
-        guard let taskId = task.taskId else { return task.attachmentNames }
-        return (try? await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId).map { $0.filename })
-            ?? task.attachmentNames
+    private func fetchAttachments(task: DashboardTask) async -> [SupabaseManager.TaskAttachmentRow] {
+        guard let taskId = task.taskId else { return [] }
+        return (try? await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId)) ?? []
+    }
+
+    private func fetchCurrentTaskRow(task: DashboardTask) async -> SupabaseManager.TaskRow? {
+        guard let taskId = task.taskId else { return nil }
+        return try? await SupabaseManager.shared.fetchTask(taskId: taskId)
     }
 
     // MARK: - Attachment row UI
+    
+    /// Adds a display row in the Resources stack for mentor-attached items
+    private func addResourceRow(filename: String) {
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+        container.layer.cornerRadius = 10
+        
+        let isLink = filename.hasPrefix("http://") || filename.hasPrefix("https://")
+        let ext = (filename as NSString).pathExtension.lowercased()
+        let iconName: String = {
+            if isLink { return "link" }
+            switch ext {
+            case "pdf":                     return "doc.text.fill"
+            case "jpg","jpeg","png","heic": return "photo.fill"
+            case "doc","docx":              return "doc.text.fill"
+            default:                        return "doc.fill"
+            }
+        }()
+        
+        let icon = UIImageView(image: UIImage(systemName: iconName))
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.contentMode = .scaleAspectFit
+        icon.tintColor = .systemBlue
+        
+        let lbl = UILabel()
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.text = isLink ? (URL(string: filename)?.host ?? filename) : filename
+        lbl.font = UIFont.systemFont(ofSize: 15)
+        lbl.textColor = isLink ? .systemBlue : .darkGray
+        lbl.numberOfLines = 1
+        
+        container.addSubview(icon)
+        container.addSubview(lbl)
+        NSLayoutConstraint.activate([
+            container.heightAnchor.constraint(equalToConstant: 40),
+            icon.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            icon.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 24),
+            icon.heightAnchor.constraint(equalToConstant: 24),
+            lbl.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
+            lbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            lbl.centerYAnchor.constraint(equalTo: container.centerYAnchor)
+        ])
+        
+        // Add tap gesture to open the resource
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(resourceTapped(_:)))
+        container.addGestureRecognizer(tapGesture)
+        container.isUserInteractionEnabled = true
+        container.accessibilityIdentifier = filename // Store filename to access on tap
+        
+        resourcesStackView.addArrangedSubview(container)
+    }
+
+    private func addMentorFeedbackRow(_ feedback: String) {
+        let box = UIView()
+        box.translatesAutoresizingMaskIntoConstraints = false
+        box.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.10)
+        box.layer.cornerRadius = 14
+        box.layer.borderWidth = 1
+        box.layer.borderColor = UIColor.systemOrange.withAlphaComponent(0.25).cgColor
+
+        let title = UILabel()
+        title.translatesAutoresizingMaskIntoConstraints = false
+        title.text = "Mentor Feedback"
+        title.font = .systemFont(ofSize: 15, weight: .semibold)
+        title.textColor = .systemOrange
+
+        let body = UILabel()
+        body.translatesAutoresizingMaskIntoConstraints = false
+        body.text = feedback
+        body.font = .systemFont(ofSize: 14)
+        body.textColor = .darkGray
+        body.numberOfLines = 0
+
+        box.addSubview(title)
+        box.addSubview(body)
+
+        NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: box.topAnchor, constant: 12),
+            title.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
+            title.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12),
+
+            body.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
+            body.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 12),
+            body.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -12),
+            body.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -12),
+            box.heightAnchor.constraint(greaterThanOrEqualToConstant: 86)
+        ])
+
+        resourcesStackView.addArrangedSubview(box)
+    }
+
+    private func applySubmissionState(for status: String?, showAlert: Bool) {
+        let normalizedStatus = status?.lowercased() ?? ""
+
+        switch normalizedStatus {
+        case "for_review":
+            setSubmittedState(shouldAlert: showAlert)
+        default:
+            setEditableState()
+        }
+    }
+
+    private func setSubmittedState(shouldAlert: Bool) {
+        isSubmitted = true
+        pendingAttachments.removeAll()
+        submitButton.setTitle("Redo Submission", for: .normal)
+        submitButton.backgroundColor = .systemOrange
+        attachmentIconButton.isEnabled = false
+        attachmentIconButton.alpha = 0.5
+
+        attachmentsStackView.arrangedSubviews.forEach { container in
+            container.subviews.compactMap { $0 as? UIButton }.forEach { btn in
+                btn.alpha = 0
+                btn.isHidden = true
+            }
+        }
+
+        if shouldAlert {
+            showAlert(title: "Submitted ✅",
+                      message: "Your task has been sent to the mentor for review.")
+        }
+    }
+
+    private func setEditableState() {
+        isSubmitted = false
+        submitButton.setTitle("Submit for review", for: .normal)
+        submitButton.backgroundColor = .systemBlue
+        attachmentIconButton.isEnabled = true
+        attachmentIconButton.alpha = 1.0
+    }
+    
+    @objc private func resourceTapped(_ gesture: UITapGestureRecognizer) {
+        guard let view = gesture.view, let filename = view.accessibilityIdentifier else { return }
+        
+        let isLink = filename.hasPrefix("http://") || filename.hasPrefix("https://")
+        if isLink, let url = URL(string: filename) {
+            let safari = SFSafariViewController(url: url)
+            safari.modalPresentationStyle = .pageSheet
+            present(safari, animated: true)
+            return
+        }
+        
+        // Try to decode image to present in full screen
+        if let attachmentRow = fetchedMentorAttachments.first(where: { $0.filename == filename }),
+           let base64 = attachmentRow.file_data,
+           let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters),
+           let image = UIImage(data: data) {
+            
+            let viewer = AttachmentViewerViewController(attachments: [image], attachmentFilenames: [filename])
+            viewer.modalPresentationStyle = UIModalPresentationStyle.fullScreen
+            present(viewer, animated: true)
+            return
+        }
+        
+        // Base case: Show alert with filename for unsupported formats or missing data
+        let a = UIAlertController(title: "Attachment", message: filename, preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: "OK", style: .default))
+        present(a, animated: true)
+    }
 
     /// Adds a display row in the stack. `canDelete` controls whether the × button shows.
     private func addAttachmentRow(filename: String, canDelete: Bool) {
@@ -364,9 +652,53 @@ class TaskDetailViewController: UIViewController {
 
         // Tag the container with the pendingAttachments index so delete can find it
         container.tag = pendingAttachments.count  // meaningful only for pending rows
+        container.accessibilityIdentifier = filename // Store filename to access on tap
+
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(studentAttachmentTapped(_:)))
+        container.addGestureRecognizer(tapGesture)
+        container.isUserInteractionEnabled = true
 
         attachmentsStackView.addArrangedSubview(container)
         updateAttachmentContainerHeight()
+    }
+
+    @objc private func studentAttachmentTapped(_ gesture: UITapGestureRecognizer) {
+        guard let view = gesture.view, let filename = view.accessibilityIdentifier else { return }
+        
+        let isLink = filename.hasPrefix("http://") || filename.hasPrefix("https://")
+        if isLink, let url = URL(string: filename) {
+            let safari = SFSafariViewController(url: url)
+            safari.modalPresentationStyle = .pageSheet
+            present(safari, animated: true)
+            return
+        }
+        
+        // Try to decode image to present in full screen
+        // First check pending attachments
+        if let pending = pendingAttachments.first(where: { $0.filename == filename }),
+           let data = Data(base64Encoded: pending.base64Data, options: .ignoreUnknownCharacters),
+           let image = UIImage(data: data) {
+            let viewer = AttachmentViewerViewController(attachments: [image], attachmentFilenames: [filename])
+            viewer.modalPresentationStyle = UIModalPresentationStyle.fullScreen
+            present(viewer, animated: true)
+            return
+        }
+        
+        // Then check fetched student attachments
+        if let attachmentRow = fetchedStudentAttachments.first(where: { $0.filename == filename }),
+           let base64 = attachmentRow.file_data,
+           let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters),
+           let image = UIImage(data: data) {
+            let viewer = AttachmentViewerViewController(attachments: [image], attachmentFilenames: [filename])
+            viewer.modalPresentationStyle = UIModalPresentationStyle.fullScreen
+            present(viewer, animated: true)
+            return
+        }
+        
+        // Base case: Show alert with filename for unsupported formats or missing data
+        let a = UIAlertController(title: "Attachment", message: filename, preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: "OK", style: .default))
+        present(a, animated: true)
     }
 
     @objc private func deleteAttachmentRow(_ sender: UIButton) {
@@ -601,7 +933,7 @@ extension TaskDetailViewController {
                         file_type:         attachment.fileType,
                         file_data:         attachment.base64Data.isEmpty ? nil : attachment.base64Data,
                         student_id:        studentId.isEmpty ? nil : studentId,
-                        team_id:           teamIdStr.isEmpty ? nil : teamIdStr,
+                        team_id:           nil, // Bypassing FK error since tasks are tied to new_teams, while task_attachments FK points to old teams table.
                         mentor_attachment: false
                     )
 
@@ -613,6 +945,9 @@ extension TaskDetailViewController {
 
                 // ── Update task status ────────────────────────────────────────
                 try await updateStatusRow(taskId: taskId, status: "for_review")
+
+                // Sync counters for mentor dashboard
+                try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamIdStr)
 
                 await MainActor.run { self.markSubmitted() }
 
@@ -626,9 +961,16 @@ extension TaskDetailViewController {
 
     /// Update status only (no attachments)
     private func updateTaskStatusOnly(taskId: String, to status: String) {
+        let teamIdStr = task?.teamId ?? ""
         Task {
             do {
                 try await updateStatusRow(taskId: taskId, status: status)
+                
+                // Sync counters for mentor dashboard
+                if !teamIdStr.isEmpty {
+                    try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamIdStr)
+                }
+                
                 await MainActor.run {
                     if status == "for_review" { self.markSubmitted() }
                 }
@@ -651,22 +993,8 @@ extension TaskDetailViewController {
     }
 
     private func markSubmitted() {
-        isSubmitted = true
-        pendingAttachments.removeAll()        // clear in-memory buffer
-        submitButton.setTitle("Redo Submission", for: .normal)
-        submitButton.backgroundColor   = .systemOrange
-        attachmentIconButton.isEnabled = false
-        attachmentIconButton.alpha     = 0.5
-
-        // Hide delete buttons on all rows
-        attachmentsStackView.arrangedSubviews.forEach { container in
-            container.subviews.compactMap { $0 as? UIButton }.forEach { btn in
-                UIView.animate(withDuration: 0.3) { btn.alpha = 0 } completion: { _ in btn.isHidden = true }
-            }
-        }
-
-        showAlert(title: "Submitted ✅",
-                  message: "Your task has been sent to the mentor for review.")
+        task?.status = "for_review"
+        setSubmittedState(shouldAlert: true)
     }
 
     // MARK: Redo submission
@@ -677,12 +1005,15 @@ extension TaskDetailViewController {
         Task {
             do {
                 try await updateStatusRow(taskId: taskId, status: "ongoing")
+                
+                // Sync counters for mentor dashboard
+                if let teamId = task.teamId {
+                    try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId)
+                }
+
                 await MainActor.run {
-                    isSubmitted = false
-                    submitButton.setTitle("Submit for review", for: .normal)
-                    submitButton.backgroundColor   = .systemBlue
-                    attachmentIconButton.isEnabled = true
-                    attachmentIconButton.alpha     = 1.0
+                    self.task?.status = "ongoing"
+                    self.setEditableState()
 
                     attachmentsStackView.arrangedSubviews.forEach { container in
                         container.subviews.compactMap { $0 as? UIButton }.forEach { btn in

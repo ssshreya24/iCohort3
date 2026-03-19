@@ -13,6 +13,8 @@ struct DashboardTask {
     let assigneeName:    String      // fallback display name (e.g. "Team 3")
     let assigneeImage:   UIImage?
     let attachmentNames: [String]
+    var status:          String?
+    var remark:          String?
 
     // ── Supabase identifiers (set by InProgressVC / other status VCs) ─────────
     var taskId:   String?            // tasks.id        (UUID string)

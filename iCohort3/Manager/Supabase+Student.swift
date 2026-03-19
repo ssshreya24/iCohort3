@@ -271,31 +271,47 @@ extension SupabaseManager {
     func getStudentGreeting(personId: String) async throws -> String {
         print("🔍 Fetching student greeting for person_id:", personId)
         
-        do {
-            let params: [String: String] = ["p_person_id": personId]
-            let result: String = try await client
-                .rpc("get_student_greeting", params: params)
-                .execute()
-                .value
-            print("✅ Greeting from RPC:", result)
-            return result
-        } catch {
-            print("❌ RPC greeting failed:", error)
-        }
-        
-        // Fallback 1 — student profile first name
+        // 1. Use the profile first name only when the student has filled it in.
         if let profile = try? await fetchBasicStudentProfile(personId: personId),
-           let firstName = profile.first_name, !firstName.isEmpty {
+           let firstName = profile.first_name?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !firstName.isEmpty {
             return "Hi \(firstName)"
         }
-        
-        // Fallback 2 — people table
-        if let person = try? await fetchPerson(personId: personId) {
-            let firstName = person.full_name.components(separatedBy: " ").first ?? "Student"
+
+        // 2. Fall back to the complete profile/view if basic profile fields are empty.
+        if let profile = try? await fetchStudentProfile(personId: personId) {
+            if let firstName = profile.first_name?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !firstName.isEmpty {
+                return "Hi \(firstName)"
+            }
+
+            if let fullName = profile.full_name?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !fullName.isEmpty {
+                let firstName = fullName.components(separatedBy: .whitespaces).first ?? fullName
+                return "Hi \(firstName)"
+            }
+        }
+
+        // 3. Use the shared student_profile_complete name lookup as another profile-backed source.
+        if let fullName = try? await fetchStudentFullName(personIdString: personId) {
+            let cleaned = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !cleaned.isEmpty {
+                let firstName = cleaned.components(separatedBy: .whitespaces).first ?? cleaned
+                return "Hi \(firstName)"
+            }
+        }
+
+        // 4. Safe cached fallback from login/session if present.
+        if let cachedName = UserDefaults.standard.string(forKey: "current_user_name")?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !cachedName.isEmpty {
+            let firstName = cachedName.components(separatedBy: .whitespaces).first ?? cachedName
             return "Hi \(firstName)"
         }
-        
-        return "Hi Student"
+
+        // 5. If profile is not updated, keep the greeting generic.
+        return "Hi user"
     }
     
     // MARK: - Check Profile Completion

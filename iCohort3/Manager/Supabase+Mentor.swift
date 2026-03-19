@@ -683,15 +683,59 @@ extension SupabaseManager {
     
     func fetchTeamTasks(teamIds: [String]) async throws -> [TeamTaskRow] {
         guard !teamIds.isEmpty else { return [] }
-        
+
         let rows: [TeamTaskRow] = try await client
             .from("team_task")
             .select("team_id, total_task, ongoing_task, assigned_task, for_review_task, prepared_task, approved_task, completed_task, rejected_task")
             .in("team_id", values: teamIds)
             .execute()
             .value
-        
-        return rows
+
+        let fetchedIds = Set(rows.map(\.team_id))
+        let missingIds = teamIds.filter { !fetchedIds.contains($0) }
+        guard !missingIds.isEmpty else { return rows }
+
+        struct TaskStatusRow: Decodable {
+            let team_id: String
+            let status: String
+        }
+
+        let liveTaskRows: [TaskStatusRow] = try await client
+            .from("tasks")
+            .select("team_id, status")
+            .in("team_id", values: missingIds)
+            .execute()
+            .value
+
+        var grouped: [String: [TaskStatusRow]] = [:]
+        for row in liveTaskRows {
+            grouped[row.team_id, default: []].append(row)
+        }
+
+        let fallbackRows: [TeamTaskRow] = missingIds.map { teamId in
+            let statuses = grouped[teamId] ?? []
+            let assigned = statuses.filter { $0.status == "assigned" }.count
+            let ongoing = statuses.filter { $0.status == "ongoing" }.count
+            let review = statuses.filter { $0.status == "for_review" }.count
+            let prepared = statuses.filter { $0.status == "prepared" }.count
+            let approved = statuses.filter { $0.status == "approved" }.count
+            let completed = statuses.filter { $0.status == "completed" }.count
+            let rejected = statuses.filter { $0.status == "rejected" }.count
+
+            return TeamTaskRow(
+                team_id: teamId,
+                total_task: statuses.count,
+                ongoing_task: ongoing,
+                assigned_task: assigned,
+                for_review_task: review,
+                completed_task: completed,
+                rejected_task: rejected,
+                prepared_task: prepared,
+                approved_task: approved
+            )
+        }
+
+        return rows + fallbackRows
     }
     
     func fetchStudentNamesForTeam(teamId: String) async throws -> [String] {

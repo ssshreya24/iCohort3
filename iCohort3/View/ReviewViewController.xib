@@ -26,6 +26,7 @@
                 <outlet property="taskTitleLabel" destination="WdZ-ee-Kqi" id="SaJ-2W-Tbv"/>
                 <outlet property="titleCardView" destination="Puw-IA-p5c" id="z13-nn-snt"/>
                 <outlet property="titleLabel" destination="4De-91-zFx" id="947-JC-9Qu"/>
+                <outlet property="scrollView" destination="28H-EM-ije" id="h6S-Mf-bLP-new"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>
             </connections>
         </placeholder>
@@ -367,7 +368,7 @@
                                         <constraint firstAttribute="height" constant="40" id="E1M-tK-MS5"/>
                                     </constraints>
                                     <state key="normal" title="Button"/>
-                                    <buttonConfiguration key="configuration" style="gray" title="Complete">
+                                    <buttonConfiguration key="configuration" style="gray" title="Approve">
                                         <color key="baseForegroundColor" systemColor="systemGreenColor"/>
                                         <color key="baseBackgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     </buttonConfiguration>

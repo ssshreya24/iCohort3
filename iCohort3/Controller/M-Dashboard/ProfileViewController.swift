@@ -318,6 +318,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         // ✅ Clear stored data
         UserDefaults.standard.removeObject(forKey: "current_person_id")
         UserDefaults.standard.removeObject(forKey: "current_user_name")
+        UserDefaults.standard.removeObject(forKey: "current_user_email")
+        UserDefaults.standard.removeObject(forKey: "current_user_role")
+        UserDefaults.standard.set(false, forKey: "is_logged_in")
+        UserDefaults.standard.removeObject(forKey: "current_user_name")
         UserDefaults.standard.removeObject(forKey: "mentorEmail")
         
         DispatchQueue.main.async {

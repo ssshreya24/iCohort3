@@ -159,6 +159,9 @@ extension SupabaseManager {
             print("✅ Uploaded \(attachments.count) attachments")
         }
         
+        // Sync counters for mentor dashboard
+        try? await recalculateAndSyncTeamTaskCounters(teamId: teamId)
+        
         return taskId
     }
     
@@ -442,6 +445,9 @@ extension SupabaseManager {
             .execute()
             .value
         
+        // Sync counters for mentor dashboard
+        try? await recalculateAndSyncTeamTaskCounters(teamId: updated.team_id)
+        
         return updated
     }
     
@@ -524,11 +530,19 @@ extension SupabaseManager {
     func deleteTask(taskId: String) async throws {
         print("🗑️ Deleting task: \(taskId)")
         
+        // Fetch task first to get teamId for counter sync
+        let task = try? await fetchTask(taskId: taskId)
+        let teamId = task?.team_id
+        
         _ = try await client
             .from("tasks")
             .delete()
             .eq("id", value: taskId)
             .execute()
+        
+        if let tid = teamId {
+            try? await recalculateAndSyncTeamTaskCounters(teamId: tid)
+        }
         
         print("✅ Task deleted: \(taskId)")
     }

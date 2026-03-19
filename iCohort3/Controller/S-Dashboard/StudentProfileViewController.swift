@@ -90,7 +90,7 @@ class StudentProfileViewController: UIViewController {
             tf.text = ""
         }
         
-        greetingLabel?.text = "Hi User"
+        greetingLabel?.text = "Hi Student"
         greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
         uploadButton.isHidden = true
         uploadButton.alpha = 1.0
@@ -123,7 +123,7 @@ class StudentProfileViewController: UIViewController {
                     
                     // If no profile exists, show empty state
                     if error.localizedDescription.contains("not found") {
-                        self.greetingLabel?.text = "Hi User"
+                        self.greetingLabel?.text = "Hi Student"
                     } else {
                         self.showError("Failed to load profile")
                     }
@@ -176,6 +176,10 @@ class StudentProfileViewController: UIViewController {
     @IBAction func logOutButtonTapped(_ sender: Any) {
         // Clear stored person_id
         UserDefaults.standard.removeObject(forKey: "current_person_id")
+        UserDefaults.standard.removeObject(forKey: "current_user_name")
+        UserDefaults.standard.removeObject(forKey: "current_user_email")
+        UserDefaults.standard.removeObject(forKey: "current_user_role")
+        UserDefaults.standard.set(false, forKey: "is_logged_in")
         
         DispatchQueue.main.async {
             guard let windowScene = UIApplication.shared.connectedScenes

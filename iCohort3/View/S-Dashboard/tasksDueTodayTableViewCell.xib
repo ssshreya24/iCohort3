@@ -9,7 +9,7 @@
     <objects>
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
         <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
-        <tableViewCell contentMode="scaleToFill" selectionStyle="default" indentationWidth="10" reuseIdentifier="tasksDueTodayTableViewCell" id="KGk-i7-Jjw" customClass="tasksDueTodayTableViewCell" customModule="iCohort3" customModuleProvider="target">
+        <tableViewCell contentMode="scaleToFill" selectionStyle="default" indentationWidth="10" reuseIdentifier="TaskCell" id="KGk-i7-Jjw" customClass="tasksDueTodayTableViewCell" customModule="iCohort3" customModuleProvider="target">
             <rect key="frame" x="0.0" y="0.0" width="320" height="80"/>
             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
             <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" tableViewCell="KGk-i7-Jjw" id="H2p-sc-9uM">
@@ -51,7 +51,7 @@
                                 <buttonConfiguration key="configuration" style="plain" image="chevron.right" catalog="system" title=""/>
                             </button>
                         </subviews>
-                        <color key="backgroundColor" white="0.66666666669999997" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <constraints>
                             <constraint firstAttribute="bottom" secondItem="BCa-2Q-TDp" secondAttribute="bottom" constant="12" id="66x-vB-ee4"/>
                             <constraint firstItem="AdO-If-7Ck" firstAttribute="leading" secondItem="6nJ-jY-bva" secondAttribute="trailing" constant="8" id="7NP-vP-rHB"/>
@@ -70,10 +70,10 @@
                 </subviews>
                 <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                 <constraints>
-                    <constraint firstItem="8tJ-9H-6ly" firstAttribute="leading" secondItem="H2p-sc-9uM" secondAttribute="leading" id="0LN-1R-zxn"/>
-                    <constraint firstItem="8tJ-9H-6ly" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" id="Jci-o1-foX"/>
-                    <constraint firstAttribute="trailing" secondItem="8tJ-9H-6ly" secondAttribute="trailing" id="TeU-YB-tJg"/>
-                    <constraint firstAttribute="bottom" secondItem="8tJ-9H-6ly" secondAttribute="bottom" id="mUf-LR-TWz"/>
+                    <constraint firstItem="8tJ-9H-6ly" firstAttribute="leading" secondItem="H2p-sc-9uM" secondAttribute="leading" constant="16" id="0LN-1R-zxn"/>
+                    <constraint firstItem="8tJ-9H-6ly" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" constant="6" id="Jci-o1-foX"/>
+                    <constraint firstAttribute="trailing" secondItem="8tJ-9H-6ly" secondAttribute="trailing" constant="16" id="TeU-YB-tJg"/>
+                    <constraint firstAttribute="bottom" secondItem="8tJ-9H-6ly" secondAttribute="bottom" constant="6" id="mUf-LR-TWz"/>
                 </constraints>
             </tableViewCellContentView>
             <viewLayoutGuide key="safeArea" id="njF-e1-oar"/>

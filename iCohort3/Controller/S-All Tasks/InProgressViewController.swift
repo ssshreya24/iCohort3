@@ -142,8 +142,9 @@ final class InProgressViewController: UIViewController, TeamContextReceiver {
         do {
             try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "for_review")
             do {
-                try await SupabaseManager.shared.moveTeamTaskCounter(
-                    teamId: teamId ?? "", from: "ongoing", to: "for_review")
+                if let tid = teamId, !tid.isEmpty {
+                    try await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: tid)
+                }
             } catch {
                 print("⚠️ Counter update failed:", error)
             }
@@ -166,7 +167,9 @@ final class InProgressViewController: UIViewController, TeamContextReceiver {
             dueDate:         formatDate(task.assigned_date),
             assigneeName:    "Team \(teamNo ?? 0)",
             assigneeImage:   assigneeImage,
-            attachmentNames: []
+            attachmentNames: [],
+            status:          task.status,
+            remark:          task.remark
         )
         // ✅ Pass Supabase IDs so TaskDetailVC can fetch live mentor/assignee data
         model.taskId   = task.id

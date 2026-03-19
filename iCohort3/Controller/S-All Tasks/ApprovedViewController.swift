@@ -131,6 +131,50 @@ class ApprovedViewController: UIViewController, TeamContextReceiver {
         }
     }
 
+    // MARK: - Move Approved Task Forward
+
+    private func promptNextStep(for task: SupabaseManager.TaskRow) {
+        let sheet = UIAlertController(
+            title: "Choose Next Step",
+            message: "This task was accepted. What should happen next?",
+            preferredStyle: .actionSheet
+        )
+
+        sheet.addAction(UIAlertAction(title: "Move to Prepared", style: .default) { [weak self] _ in
+            Task { await self?.moveApprovedTask(taskId: task.id, to: "prepared") }
+        })
+
+        sheet.addAction(UIAlertAction(title: "Move to Completed", style: .default) { [weak self] _ in
+            Task { await self?.moveApprovedTask(taskId: task.id, to: "completed") }
+        })
+
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = collectionView
+            popover.sourceRect = CGRect(x: collectionView.bounds.midX, y: collectionView.bounds.midY, width: 1, height: 1)
+        }
+
+        present(sheet, animated: true)
+    }
+
+    private func moveApprovedTask(taskId: String, to status: String) async {
+        do {
+            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: status)
+            if let teamId, !teamId.isEmpty {
+                try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId, teamNo: teamNo)
+            }
+            await loadTasksFromSupabase()
+        } catch {
+            print("❌ ApprovedVC moveApprovedTask error:", error)
+            await MainActor.run {
+                let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(alert, animated: true)
+            }
+        }
+    }
+
     // MARK: - UI Setup
 
     private func setupBackButton() {
@@ -198,5 +242,10 @@ extension ApprovedViewController: UICollectionViewDataSource, UICollectionViewDe
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
         CGSize(width: collectionView.frame.width - 40, height: 180)
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard indexPath.item < tasks.count else { return }
+        promptNextStep(for: tasks[indexPath.item])
     }
 }

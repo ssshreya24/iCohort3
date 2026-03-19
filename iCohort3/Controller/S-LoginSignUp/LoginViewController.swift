@@ -35,9 +35,24 @@ class LoginViewController: UIViewController {
     func setupUI() {
         passwordTextField.isSecureTextEntry = true
         passwordVisibilityToggle.setImage(UIImage(systemName: "eye.slash.fill"), for: .normal)
-        rememberMeButton.isSelected = false
-        rememberMeButton.setImage(UIImage(systemName: "square"), for: .normal)
-        rememberMeButton.setImage(UIImage(systemName: "checkmark.square.fill"), for: .selected)
+        rememberMeButton.configuration = nil
+        rememberMeButton.backgroundColor = .clear
+        rememberMeButton.tintColor = .clear
+        rememberMeButton.layer.shadowOpacity = 0
+        rememberMeButton.layer.masksToBounds = false
+        rememberMeButton.contentEdgeInsets = .zero
+        rememberMeButton.imageEdgeInsets = .zero
+        rememberMeButton.adjustsImageWhenHighlighted = false
+        rememberMeButton.showsTouchWhenHighlighted = false
+        rememberMeButton.imageView?.contentMode = .scaleAspectFit
+        rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
+        rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)
+        let shouldRemember = UserDefaults.standard.bool(forKey: "remember_me")
+            && UserDefaults.standard.string(forKey: "remembered_user_role") == "student"
+        rememberMeButton.isSelected = shouldRemember
+        if shouldRemember {
+            emailTextField.text = UserDefaults.standard.string(forKey: "remembered_email")
+        }
         signInButton.layer.cornerRadius = 20
         signInButton.layer.masksToBounds = true
         emailTextField.layer.cornerRadius = 0
@@ -165,6 +180,11 @@ class LoginViewController: UIViewController {
                 if await rememberMeButton.isSelected {
                     UserDefaults.standard.set(true,  forKey: "remember_me")
                     UserDefaults.standard.set(email, forKey: "remembered_email")
+                    UserDefaults.standard.set("student", forKey: "remembered_user_role")
+                } else {
+                    UserDefaults.standard.set(false, forKey: "remember_me")
+                    UserDefaults.standard.removeObject(forKey: "remembered_email")
+                    UserDefaults.standard.removeObject(forKey: "remembered_user_role")
                 }
                 
                 print("✅ Student login success — navigating to home")
@@ -290,5 +310,31 @@ class LoginViewController: UIViewController {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func makeRememberMeImage(selected: Bool) -> UIImage? {
+        let size = CGSize(width: 24, height: 24)
+        let renderer = UIGraphicsImageRenderer(size: size)
+
+        return renderer.image { _ in
+            let rect = CGRect(origin: .zero, size: size)
+            let rounded = UIBezierPath(roundedRect: rect.insetBy(dx: 1.5, dy: 1.5), cornerRadius: 5)
+
+            if selected {
+                UIColor.black.setFill()
+                rounded.fill()
+
+                let config = UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)
+                let check = UIImage(systemName: "checkmark", withConfiguration: config)?
+                    .withTintColor(.white, renderingMode: .alwaysOriginal)
+                check?.draw(in: CGRect(x: 5.5, y: 5.5, width: 13, height: 13))
+            } else {
+                UIColor.clear.setFill()
+                rounded.fill()
+                UIColor.black.setStroke()
+                rounded.lineWidth = 1.6
+                rounded.stroke()
+            }
+        }.withRenderingMode(.alwaysOriginal)
     }
 }

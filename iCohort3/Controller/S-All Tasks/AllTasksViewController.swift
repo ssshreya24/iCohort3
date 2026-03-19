@@ -88,7 +88,18 @@ final class AllTasksViewController: UIViewController, TeamContextReceiver {
         setupEmptyLabel()
         registerCells()
         setupCollectionView()
+        setupRefreshControl()
         Task { await bootstrapAndLoad() }
+    }
+    
+    private func setupRefreshControl() {
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        collectionView.refreshControl = refreshControl
+    }
+    
+    @objc private func handleRefresh() {
+        Task { await loadAllTasksFromSupabase() }
     }
 
     override func viewDidLayoutSubviews() {
@@ -190,8 +201,11 @@ final class AllTasksViewController: UIViewController, TeamContextReceiver {
     }
 
     private func loadAllTasksFromSupabase() async {
-        guard !resolvedTeamId.isEmpty else { return }
-
+        guard let resolvedTeamId = teamId, !resolvedTeamId.isEmpty else {
+            await resetUIWithEmpty("No Team Context")
+            return
+        }
+        
         do {
             async let a = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.notStarted.dbStatus)
             async let b = SupabaseManager.shared.fetchTasksForTeam(teamId: resolvedTeamId, status: TaskSection.inProgress.dbStatus)
@@ -219,10 +233,12 @@ final class AllTasksViewController: UIViewController, TeamContextReceiver {
                 self.tasksBySections = buckets
                 self.setEmptyState(total == 0 ? "No tasks available" : nil)
                 self.collectionView.reloadData()
+                self.collectionView.refreshControl?.endRefreshing()
             }
         } catch {
             print("❌ AllTasksVC load failed:", error)
             await resetUIWithEmpty("Failed to load tasks")
+            await MainActor.run { self.collectionView.refreshControl?.endRefreshing() }
         }
     }
 

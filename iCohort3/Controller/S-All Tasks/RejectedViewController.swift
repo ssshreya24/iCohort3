@@ -132,11 +132,11 @@ class RejectedViewController: UIViewController, TeamContextReceiver {
         }
     }
 
-    // MARK: - Move Rejected → Prepared
+    // MARK: - Move Rejected → In Progress
 
     /// Called when the student taps a rejected card.
     /// Shows a contextual alert explaining the mentor's remark and offering
-    /// to move the task back to "prepared" so they can redo their work.
+    /// to move the task back to "In Progress" so they can revise and resubmit their work.
     private func promptResubmit(for task: SupabaseManager.TaskRow) {
         // Build a helpful message that surfaces the mentor's remark if present.
         let remark = task.remark?
@@ -149,7 +149,7 @@ class RejectedViewController: UIViewController, TeamContextReceiver {
         Mentor's feedback:
         "\(remark)"
 
-        Move this task back to Prepared so you can revise and resubmit it?
+        Move this task back to In Progress so you can revise it and submit again for review?
         """
 
         let alert = UIAlertController(
@@ -158,8 +158,8 @@ class RejectedViewController: UIViewController, TeamContextReceiver {
             preferredStyle: .alert
         )
 
-        alert.addAction(UIAlertAction(title: "Move to Prepared", style: .default) { [weak self] _ in
-            Task { await self?.moveTaskToPrepared(taskId: task.id) }
+        alert.addAction(UIAlertAction(title: "Move to In Progress", style: .default) { [weak self] _ in
+            Task { await self?.moveTaskToInProgress(taskId: task.id) }
         })
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -167,10 +167,10 @@ class RejectedViewController: UIViewController, TeamContextReceiver {
         present(alert, animated: true)
     }
 
-    private func moveTaskToPrepared(taskId: String) async {
+    private func moveTaskToInProgress(taskId: String) async {
         do {
             // 1. Update status in the tasks table
-            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "prepared")
+            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "ongoing")
 
             // 2. Keep team-level counters in sync (non-fatal if it fails)
             do {
@@ -185,11 +185,11 @@ class RejectedViewController: UIViewController, TeamContextReceiver {
 
             // 4. Brief success toast
             await MainActor.run {
-                self.showToast(message: "Task moved to Prepared ✓")
+                self.showToast(message: "Task moved to In Progress ✓")
             }
 
         } catch {
-            print("❌ RejectedVC moveTaskToPrepared failed:", error)
+            print("❌ RejectedVC moveTaskToInProgress failed:", error)
             await MainActor.run {
                 let err = UIAlertController(title: "Error",
                                             message: error.localizedDescription,

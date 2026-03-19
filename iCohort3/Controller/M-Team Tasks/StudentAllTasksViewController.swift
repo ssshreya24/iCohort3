@@ -4,15 +4,13 @@ import PostgREST
 
 // MARK: - Segment Options
 enum TaskSegment: Int, CaseIterable {
-    case all        = 0
-    case assigned   = 1
-    case review     = 2
-    case completed  = 3
-    case rejected   = 4
+    case assigned   = 0
+    case review     = 1
+    case completed  = 2
+    case rejected   = 3
 
     var title: String {
         switch self {
-        case .all:       return "All"
         case .assigned:  return "Assigned"
         case .review:    return "Review"
         case .completed: return "Done"
@@ -22,7 +20,6 @@ enum TaskSegment: Int, CaseIterable {
 
     var color: UIColor {
         switch self {
-        case .all:       return UIColor.systemIndigo
         case .assigned:  return UIColor.systemBlue
         case .review:    return UIColor.systemOrange
         case .completed: return UIColor.systemGreen
@@ -30,9 +27,8 @@ enum TaskSegment: Int, CaseIterable {
         }
     }
 
-    var taskCategory: TaskCategory? {
+    var taskCategory: TaskCategory {
         switch self {
-        case .all:       return nil
         case .assigned:  return .assigned
         case .review:    return .review
         case .completed: return .completed
@@ -216,7 +212,7 @@ final class StudentAllTasksViewController: UIViewController {
     private var rejectedTasks:    [TaskModel] = []
 
     // MARK: - Segment State
-    private var selectedSegment: TaskSegment = .all
+    private var selectedSegment: TaskSegment = .assigned
 
     // MARK: - Custom UI (programmatic — below storyboard header row)
     private let segmentControl    = LiquidGlassSegmentControl()
@@ -234,7 +230,6 @@ final class StudentAllTasksViewController: UIViewController {
     // MARK: - Computed tasks for active segment
     private var displayedTasks: [TaskModel] {
         switch selectedSegment {
-        case .all:       return assignedTasks + reviewTasks + completedTasks + rejectedTasks
         case .assigned:  return assignedTasks
         case .review:    return reviewTasks
         case .completed: return completedTasks
@@ -275,6 +270,17 @@ final class StudentAllTasksViewController: UIViewController {
         buildSegmentControl()
         buildTaskCollection()
         buildEmptyState()
+        setupRefreshControl()
+    }
+    
+    private func setupRefreshControl() {
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        taskCollectionView.refreshControl = refreshControl
+    }
+    
+    @objc private func handleRefresh() {
+        Task { await loadTasksFromSupabase() }
     }
 
     private func buildHeader() {
@@ -394,9 +400,6 @@ final class StudentAllTasksViewController: UIViewController {
             let iconName: String
             let message: String
             switch selectedSegment {
-            case .all:
-                iconName = "tray"
-                message  = "No tasks yet"
             case .assigned:
                 iconName = "doc.badge.plus"
                 message  = "No tasks assigned yet"
@@ -421,14 +424,15 @@ final class StudentAllTasksViewController: UIViewController {
         container.subviews.forEach { $0.removeFromSuperview() }
 
         let stack = UIStackView()
-        stack.axis      = .horizontal
-        stack.spacing   = 24
-        stack.alignment = .center
+        stack.axis         = .horizontal
+        stack.distribution = .equalCentering
+        stack.alignment    = .center
         stack.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
             stack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
         ])
 
@@ -519,9 +523,11 @@ final class StudentAllTasksViewController: UIViewController {
                 self.completedTasks = completed
                 self.rejectedTasks  = rejected
                 self.updateSegmentUI()
+                self.taskCollectionView.refreshControl?.endRefreshing()
             }
         } catch {
             print("❌ loadTasksFromSupabase:", error)
+            await MainActor.run { self.taskCollectionView.refreshControl?.endRefreshing() }
         }
     }
 
@@ -537,13 +543,7 @@ final class StudentAllTasksViewController: UIViewController {
         // already done in buildTaskCollection
     }
 
-    // MARK: - Category for a task in "All"
-    private func category(for task: TaskModel) -> TaskCategory {
-        if assignedTasks.contains(where: { $0.id == task.id }) { return .assigned }
-        if reviewTasks.contains(where:   { $0.id == task.id }) { return .review   }
-        if completedTasks.contains(where: { $0.id == task.id }) { return .completed }
-        return .rejected
-    }
+
 
     // MARK: - Actions
     @IBAction func backButtonTapped(_ sender: Any) { dismiss(animated: true) }
@@ -715,7 +715,7 @@ extension StudentAllTasksViewController: UICollectionViewDelegate,
         let cell = cv.dequeueReusableCell(
             withReuseIdentifier: "TaskCardCellNew", for: indexPath) as! TaskCardCellNew
         let task = displayedTasks[indexPath.row]
-        let cat  = selectedSegment.taskCategory ?? category(for: task)
+        let cat  = selectedSegment.taskCategory
 
         cell.configure(
             profile:     UIImage(named: "Student"),
@@ -804,6 +804,10 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                                                       date: date, assignToAll: assignToAll,
                                                       specificStudentId: specificStudentId)
                 await saveAttachments(taskId: taskId, filenames: attachmentFilenames, images: attachments)
+                
+                // Sync counters for mentor dashboard
+                try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId)
+                
                 await loadTasksFromSupabase()
                 await MainActor.run {
                     let a = UIAlertController(title: "Task Assigned ✅",
@@ -846,6 +850,10 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                                         date: date, assignToAll: assignToAll,
                                         specificStudentId: specificStudentId)
                 await saveAttachments(taskId: taskId, filenames: attachmentFilenames, images: attachments)
+                
+                // Sync counters for mentor dashboard
+                try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId)
+                
                 await loadTasksFromSupabase()
                 await MainActor.run {
                     let a = UIAlertController(title: "Task Updated ✅",
