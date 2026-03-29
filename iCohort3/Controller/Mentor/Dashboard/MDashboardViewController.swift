@@ -37,6 +37,30 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     @IBOutlet weak var todayCountLabel:  UILabel!
     @IBOutlet weak var collectionView:   UICollectionView!
 
+    private let notificationButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        var config = UIButton.Configuration.plain()
+        let symbolConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        config.image = UIImage(systemName: "bell", withConfiguration: symbolConfig)
+        config.baseForegroundColor = .black
+        button.configuration = config
+        return button
+    }()
+
+    private let notificationBadgeLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.backgroundColor = .systemRed
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 11, weight: .bold)
+        label.textAlignment = .center
+        label.layer.cornerRadius = 10
+        label.clipsToBounds = true
+        label.isHidden = true
+        return label
+    }()
+
     var currentMentorId:    String = ""
     var mentorDisplayName:  String = "Mentor"
 
@@ -55,13 +79,12 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         }
 
         loadMentorGreeting()
-
-        if let img = UIImage(named: "ProfileImageMentor") {
-            setProfileAvatarImage(img)
-        }
+        loadMentorAvatar()
 
         profileImageView.isUserInteractionEnabled = true
         applyBackgroundGradient()
+        styleProfileButton()
+        setupNotificationButton()
         setupCollectionView()
 
         todayCardView.layer.cornerRadius  = 16
@@ -82,14 +105,74 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         loadMentorGreeting()
+        loadMentorAvatar()
+        refreshNotificationBadge()
         Task { await loadDashboardFromSupabase() }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         profileImageView.layer.cornerRadius = profileImageView.bounds.width / 2
-        profileImageView.clipsToBounds       = true
-        profileImageView.contentMode         = .scaleAspectFill
+        profileImageView.clipsToBounds = true
+        profileImageView.contentMode = .scaleAspectFill
+        syncProfileButtonSize()
+    }
+
+    private func styleProfileButton() {
+        profileImageView.backgroundColor = .white
+        profileImageView.layer.cornerRadius = profileImageView.bounds.width / 2
+        profileImageView.layer.shadowColor = UIColor.black.cgColor
+        profileImageView.layer.shadowOpacity = 0.08
+        profileImageView.layer.shadowRadius = 8
+        profileImageView.layer.shadowOffset = CGSize(width: 0, height: 3)
+        profileImageView.layer.masksToBounds = false
+        profileImageView.tintColor = .black
+        syncProfileButtonSize()
+    }
+
+    private func syncProfileButtonSize() {
+        for constraint in profileImageView.constraints {
+            if constraint.firstAttribute == .width || constraint.firstAttribute == .height {
+                constraint.constant = 40
+            }
+        }
+        profileImageView.layer.cornerRadius = 20
+    }
+
+    private func setupNotificationButton() {
+        notificationButton.addTarget(self, action: #selector(notificationButtonTapped), for: .touchUpInside)
+        view.addSubview(notificationButton)
+        view.addSubview(notificationBadgeLabel)
+
+        notificationButton.backgroundColor = .white
+        notificationButton.layer.cornerRadius = 20
+        notificationButton.layer.shadowColor = UIColor.black.cgColor
+        notificationButton.layer.shadowOpacity = 0.08
+        notificationButton.layer.shadowRadius = 8
+        notificationButton.layer.shadowOffset = CGSize(width: 0, height: 3)
+        notificationButton.clipsToBounds = false
+
+        NSLayoutConstraint.activate([
+            notificationButton.widthAnchor.constraint(equalToConstant: 40),
+            notificationButton.heightAnchor.constraint(equalToConstant: 40),
+            notificationButton.trailingAnchor.constraint(equalTo: profileImageView.leadingAnchor, constant: -12),
+            notificationButton.centerYAnchor.constraint(equalTo: profileImageView.centerYAnchor),
+
+            notificationBadgeLabel.centerXAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: -2),
+            notificationBadgeLabel.centerYAnchor.constraint(equalTo: notificationButton.topAnchor, constant: 2),
+            notificationBadgeLabel.heightAnchor.constraint(equalToConstant: 20),
+            notificationBadgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 20)
+        ])
+    }
+
+    private func refreshNotificationBadge() {
+        guard !currentMentorId.isEmpty else {
+            notificationBadgeLabel.isHidden = true
+            return
+        }
+        let unread = NotificationManager.shared.unreadCount(role: "mentor", personId: currentMentorId)
+        notificationBadgeLabel.text = unread > 99 ? "99+" : "\(unread)"
+        notificationBadgeLabel.isHidden = unread == 0
     }
 
     // MARK: - Greeting
@@ -123,9 +206,42 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     // MARK: - Profile
 
     private func setProfileAvatarImage(_ image: UIImage) {
+        profileImageView.backgroundColor = .white
         profileImageView.image       = image
-        profileImageView.contentMode = .scaleAspectFit
+        profileImageView.contentMode = .scaleAspectFill
         profileImageView.clipsToBounds = true
+    }
+
+    private func loadMentorAvatar() {
+        guard !currentMentorId.isEmpty else {
+            profileImageView.image = UIImage(systemName: "person.crop.circle")
+            profileImageView.tintColor = .black
+            profileImageView.contentMode = .center
+            return
+        }
+
+        Task {
+            if let profile = try? await SupabaseManager.shared.fetchBasicMentorProfile(personId: currentMentorId),
+               let base64 = profile.profile_picture,
+               let image = SupabaseManager.shared.base64ToImage(base64String: base64) {
+                await MainActor.run {
+                    self.profileImageView.tintColor = nil
+                    self.setProfileAvatarImage(image)
+                }
+            } else if let cached = SupabaseManager.shared.cachedProfilePhotoBase64(personId: currentMentorId, role: "mentor"),
+                      let image = SupabaseManager.shared.base64ToImage(base64String: cached) {
+                await MainActor.run {
+                    self.profileImageView.tintColor = nil
+                    self.setProfileAvatarImage(image)
+                }
+            } else {
+                await MainActor.run {
+                    self.profileImageView.image = UIImage(systemName: "person.crop.circle")
+                    self.profileImageView.tintColor = .black
+                    self.profileImageView.contentMode = .center
+                }
+            }
+        }
     }
 
     @IBAction func profileImageTapped(_ sender: UITapGestureRecognizer) {
@@ -207,12 +323,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
             for team in teams {
                 let c = taskMap[team.id]
                 let assigned = c?.assigned_task ?? 0
-                let ongoing  = c?.ongoing_task ?? 0
-                let review   = c?.for_review_task ?? 0
-                let prepared = c?.prepared_task ?? 0
-                let approved = c?.approved_task ?? 0
-                let active   = assigned + ongoing + review + prepared + approved
-                mappedOngoing.append(OngoingTeam(teamId: team.id, teamNo: team.teamNo, activeTaskCount: active))
+                mappedOngoing.append(OngoingTeam(teamId: team.id, teamNo: team.teamNo, activeTaskCount: assigned))
             }
 
             // ── 5. "Today" badge = total for_review count ─────────────────────
@@ -228,6 +339,8 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 self.reviewTasks          = mappedReview
                 self.todayTitleLabel.text = "Tasks to Review"
                 self.todayCountLabel.text = "\(totalReviewCount)"
+                NotificationManager.shared.processMentorSubmissionCount(totalReviewCount, personId: self.currentMentorId)
+                self.refreshNotificationBadge()
                 self.collectionView.reloadData()
                 self.collectionView.refreshControl?.endRefreshing()
             }
@@ -238,10 +351,31 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                 self.ongoingTeams         = []
                 self.reviewTasks          = []
                 self.todayCountLabel.text = "0"
+                self.refreshNotificationBadge()
                 self.collectionView.reloadData()
                 self.collectionView.refreshControl?.endRefreshing()
             }
         }
+    }
+
+    @objc private func notificationButtonTapped() {
+        guard !currentMentorId.isEmpty else { return }
+        let notifications = NotificationManager.shared.notifications(role: "mentor", personId: currentMentorId)
+        let message: String
+        if notifications.isEmpty {
+            message = "No notifications yet."
+        } else {
+            message = notifications.prefix(5).map { item in
+                "• \(item.title)\n\(item.body)"
+            }.joined(separator: "\n\n")
+        }
+
+        let alert = UIAlertController(title: "Notifications", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+            NotificationManager.shared.markAllAsRead(role: "mentor", personId: self.currentMentorId)
+            self.refreshNotificationBadge()
+        })
+        present(alert, animated: true)
     }
 
     // Fetch individual for_review task rows (title + team info) for all mentor teams
@@ -473,4 +607,3 @@ extension MDashboardViewController: UICollectionViewDelegate {
         }
     }
 }
-
