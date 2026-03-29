@@ -1,0 +1,102 @@
+import UIKit
+
+class TeamProfileRowCell: UICollectionViewCell {
+
+    @IBOutlet weak var img1: UIImageView!
+    @IBOutlet weak var img2: UIImageView!
+    @IBOutlet weak var img3: UIImageView!
+
+    @IBOutlet weak var name1: UILabel!
+    @IBOutlet weak var name2: UILabel!
+    @IBOutlet weak var name3: UILabel!
+    
+    private let emptyTeamLabel: UILabel = {
+        let label = UILabel()
+        label.text = "No team assigned yet"
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .secondaryLabel
+        label.isHidden = true
+        return label
+    }()
+
+    override func awakeFromNib() {
+        super.awakeFromNib()
+        contentView.addSubview(emptyTeamLabel)
+        emptyTeamLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            emptyTeamLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            emptyTeamLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            emptyTeamLabel.leadingAnchor.constraint(greaterThanOrEqualTo: contentView.leadingAnchor, constant: 16),
+            emptyTeamLabel.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -16)
+        ])
+
+        // Style all profile images
+        [img1, img2, img3].forEach { img in
+            img?.layer.cornerRadius = 35
+            img?.clipsToBounds = true
+            img?.contentMode = .scaleAspectFill
+            img?.backgroundColor = UIColor(white: 0.95, alpha: 1)
+        }
+        
+        // Style all name labels
+        [name1, name2, name3].forEach { label in
+            label?.font = .systemFont(ofSize: 14, weight: .medium)
+            label?.textColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1)
+            label?.textAlignment = .center
+        }
+    }
+
+    func configureProfiles(images: [UIImage], names: [String], teamNo: Int) {
+        if names.isEmpty {
+            emptyTeamLabel.isHidden = false
+            [img1, img2, img3].forEach { $0?.isHidden = true }
+            [name1, name2, name3].forEach { $0?.isHidden = true }
+            return
+        } else {
+            emptyTeamLabel.isHidden = true
+        }
+
+        let imageViews = [img1, img2, img3]
+        let labels = [name1, name2, name3]
+
+        // ✅ CLEANED: Use names as-is from Supabase (no dummy prefix removal)
+        let cleanedNames = names.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        // Configure up to 3 members
+        for i in 0..<3 {
+            if i < cleanedNames.count {
+                // Set image (use provided image or default)
+                imageViews[i]?.image = (i < images.count) ? images[i] : UIImage(named: "Student")
+                
+                // Set name
+                labels[i]?.text = cleanedNames[i]
+                
+                // Show the views
+                imageViews[i]?.isHidden = false
+                labels[i]?.isHidden = false
+            } else {
+                // Hide extra slots if team has fewer than 3 members
+                imageViews[i]?.isHidden = true
+                labels[i]?.isHidden = true
+            }
+        }
+    }
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        // Reset all to visible with defaults
+        [img1, img2, img3].forEach { img in
+            img?.image = UIImage(named: "Student")
+            img?.isHidden = false
+        }
+        
+        [name1, name2, name3].forEach { label in
+            label?.text = ""
+            label?.isHidden = false
+        }
+    }
+}
