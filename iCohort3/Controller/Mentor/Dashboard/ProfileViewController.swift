@@ -80,11 +80,11 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         setupInitialState()
         setupLoadingIndicator()
         avatarEditButton.isHidden = true
-        
-        if let img = UIImage(named: "ProfileImageMentor") {
-            let square = img.centerSquare()
-            avatarImageView.image = square
-        }
+
+        let placeholderConfig = UIImage.SymbolConfiguration(pointSize: 46, weight: .medium)
+        avatarImageView.image = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
+        avatarImageView.tintColor = .black
+        avatarImageView.contentMode = .center
         
         // ✅ NEW: Get mentor person_id from UserDefaults
         getCurrentUserPersonId()
@@ -160,6 +160,14 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     
     private func updateUIWithProfile(_ profile: SupabaseManager.MentorProfile?, greeting: String) {
         greetingLabel?.text = greeting
+
+        if let personId = currentPersonId,
+           let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "mentor"),
+           let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) {
+            avatarImageView.image = image
+            avatarImageView.tintColor = nil
+            avatarImageView.contentMode = .scaleAspectFill
+        }
         
         guard let profile = profile else {
             // New user - show empty fields
@@ -210,6 +218,16 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             greetingLabel.font = .systemFont(ofSize: 24, weight: .bold)
             greetingLabel.textColor = .label
             greetingLabel.text = "Hi Mentor" // Default
+        }
+
+        if avatarEditButton != nil {
+            var config = UIButton.Configuration.filled()
+            config.title = nil
+            config.image = UIImage(systemName: "camera.fill")
+            config.baseBackgroundColor = .white
+            config.baseForegroundColor = .black
+            config.cornerStyle = .capsule
+            avatarEditButton.configuration = config
         }
     }
 
@@ -305,6 +323,12 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         if let img = image {
             let square = img.centerSquare()
             avatarImageView.image = square
+            avatarImageView.tintColor = nil
+            avatarImageView.contentMode = .scaleAspectFill
+            if let personId = currentPersonId,
+               let base64 = SupabaseManager.shared.imageToBase64(image: square) {
+                SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "mentor")
+            }
             delegate?.profileViewController(self, didUpdateAvatar: square)
         }
         dismiss(animated: true)
@@ -470,7 +494,6 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
                 
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()
-                    self.showSuccess("Profile saved successfully!")
                     
                     // Reload to get updated greeting
                     Task {
@@ -504,11 +527,6 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         present(alert, animated: true)
     }
     
-    private func showSuccess(_ message: String) {
-        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
-    }
 }
 
 extension UIImage {

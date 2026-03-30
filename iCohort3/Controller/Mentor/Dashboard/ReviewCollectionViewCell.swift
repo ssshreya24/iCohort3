@@ -32,6 +32,7 @@ final class ReviewCollectionViewCell: UICollectionViewCell {
         cardView.layer.cornerRadius = 12
         cardView.backgroundColor = .white
         cardView.clipsToBounds = true
+        contentView.backgroundColor = .clear
 
         // Shadow on cell (not cardView, because cardView clips)
         layer.shadowColor = UIColor.black.cgColor
@@ -43,15 +44,19 @@ final class ReviewCollectionViewCell: UICollectionViewCell {
         // Labels
         teamLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         teamLabel.textColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+        teamLabel.numberOfLines = 1
 
         taskLabel.font = .systemFont(ofSize: 14, weight: .regular)
         taskLabel.textColor = UIColor(red: 0.4, green: 0.4, blue: 0.4, alpha: 1.0)
-        taskLabel.numberOfLines = 2
+        taskLabel.numberOfLines = 1
+        taskLabel.lineBreakMode = .byTruncatingTail
 
         // Chevron
         chevronImageView.image = UIImage(systemName: "chevron.right")
         chevronImageView.tintColor = UIColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 1.0)
         chevronImageView.contentMode = .scaleAspectFit
+
+        taskCardButton.setTitle(nil, for: .normal)
     }
 
     // ✅ Use this for DB-driven content

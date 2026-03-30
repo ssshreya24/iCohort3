@@ -74,6 +74,18 @@ final class SupabaseManager {
 
         return image
     }
+
+    func cacheProfilePhotoBase64(_ base64String: String, personId: String, role: String) {
+        UserDefaults.standard.set(base64String, forKey: cachedProfilePhotoKey(personId: personId, role: role))
+    }
+
+    func cachedProfilePhotoBase64(personId: String, role: String) -> String? {
+        UserDefaults.standard.string(forKey: cachedProfilePhotoKey(personId: personId, role: role))
+    }
+
+    private func cachedProfilePhotoKey(personId: String, role: String) -> String {
+        "cached_profile_photo_\(role)_\(personId)"
+    }
 }
 
 // MARK: - Models

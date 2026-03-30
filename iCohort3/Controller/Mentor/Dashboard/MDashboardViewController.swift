@@ -25,6 +25,88 @@ struct ReviewTask {
 
 var teamMemberNames: [String: [String]] = [:]
 
+private struct DashboardNotificationItem: Codable {
+    let id: UUID
+    let title: String
+    let body: String
+    let createdAt: Date
+    var isRead: Bool
+}
+
+private final class NotificationManager {
+    static let shared = NotificationManager()
+
+    private let defaults = UserDefaults.standard
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    private init() {}
+
+    func unreadCount(role: String, personId: String) -> Int {
+        notifications(role: role, personId: personId).filter { !$0.isRead }.count
+    }
+
+    func notifications(role: String, personId: String) -> [DashboardNotificationItem] {
+        guard let data = defaults.data(forKey: notificationsKey(role: role, personId: personId)),
+              let items = try? decoder.decode([DashboardNotificationItem].self, from: data) else {
+            return []
+        }
+        return items.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func markAllAsRead(role: String, personId: String) {
+        var items = notifications(role: role, personId: personId)
+        for index in items.indices {
+            items[index].isRead = true
+        }
+        save(items, role: role, personId: personId)
+    }
+
+    func processMentorSubmissionCount(_ totalReviewCount: Int, personId: String) {
+        let role = "mentor"
+        let lastCountKey = submissionCountKey(role: role, personId: personId)
+        let previousCount = defaults.integer(forKey: lastCountKey)
+
+        defer {
+            defaults.set(totalReviewCount, forKey: lastCountKey)
+        }
+
+        guard totalReviewCount > previousCount, totalReviewCount > 0 else { return }
+
+        let newSubmissionCount = totalReviewCount - previousCount
+        let title = newSubmissionCount == 1 ? "New task to review" : "New tasks to review"
+        let body = newSubmissionCount == 1
+            ? "1 new task was submitted for your review."
+            : "\(newSubmissionCount) new tasks were submitted for your review."
+
+        var items = notifications(role: role, personId: personId)
+        items.insert(
+            DashboardNotificationItem(
+                id: UUID(),
+                title: title,
+                body: body,
+                createdAt: Date(),
+                isRead: false
+            ),
+            at: 0
+        )
+        save(Array(items.prefix(20)), role: role, personId: personId)
+    }
+
+    private func save(_ items: [DashboardNotificationItem], role: String, personId: String) {
+        guard let data = try? encoder.encode(items) else { return }
+        defaults.set(data, forKey: notificationsKey(role: role, personId: personId))
+    }
+
+    private func notificationsKey(role: String, personId: String) -> String {
+        "dashboard_notifications_\(role)_\(personId)"
+    }
+
+    private func submissionCountKey(role: String, personId: String) -> String {
+        "dashboard_submission_count_\(role)_\(personId)"
+    }
+}
+
 // MARK: - Dashboard
 
 class MDashboardViewController: UIViewController, ProfileViewControllerDelegate {
@@ -61,6 +143,8 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         return label
     }()
 
+    private var greetingTrailingConstraint: NSLayoutConstraint?
+
     var currentMentorId:    String = ""
     var mentorDisplayName:  String = "Mentor"
 
@@ -94,6 +178,10 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         todayCardView.layer.shadowRadius  = 8
         todayCardView.layer.shadowOpacity = 0.1
 
+        todayTitleLabel.numberOfLines = 1
+        todayTitleLabel.adjustsFontSizeToFitWidth = true
+        todayTitleLabel.minimumScaleFactor = 0.85
+
         collectionView.layer.cornerRadius = 16
         collectionView.backgroundColor    = .clear
 
@@ -112,10 +200,8 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        profileImageView.layer.cornerRadius = profileImageView.bounds.width / 2
-        profileImageView.clipsToBounds = true
-        profileImageView.contentMode = .scaleAspectFill
         syncProfileButtonSize()
+        notificationButton.layer.cornerRadius = notificationButton.bounds.width / 2
     }
 
     private func styleProfileButton() {
@@ -125,18 +211,17 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         profileImageView.layer.shadowOpacity = 0.08
         profileImageView.layer.shadowRadius = 8
         profileImageView.layer.shadowOffset = CGSize(width: 0, height: 3)
-        profileImageView.layer.masksToBounds = false
+        profileImageView.clipsToBounds = true
         profileImageView.tintColor = .black
         syncProfileButtonSize()
     }
 
     private func syncProfileButtonSize() {
-        for constraint in profileImageView.constraints {
-            if constraint.firstAttribute == .width || constraint.firstAttribute == .height {
-                constraint.constant = 40
-            }
+        profileImageView.layoutIfNeeded()
+        profileImageView.layer.cornerRadius = profileImageView.bounds.width / 2
+        if profileImageView.image == nil {
+            profileImageView.contentMode = .center
         }
-        profileImageView.layer.cornerRadius = 20
     }
 
     private func setupNotificationButton() {
@@ -153,9 +238,9 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         notificationButton.clipsToBounds = false
 
         NSLayoutConstraint.activate([
-            notificationButton.widthAnchor.constraint(equalToConstant: 40),
-            notificationButton.heightAnchor.constraint(equalToConstant: 40),
-            notificationButton.trailingAnchor.constraint(equalTo: profileImageView.leadingAnchor, constant: -12),
+            notificationButton.widthAnchor.constraint(equalToConstant: 44),
+            notificationButton.heightAnchor.constraint(equalToConstant: 44),
+            notificationButton.trailingAnchor.constraint(equalTo: profileImageView.leadingAnchor, constant: -10),
             notificationButton.centerYAnchor.constraint(equalTo: profileImageView.centerYAnchor),
 
             notificationBadgeLabel.centerXAnchor.constraint(equalTo: notificationButton.trailingAnchor, constant: -2),
@@ -163,6 +248,14 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
             notificationBadgeLabel.heightAnchor.constraint(equalToConstant: 20),
             notificationBadgeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 20)
         ])
+
+        if let greetingLabel {
+            greetingTrailingConstraint?.isActive = false
+            let trailing = greetingLabel.trailingAnchor.constraint(lessThanOrEqualTo: notificationButton.leadingAnchor, constant: -18)
+            trailing.priority = .required
+            trailing.isActive = true
+            greetingTrailingConstraint = trailing
+        }
     }
 
     private func refreshNotificationBadge() {
@@ -213,30 +306,26 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     }
 
     private func loadMentorAvatar() {
+        let placeholderConfig = UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
+        let placeholderImage = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
+
         guard !currentMentorId.isEmpty else {
-            profileImageView.image = UIImage(systemName: "person.crop.circle")
+            profileImageView.image = placeholderImage
             profileImageView.tintColor = .black
             profileImageView.contentMode = .center
             return
         }
 
         Task {
-            if let profile = try? await SupabaseManager.shared.fetchBasicMentorProfile(personId: currentMentorId),
-               let base64 = profile.profile_picture,
-               let image = SupabaseManager.shared.base64ToImage(base64String: base64) {
-                await MainActor.run {
+            _ = try? await SupabaseManager.shared.fetchBasicMentorProfile(personId: currentMentorId)
+
+            await MainActor.run {
+                if let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: self.currentMentorId, role: "mentor"),
+                   let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) {
                     self.profileImageView.tintColor = nil
                     self.setProfileAvatarImage(image)
-                }
-            } else if let cached = SupabaseManager.shared.cachedProfilePhotoBase64(personId: currentMentorId, role: "mentor"),
-                      let image = SupabaseManager.shared.base64ToImage(base64String: cached) {
-                await MainActor.run {
-                    self.profileImageView.tintColor = nil
-                    self.setProfileAvatarImage(image)
-                }
-            } else {
-                await MainActor.run {
-                    self.profileImageView.image = UIImage(systemName: "person.crop.circle")
+                } else {
+                    self.profileImageView.image = placeholderImage
                     self.profileImageView.tintColor = .black
                     self.profileImageView.contentMode = .center
                 }
@@ -402,10 +491,9 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         // Build a teamNo lookup from the cached names map (keys are teamIds)
         // We need teamNo — fetch it from new_teams once per unique teamId
         var teamNoCache: [String: Int] = [:]
-        for teamId in teamIds {
-            if let teams = try? await SupabaseManager.shared.fetchTeamsForMentor(mentorId: currentMentorId) {
-                for t in teams { teamNoCache[t.id] = t.teamNo }
-                break   // one call is enough — same list
+        if let teams = try? await SupabaseManager.shared.fetchTeamsForMentor(mentorId: currentMentorId) {
+            for t in teams {
+                teamNoCache[t.id] = t.teamNo
             }
         }
 
@@ -481,12 +569,13 @@ extension MDashboardViewController {
         if ongoingTeams.isEmpty {
             return emptySection(height: 60)
         }
-        let item  = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .absolute(90), heightDimension: .absolute(100)))
-        let group = NSCollectionLayoutGroup.horizontal(layoutSize: .init(widthDimension: .absolute(90), heightDimension: .absolute(100)), subitems: [item])
+        let itemSize = NSCollectionLayoutSize(widthDimension: .absolute(108), heightDimension: .absolute(122))
+        let item = NSCollectionLayoutItem(layoutSize: itemSize)
+        let group = NSCollectionLayoutGroup.horizontal(layoutSize: itemSize, subitems: [item])
         let sec   = NSCollectionLayoutSection(group: group)
         sec.orthogonalScrollingBehavior = .continuous
-        sec.contentInsets               = .init(top: 8, leading: 16, bottom: 16, trailing: 16)
-        sec.interGroupSpacing           = 8
+        sec.contentInsets               = .init(top: 8, leading: 16, bottom: 4, trailing: 16)
+        sec.interGroupSpacing           = 12
         sec.boundarySupplementaryItems  = [sectionHeader(height: 40)]
         return sec
     }
@@ -495,8 +584,13 @@ extension MDashboardViewController {
         if reviewTasks.isEmpty {
             return emptySection(height: 60)
         }
-        let item  = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(80)))
-        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(80)), subitems: [item])
+        let item = NSCollectionLayoutItem(
+            layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(68))
+        )
+        let group = NSCollectionLayoutGroup.vertical(
+            layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .absolute(68)),
+            subitems: [item]
+        )
         let sec   = NSCollectionLayoutSection(group: group)
         sec.contentInsets              = .init(top: 8, leading: 16, bottom: 20, trailing: 16)
         sec.interGroupSpacing          = 12

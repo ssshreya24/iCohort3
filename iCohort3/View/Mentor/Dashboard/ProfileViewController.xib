@@ -51,12 +51,17 @@
                                     </constraints>
                                 </imageView>
                                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="bJL-m4-4p2">
-                                    <rect key="frame" x="169" y="130.66666666666666" width="55" height="34.333333333333343"/>
+                                    <rect key="frame" x="177.5" y="131" width="38" height="38"/>
                                     <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <state key="normal" title="Button"/>
-                                    <buttonConfiguration key="configuration" style="plain" title="Edit">
-                                        <fontDescription key="titleFontDescription" type="system" weight="semibold" pointSize="17"/>
+                                    <buttonConfiguration key="configuration" style="filled" image="camera.fill" catalog="system" title="" cornerStyle="capsule">
+                                        <color key="baseBackgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                                        <color key="baseForegroundColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
                                     </buttonConfiguration>
+                                    <constraints>
+                                        <constraint firstAttribute="width" constant="38" id="Ff6-x2-z1Y"/>
+                                        <constraint firstAttribute="height" constant="38" id="oG1-n9-0QW"/>
+                                    </constraints>
                                     <connections>
                                         <action selector="avatarEditButtonTapped:" destination="-1" eventType="touchUpInside" id="SZe-vc-3gJ"/>
                                     </connections>
