@@ -141,28 +141,23 @@ class ApprovedViewController: UIViewController, TeamContextReceiver {
     // MARK: - Move Approved Task Forward
 
     private func promptNextStep(for task: SupabaseManager.TaskRow) {
-        let sheet = UIAlertController(
+        let alert = UIAlertController(
             title: "Choose Next Step",
-            message: "This task was accepted. What should happen next?",
-            preferredStyle: .actionSheet
+            message: nil,
+            preferredStyle: .alert
         )
 
-        sheet.addAction(UIAlertAction(title: "Move to Prepared", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Move to Prepared", style: .default) { [weak self] _ in
             Task { await self?.moveApprovedTask(taskId: task.id, to: "prepared") }
         })
 
-        sheet.addAction(UIAlertAction(title: "Move to Completed", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Move to Completed", style: .default) { [weak self] _ in
             Task { await self?.moveApprovedTask(taskId: task.id, to: "completed") }
         })
 
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
-        if let popover = sheet.popoverPresentationController {
-            popover.sourceView = collectionView
-            popover.sourceRect = CGRect(x: collectionView.bounds.midX, y: collectionView.bounds.midY, width: 1, height: 1)
-        }
-
-        present(sheet, animated: true)
+        present(alert, animated: true)
     }
 
     private func moveApprovedTask(taskId: String, to status: String) async {
@@ -223,7 +218,15 @@ extension ApprovedViewController: UICollectionViewDataSource, UICollectionViewDe
             name:   "Team \(teamNo ?? 0)",
             dueDate: task.assigned_date
         )
+        cell.circleButton.removeTarget(nil, action: nil, for: .allEvents)
+        cell.circleButton.tag = indexPath.row
+        cell.circleButton.addTarget(self, action: #selector(showApprovedNextStep(_:)), for: .touchUpInside)
         return cell
+    }
+
+    @objc private func showApprovedNextStep(_ sender: UIButton) {
+        guard sender.tag < tasks.count else { return }
+        promptNextStep(for: tasks[sender.tag])
     }
 
     func collectionView(_ collectionView: UICollectionView,

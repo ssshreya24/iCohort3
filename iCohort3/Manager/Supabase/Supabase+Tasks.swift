@@ -570,6 +570,18 @@ extension SupabaseManager {
         
         return assignees
     }
+
+    func fetchTaskAssignees(taskIds: [String]) async throws -> [TaskAssigneeRow] {
+        guard !taskIds.isEmpty else { return [] }
+        let assignees: [TaskAssigneeRow] = try await client
+            .from("task_assignees")
+            .select()
+            .in("task_id", values: taskIds)
+            .execute()
+            .value
+
+        return assignees
+    }
     
     func fetchAssigneeNamesForTask(taskId: String) async throws -> [String] {
         struct AssigneeWithName: Codable {
@@ -738,6 +750,68 @@ extension SupabaseManager {
         
         return "Team Task"
     }
+
+    func resolveAssigneeNamesFromNewTeams(taskIds: [String], teamId: String) async throws -> [String: String] {
+        guard !taskIds.isEmpty else { return [:] }
+
+        let assignees = try await fetchTaskAssignees(taskIds: taskIds)
+        let assigneesByTaskId = Dictionary(grouping: assignees, by: \.task_id)
+
+        struct NewTeamFull: Decodable {
+            let id: String
+            let createdById: String
+            let createdByName: String
+            let member2Id: String?
+            let member2Name: String?
+            let member3Id: String?
+            let member3Name: String?
+
+            enum CodingKeys: String, CodingKey {
+                case id
+                case createdById = "created_by_id"
+                case createdByName = "created_by_name"
+                case member2Id = "member2_id"
+                case member2Name = "member2_name"
+                case member3Id = "member3_id"
+                case member3Name = "member3_name"
+            }
+        }
+
+        let rows: [NewTeamFull] = try await client
+            .from("new_teams")
+            .select("id, created_by_id, created_by_name, member2_id, member2_name, member3_id, member3_name")
+            .eq("id", value: teamId)
+            .limit(1)
+            .execute()
+            .value
+
+        guard let team = rows.first else { return [:] }
+
+        var idToName: [String: String] = [team.createdById: team.createdByName]
+        if let id = team.member2Id, let name = team.member2Name, !id.isEmpty { idToName[id] = name }
+        if let id = team.member3Id, let name = team.member3Name, !id.isEmpty { idToName[id] = name }
+        let totalMembers = idToName.count
+
+        var resolved: [String: String] = [:]
+        for taskId in taskIds {
+            let assigneeIds = Set((assigneesByTaskId[taskId] ?? []).map(\.student_id))
+            let matchedNames = assigneeIds.compactMap { idToName[$0] }
+
+            if matchedNames.count == totalMembers && totalMembers > 1 {
+                resolved[taskId] = "All Members"
+            } else if matchedNames.count == 1 {
+                resolved[taskId] = matchedNames[0]
+            } else if matchedNames.count > 1 {
+                resolved[taskId] = matchedNames.sorted().joined(separator: ", ")
+            } else if assigneeIds.count == totalMembers, totalMembers > 1 {
+                resolved[taskId] = "All Members"
+            } else {
+                resolved[taskId] = "Team Task"
+            }
+        }
+
+        return resolved
+    }
     
     // MARK: - Task Attachments
     
@@ -750,6 +824,25 @@ extension SupabaseManager {
             .execute()
             .value
         
+        return attachments
+    }
+
+    struct TaskAttachmentMetadataRow: Decodable, Sendable {
+        let task_id: String
+        let filename: String
+        let file_type: String
+    }
+
+    func fetchTaskAttachmentMetadata(taskIds: [String]) async throws -> [TaskAttachmentMetadataRow] {
+        guard !taskIds.isEmpty else { return [] }
+        let attachments: [TaskAttachmentMetadataRow] = try await client
+            .from("task_attachments")
+            .select("task_id, filename, file_type")
+            .in("task_id", values: taskIds)
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+
         return attachments
     }
     

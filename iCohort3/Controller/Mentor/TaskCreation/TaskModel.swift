@@ -69,6 +69,34 @@ struct TaskModel {
         self.status = status
     }
     
+    static func fromRow(
+        taskRow: SupabaseManager.TaskRow,
+        assigneeName: String = "Team Task",
+        attachmentFilenames: [String]? = nil,
+        hasLazyAttachments: Bool = false
+    ) -> TaskModel {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd MMM yyyy"
+
+        let iso8601Formatter = ISO8601DateFormatter()
+        let assignedDate = iso8601Formatter.date(from: taskRow.assigned_date)
+        let dateString = assignedDate.map { dateFormatter.string(from: $0) } ?? taskRow.assigned_date
+
+        return TaskModel(
+            id: taskRow.id,
+            name: assigneeName,
+            desc: taskRow.description ?? "",
+            date: dateString,
+            remark: taskRow.remark,
+            remarkDesc: taskRow.remark_description,
+            title: taskRow.title,
+            attachments: hasLazyAttachments ? [] : nil,
+            attachmentFilenames: attachmentFilenames,
+            assignedDate: assignedDate,
+            status: taskRow.status
+        )
+    }
+
     // MARK: - Convert from Supabase TaskRow (async, resolves name from new_teams)
     static func from(taskRow: SupabaseManager.TaskRow, assigneeName: String = "Team Task") async -> TaskModel {
         let dateFormatter = DateFormatter()
@@ -130,26 +158,7 @@ struct TaskModel {
     
     // MARK: - Synchronous version (no attachments, no name resolution)
     static func fromSync(taskRow: SupabaseManager.TaskRow, assigneeName: String = "Team Task") -> TaskModel {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "dd MMM yyyy"
-        
-        let iso8601Formatter = ISO8601DateFormatter()
-        let assignedDate = iso8601Formatter.date(from: taskRow.assigned_date)
-        let dateString = assignedDate.map { dateFormatter.string(from: $0) } ?? taskRow.assigned_date
-        
-        return TaskModel(
-            id: taskRow.id,
-            name: assigneeName,
-            desc: taskRow.description ?? "",
-            date: dateString,
-            remark: taskRow.remark,
-            remarkDesc: taskRow.remark_description,
-            title: taskRow.title,
-            attachments: nil,
-            attachmentFilenames: nil,
-            assignedDate: assignedDate,
-            status: taskRow.status
-        )
+        fromRow(taskRow: taskRow, assigneeName: assigneeName)
     }
     
     // MARK: - Link placeholder image

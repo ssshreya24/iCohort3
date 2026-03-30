@@ -173,6 +173,18 @@ class TaskSeeAllViewController: UIViewController {
         vc.editingCategory     = category
         if let fn = task.attachmentFilenames { vc.attachmentFilenames = fn }
 
+        if vc.existingAttachments.isEmpty, task.attachmentFilenames?.isEmpty == false {
+            Task {
+                let loaded = await self.loadAttachments(for: task)
+                await MainActor.run {
+                    vc.existingAttachments = loaded.0
+                    if !loaded.1.isEmpty {
+                        vc.attachmentFilenames = loaded.1
+                    }
+                }
+            }
+        }
+
         vc.modalPresentationStyle = .pageSheet
         if let sheet = vc.sheetPresentationController {
             sheet.detents = [.medium(), .large()]
@@ -188,6 +200,31 @@ class TaskSeeAllViewController: UIViewController {
         vc.modalPresentationStyle = .fullScreen
         vc.modalTransitionStyle   = .crossDissolve
         present(vc, animated: true)
+    }
+
+    private func loadAttachments(for task: TaskModel) async -> ([UIImage], [String]) {
+        guard let taskId = task.id else { return ([], task.attachmentFilenames ?? []) }
+        do {
+            let attachmentRows = try await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId)
+            var images: [UIImage] = []
+            var filenames: [String] = []
+
+            for attachmentRow in attachmentRows {
+                filenames.append(attachmentRow.filename)
+                if attachmentRow.file_type == "link" {
+                    images.append(SupabaseManager.shared.createLinkPlaceholderImage())
+                } else if let base64Data = attachmentRow.file_data,
+                          let imageData = Data(base64Encoded: base64Data),
+                          let image = UIImage(data: imageData) {
+                    images.append(image)
+                }
+            }
+
+            return (images, filenames)
+        } catch {
+            print("❌ TaskSeeAll loadAttachments failed:", error)
+            return ([], task.attachmentFilenames ?? [])
+        }
     }
 
     // MARK: - Open ReviewViewController
@@ -383,7 +420,7 @@ extension TaskSeeAllViewController: UICollectionViewDelegate,
         let task = tasks[indexPath.row]
 
         cell.configure(
-            profile:     UIImage(named: "Student"),
+            profile:     TaskCardCellNew.makeAssignedAvatar(from: task.name),
             assignedTo:  "Assigned To",
             name:        task.name,
             desc:        task.desc,
@@ -391,7 +428,8 @@ extension TaskSeeAllViewController: UICollectionViewDelegate,
             remark:      task.remark,
             remarkDesc:  task.remarkDesc,
             title:       task.title,
-            attachments: task.attachments
+            attachments: task.attachments,
+            attachmentCount: task.attachmentFilenames?.count ?? 0
         )
 
         cell.onEllipsisMenu = { [weak self] _ in
@@ -403,10 +441,15 @@ extension TaskSeeAllViewController: UICollectionViewDelegate,
             }
         }
 
-        cell.onAttachmentTapped = { [weak self] attachments in
+        cell.onAttachmentTapped = { [weak self] in
             guard let self else { return }
-            let filenames = self.tasks[indexPath.row].attachmentFilenames ?? []
-            self.presentAttachmentViewer(attachments: attachments, filenames: filenames)
+            Task {
+                let loaded = await self.loadAttachments(for: task)
+                guard !loaded.0.isEmpty || !loaded.1.isEmpty else { return }
+                await MainActor.run {
+                    self.presentAttachmentViewer(attachments: loaded.0, filenames: loaded.1)
+                }
+            }
         }
 
         cell.onDeleteTapped = { [weak self] _ in

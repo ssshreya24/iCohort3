@@ -8,13 +8,15 @@
 import UIKit
 import Supabase
 
-class StudentProfileViewController: UIViewController {
+class StudentProfileViewController: UIViewController, UIImagePickerControllerDelegate,
+                                    UINavigationControllerDelegate {
 
     @IBOutlet weak var logOut: UIButton!
     @IBOutlet weak var backButton: UIButton!
     @IBOutlet weak var editButton: UIButton!
     @IBOutlet weak var greetingLabel: UILabel!
     @IBOutlet weak var uploadButton: UIButton!
+    @IBOutlet weak var avatarImageView: UIImageView!
 
     @IBOutlet weak var firstNameField: UITextField!
     @IBOutlet weak var lastNameField: UITextField!
@@ -34,17 +36,25 @@ class StudentProfileViewController: UIViewController {
     private var currentPersonId: String?
     private var currentProfile: SupabaseManager.StudentProfile?
 
+    private var resolvedPersonId: String? {
+        currentPersonId ?? UserDefaults.standard.string(forKey: "current_person_id")
+    }
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         setupInitialState()
         applyRoundedCorners()
         setupLoadingIndicator()
+        configureAvatarEditButton()
+        configureAvatarPlaceholder()
         getCurrentUserPersonId()
+        loadCachedAvatar()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        loadCachedAvatar()
         if let personId = currentPersonId {
             loadProfileData(personId: personId)
         }
@@ -58,7 +68,7 @@ class StudentProfileViewController: UIViewController {
     }
     
     private func getCurrentUserPersonId() {
-        if let storedPersonId = UserDefaults.standard.string(forKey: "current_person_id") {
+        if let storedPersonId = resolvedPersonId {
             currentPersonId = storedPersonId
         } else {
             // Show error - user needs to login
@@ -97,6 +107,39 @@ class StudentProfileViewController: UIViewController {
         uploadButton.isUserInteractionEnabled = true
         view.bringSubviewToFront(uploadButton)
     }
+
+    private func configureAvatarPlaceholder() {
+        let pointSize = max(42, avatarImageView.bounds.width * 0.72)
+        let placeholderConfig = UIImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+        avatarImageView.image = UIImage(systemName: "person.circle.fill", withConfiguration: placeholderConfig)
+        avatarImageView.tintColor = .systemGray3
+        avatarImageView.contentMode = .center
+        avatarImageView.clipsToBounds = true
+    }
+
+    private func configureAvatarEditButton() {
+        var config = UIButton.Configuration.filled()
+        config.title = nil
+        config.image = UIImage(systemName: "camera.fill")
+        config.baseBackgroundColor = .white
+        config.baseForegroundColor = .black
+        config.cornerStyle = .capsule
+        uploadButton.configuration = config
+    }
+
+    private func loadCachedAvatar() {
+        guard let personId = resolvedPersonId,
+              let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "student"),
+              let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) else {
+            configureAvatarPlaceholder()
+            return
+        }
+
+        currentPersonId = personId
+        avatarImageView.image = image
+        avatarImageView.tintColor = nil
+        avatarImageView.contentMode = .scaleAspectFill
+    }
     
     // MARK: - Load Data from Supabase
     
@@ -134,6 +177,7 @@ class StudentProfileViewController: UIViewController {
     
     private func updateUIWithProfile(_ profile: SupabaseManager.StudentProfile?, greeting: String) {
         greetingLabel?.text = greeting
+        loadCachedAvatar()
         
         guard let profile = profile else {
             // New user - show empty fields
@@ -210,13 +254,71 @@ class StudentProfileViewController: UIViewController {
             window.makeKeyAndVisible()
         }
     }
+
+    @IBAction func uploadButtonTapped(_ sender: UIButton) {
+        let sheet = UIAlertController(
+            title: "Change Profile Picture",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            sheet.addAction(UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
+                self?.presentImagePicker(source: .camera)
+            })
+        }
+
+        sheet.addAction(UIAlertAction(title: "Upload from Photos", style: .default) { [weak self] _ in
+            self?.presentImagePicker(source: .photoLibrary)
+        })
+
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = sender
+            popover.sourceRect = sender.bounds
+            popover.permittedArrowDirections = .up
+        }
+
+        present(sheet, animated: true)
+    }
+
+    private func presentImagePicker(source: UIImagePickerController.SourceType) {
+        guard UIImagePickerController.isSourceTypeAvailable(source) else { return }
+        let picker = UIImagePickerController()
+        picker.sourceType = source
+        picker.allowsEditing = true
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    func imagePickerController(_ picker: UIImagePickerController,
+                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage
+        if let image {
+            let square = image.centerSquare()
+            avatarImageView.image = square
+            avatarImageView.tintColor = nil
+            avatarImageView.contentMode = .scaleAspectFill
+
+            if let personId = resolvedPersonId,
+               let base64 = SupabaseManager.shared.imageToBase64(image: square) {
+                currentPersonId = personId
+                SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "student")
+            }
+        }
+        dismiss(animated: true)
+    }
+
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        dismiss(animated: true)
+    }
     
     // MARK: - Edit/Save
     
     @IBAction func editButtonTapped(_ sender: UIButton) {
         isEditingProfile.toggle()
-
-        uploadButton.isHidden = false
+        uploadButton.isHidden = !isEditingProfile
         uploadButton.alpha = 1.0
         uploadButton.isUserInteractionEnabled = true
         view.bringSubviewToFront(uploadButton)
@@ -296,7 +398,6 @@ class StudentProfileViewController: UIViewController {
                 
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()
-                    self.showSuccess("Profile saved successfully!")
                     
                     // Reload to get updated greeting
                     Task {
@@ -337,10 +438,15 @@ class StudentProfileViewController: UIViewController {
         present(alert, animated: true)
     }
     
-    private func showSuccess(_ message: String) {
-        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        avatarImageView.layer.cornerRadius = avatarImageView.bounds.width / 2
+        avatarImageView.layer.masksToBounds = true
+        uploadButton.layer.cornerRadius = uploadButton.bounds.height / 2
+        uploadButton.layer.masksToBounds = true
+        if avatarImageView.image == nil {
+            configureAvatarPlaceholder()
+        }
     }
 }
 

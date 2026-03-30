@@ -32,6 +32,7 @@ class SProfileViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        loadCachedAvatar()
         loadTeamStatus()
     }
 
@@ -45,7 +46,7 @@ class SProfileViewController: UIViewController {
     private func configureStaticUI() {
         avatarImageView.image = UIImage(systemName: "person.circle.fill")
         avatarImageView.tintColor = .systemGray3
-        avatarImageView.contentMode = .scaleAspectFill
+        avatarImageView.contentMode = .center
         avatarImageView.clipsToBounds = true
 
         [infoCardView, featuresCardView].forEach {
@@ -56,6 +57,21 @@ class SProfileViewController: UIViewController {
 
         closeButton.layer.cornerRadius = closeButton.bounds.height / 2
         closeButton.clipsToBounds = true
+    }
+
+    private func loadCachedAvatar() {
+        guard let personId = UserDefaults.standard.string(forKey: "current_person_id"),
+              let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "student"),
+              let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) else {
+            avatarImageView.image = UIImage(systemName: "person.circle.fill")
+            avatarImageView.tintColor = .systemGray3
+            avatarImageView.contentMode = .center
+            return
+        }
+
+        avatarImageView.image = image
+        avatarImageView.tintColor = nil
+        avatarImageView.contentMode = .scaleAspectFill
     }
 
     // MARK: - Team Status

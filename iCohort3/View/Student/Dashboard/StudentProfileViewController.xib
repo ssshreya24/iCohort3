@@ -12,6 +12,7 @@
         <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="StudentProfileViewController" customModule="iCohort3" customModuleProvider="target">
             <connections>
                 <outlet property="academicCardView" destination="ThP-ag-izu" id="NOc-wB-cdf"/>
+                <outlet property="avatarImageView" destination="S9W-hC-Znt" id="ccG-xV-zlP"/>
                 <outlet property="backButton" destination="B25-RN-jzD" id="I7K-d1-U3F"/>
                 <outlet property="contactNumberField" destination="dqI-yA-Qnh" id="cAB-RM-CRT"/>
                 <outlet property="departmentField" destination="w65-hB-BXC" id="zoI-iU-Z8D"/>
@@ -401,12 +402,20 @@
                                     </constraints>
                                 </view>
                                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="QnH-9Z-ROd">
-                                    <rect key="frame" x="156" y="120.66666666666664" width="81" height="34.333333333333329"/>
+                                    <rect key="frame" x="177.5" y="120.66666666666664" width="38" height="38"/>
                                     <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                     <state key="normal" title="Button"/>
-                                    <buttonConfiguration key="configuration" style="plain" title="Upload">
-                                        <fontDescription key="titleFontDescription" type="system" weight="semibold" pointSize="17"/>
+                                    <buttonConfiguration key="configuration" style="filled" image="camera.fill" catalog="system" title="" cornerStyle="capsule">
+                                        <color key="baseBackgroundColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                                        <color key="baseForegroundColor" red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
                                     </buttonConfiguration>
+                                    <constraints>
+                                        <constraint firstAttribute="width" constant="38" id="RjV-gd-DiG"/>
+                                        <constraint firstAttribute="height" constant="38" id="iPM-v6-zs0"/>
+                                    </constraints>
+                                    <connections>
+                                        <action selector="uploadButtonTapped:" destination="-1" eventType="touchUpInside" id="Gp0-p8-3cQ"/>
+                                    </connections>
                                 </button>
                             </subviews>
                             <color key="backgroundColor" name="bg"/>

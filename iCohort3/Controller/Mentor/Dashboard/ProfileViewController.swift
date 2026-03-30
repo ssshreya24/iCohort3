@@ -81,10 +81,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         setupLoadingIndicator()
         avatarEditButton.isHidden = true
 
-        let placeholderConfig = UIImage.SymbolConfiguration(pointSize: 46, weight: .medium)
-        avatarImageView.image = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
-        avatarImageView.tintColor = .black
-        avatarImageView.contentMode = .center
+        configureAvatarPlaceholder()
         
         // ✅ NEW: Get mentor person_id from UserDefaults
         getCurrentUserPersonId()
@@ -106,6 +103,9 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         avatarImageView.layer.masksToBounds = true
         avatarEditButton.layer.cornerRadius = avatarEditButton.bounds.height / 2
         avatarEditButton.layer.masksToBounds = true
+        if avatarImageView.tintColor != nil {
+            configureAvatarPlaceholder()
+        }
     }
 
     // MARK: - Setup / Styling
@@ -113,6 +113,14 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     private func setupLoadingIndicator() {
         loadingIndicator?.hidesWhenStopped = true
         loadingIndicator?.style = .large
+    }
+
+    private func configureAvatarPlaceholder() {
+        let pointSize = max(46, avatarImageView.bounds.width * 0.72)
+        let placeholderConfig = UIImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+        avatarImageView.image = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
+        avatarImageView.tintColor = .black
+        avatarImageView.contentMode = .center
     }
     
     private func getCurrentUserPersonId() {

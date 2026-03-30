@@ -17,7 +17,7 @@ class TaskCardCellNew: UICollectionViewCell {
     
     // Callbacks
     var onEllipsisMenu: ((TaskCardCellNew) -> Void)?
-    var onAttachmentTapped: (([UIImage]) -> Void)?
+    var onAttachmentTapped: (() -> Void)?
     var onDeleteTapped: ((TaskCardCellNew) -> Void)?
     
     private var currentAttachments: [UIImage] = []
@@ -92,8 +92,34 @@ class TaskCardCellNew: UICollectionViewCell {
     }
     
     @objc func attachmentButtonTapped() {
-        if !currentAttachments.isEmpty {
-            onAttachmentTapped?(currentAttachments)
+        onAttachmentTapped?()
+    }
+
+    static func makeAssignedAvatar(from displayName: String, size: CGSize = CGSize(width: 40, height: 40)) -> UIImage {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let components = trimmed.split(whereSeparator: \.isWhitespace)
+        let initials = components.prefix(2).compactMap { $0.first }.map { String($0).uppercased() }.joined()
+        let fallback = initials.isEmpty ? "T" : initials
+
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { _ in
+            let rect = CGRect(origin: .zero, size: size)
+            UIBezierPath(ovalIn: rect).addClip()
+            UIColor.systemGray5.setFill()
+            UIRectFill(rect)
+
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: size.width * 0.36, weight: .semibold),
+                .foregroundColor: UIColor.label
+            ]
+            let textSize = fallback.size(withAttributes: attributes)
+            let textRect = CGRect(
+                x: (size.width - textSize.width) / 2,
+                y: (size.height - textSize.height) / 2,
+                width: textSize.width,
+                height: textSize.height
+            )
+            fallback.draw(in: textRect, withAttributes: attributes)
         }
     }
     
@@ -155,10 +181,12 @@ class TaskCardCellNew: UICollectionViewCell {
         remark: String?,
         remarkDesc: String?,
         title: String? = nil,
-        attachments: [UIImage]? = nil
+        attachments: [UIImage]? = nil,
+        attachmentCount: Int = 0
     ) {
 
         profileImage.image = profile
+        profileImage.contentMode = .scaleAspectFill
         assignedToLabel.text = assignedTo
         nameLabel.text = name
         descriptionLabel.text = desc
@@ -169,8 +197,9 @@ class TaskCardCellNew: UICollectionViewCell {
         
         // Configure attachments
         currentAttachments = attachments ?? []
-        if !currentAttachments.isEmpty {
-            let count = currentAttachments.count
+        let visibleAttachmentCount = attachmentCount > 0 ? attachmentCount : currentAttachments.count
+        if visibleAttachmentCount > 0 {
+            let count = visibleAttachmentCount
             let attachmentText = count == 1 ? "1 Attachment" : "\(count) Attachments"
             attachmentButton.setTitle(attachmentText, for: .normal)
             attachmentButton.isHidden = false

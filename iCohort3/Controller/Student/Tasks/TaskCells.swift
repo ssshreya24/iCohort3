@@ -203,7 +203,7 @@ class ApprovedCollectionViewCell: UICollectionViewCell {
 
         circleButton.layer.cornerRadius  = circleButton.frame.height / 2
         circleButton.backgroundColor     = UIColor(red: 0.30, green: 0.75, blue: 0.39, alpha: 1.0)
-        circleButton.isUserInteractionEnabled = false
+        circleButton.isUserInteractionEnabled = true
 
         remarkDescLabel.numberOfLines = 0
         remarkDescLabel.lineBreakMode = .byWordWrapping

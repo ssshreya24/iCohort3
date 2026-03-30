@@ -510,11 +510,20 @@ final class StudentAllTasksViewController: UIViewController {
             let (aData, oData, rData, cData, xData) = try await
                 (assignedRows, ongoingRows, reviewRows, completedRows, rejectedRows)
 
-            let assigned  = await convert(aData)
-            let ongoing   = await convert(oData)
-            let review    = await convert(rData)
-            let completed = await convert(cData)
-            let rejected  = await convert(xData)
+            let allRows = aData + oData + rData + cData + xData
+            let taskIds = allRows.map(\.id)
+            async let assigneeNamesFetch = SupabaseManager.shared.resolveAssigneeNamesFromNewTeams(taskIds: taskIds, teamId: teamId)
+            async let attachmentMetadataFetch = SupabaseManager.shared.fetchTaskAttachmentMetadata(taskIds: taskIds)
+            let assigneeNamesByTaskId = try await assigneeNamesFetch
+            let attachmentMetadata = try await attachmentMetadataFetch
+            let attachmentFilenamesByTaskId = Dictionary(grouping: attachmentMetadata, by: \.task_id)
+                .mapValues { $0.map(\.filename) }
+
+            let assigned  = convert(aData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
+            let ongoing   = convert(oData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
+            let review    = convert(rData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
+            let completed = convert(cData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
+            let rejected  = convert(xData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
 
             await MainActor.run {
                 self.assignedTasks  = assigned
@@ -531,10 +540,19 @@ final class StudentAllTasksViewController: UIViewController {
         }
     }
 
-    private func convert(_ rows: [SupabaseManager.TaskRow]) async -> [TaskModel] {
-        await withTaskGroup(of: TaskModel.self) { group -> [TaskModel] in
-            for row in rows { group.addTask { await TaskModel.from(taskRow: row) } }
-            return await group.reduce(into: []) { $0.append($1) }
+    private func convert(
+        _ rows: [SupabaseManager.TaskRow],
+        assigneeNamesByTaskId: [String: String],
+        attachmentFilenamesByTaskId: [String: [String]]
+    ) -> [TaskModel] {
+        rows.map { row in
+            let filenames = attachmentFilenamesByTaskId[row.id]
+            return TaskModel.fromRow(
+                taskRow: row,
+                assigneeName: assigneeNamesByTaskId[row.id] ?? "Team Task",
+                attachmentFilenames: filenames,
+                hasLazyAttachments: (filenames?.isEmpty == false)
+            )
         }
     }
 
@@ -592,6 +610,31 @@ final class StudentAllTasksViewController: UIViewController {
         vc.modalPresentationStyle = .fullScreen
         vc.modalTransitionStyle   = .crossDissolve
         present(vc, animated: true)
+    }
+
+    private func loadAttachments(for task: TaskModel) async -> ([UIImage], [String]) {
+        guard let taskId = task.id else { return ([], task.attachmentFilenames ?? []) }
+        do {
+            let attachmentRows = try await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId)
+            var images: [UIImage] = []
+            var filenames: [String] = []
+
+            for attachmentRow in attachmentRows {
+                filenames.append(attachmentRow.filename)
+                if attachmentRow.file_type == "link" {
+                    images.append(SupabaseManager.shared.createLinkPlaceholderImage())
+                } else if let base64Data = attachmentRow.file_data,
+                          let imageData = Data(base64Encoded: base64Data),
+                          let image = UIImage(data: imageData) {
+                    images.append(image)
+                }
+            }
+
+            return (images, filenames)
+        } catch {
+            print("❌ loadAttachments(for:) failed:", error)
+            return ([], task.attachmentFilenames ?? [])
+        }
     }
 
     func getTasksArray(for category: TaskCategory) -> [TaskModel] {
@@ -718,7 +761,7 @@ extension StudentAllTasksViewController: UICollectionViewDelegate,
         let cat  = selectedSegment.taskCategory
 
         cell.configure(
-            profile:     UIImage(named: "Student"),
+            profile:     TaskCardCellNew.makeAssignedAvatar(from: task.name),
             assignedTo:  "Assigned To",
             name:        task.name,
             desc:        task.desc,
@@ -726,7 +769,8 @@ extension StudentAllTasksViewController: UICollectionViewDelegate,
             remark:      task.remark,
             remarkDesc:  task.remarkDesc,
             title:       task.title,
-            attachments: task.attachments
+            attachments: task.attachments,
+            attachmentCount: task.attachmentFilenames?.count ?? 0
         )
 
         cell.onEllipsisMenu = { [weak self] _ in
@@ -736,10 +780,15 @@ extension StudentAllTasksViewController: UICollectionViewDelegate,
                 category: cat, taskIndex: indexPath.row)
         }
 
-        cell.onAttachmentTapped = { [weak self] attachments in
+        cell.onAttachmentTapped = { [weak self] in
             guard let self else { return }
-            let filenames = task.attachmentFilenames ?? []
-            self.presentAttachmentViewer(attachments: attachments, filenames: filenames)
+            Task {
+                let loaded = await self.loadAttachments(for: task)
+                guard !loaded.0.isEmpty || !loaded.1.isEmpty else { return }
+                await MainActor.run {
+                    self.presentAttachmentViewer(attachments: loaded.0, filenames: loaded.1)
+                }
+            }
         }
 
         cell.onDeleteTapped = { [weak self] _ in

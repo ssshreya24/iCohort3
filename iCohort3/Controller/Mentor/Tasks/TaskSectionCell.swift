@@ -130,7 +130,7 @@ extension TaskSectionCell:
         
         // Configure cell with task data
         cell.configure(
-            profile: UIImage(named: "Student"),
+            profile: TaskCardCellNew.makeAssignedAvatar(from: task.name),
             assignedTo: "Assigned To",
             name: task.name,
             desc: task.desc,
@@ -138,7 +138,8 @@ extension TaskSectionCell:
             remark: task.remark,
             remarkDesc: task.remarkDesc,
             title: task.title,
-            attachments: task.attachments
+            attachments: task.attachments,
+            attachmentCount: task.attachmentFilenames?.count ?? 0
         )
         
         // Handle ellipsis menu for edit
@@ -148,10 +149,10 @@ extension TaskSectionCell:
         }
         
         // UPDATED: Handle attachment button tap with filenames
-        cell.onAttachmentTapped = { [weak self] attachments in
+        cell.onAttachmentTapped = { [weak self] in
             guard let self = self else { return }
             let filenames = task.attachmentFilenames ?? []
-            self.onViewAttachments?(attachments, filenames)
+            self.onViewAttachments?(task.attachments ?? [], filenames)
         }
         
         // Handle delete - parent will show confirmation alert
