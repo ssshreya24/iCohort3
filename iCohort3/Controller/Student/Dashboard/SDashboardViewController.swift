@@ -2,9 +2,8 @@
 //  SDashboardViewController.swift
 //  iCohort3
 //
-//  ✅ REAL-TIME: Uses Supabase Realtime to update the dashboard the instant
-//  a mentor assigns/edits/deletes a task — works across different devices.
-//  Falls back to a 30-second poll as a safety net.
+//  ✅ FIXED: Only shows tasks assigned TODAY in the tasks section.
+//            Uses proper timezone-aware date comparison.
 //
 
 import UIKit
@@ -36,7 +35,7 @@ class SDashboardViewController: UIViewController {
         label.minimumScaleFactor = 0.75
         return label
     }()
-    
+
     private let noTasksLabel: UILabel = {
         let label = UILabel()
         label.text = "No tasks today"
@@ -47,24 +46,22 @@ class SDashboardViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-    
+
     @IBOutlet weak var contentViewHeight: NSLayoutConstraint!
     @IBOutlet weak var scrollView: UIScrollView!
     @IBOutlet weak var collectionViewCellHeight: NSLayoutConstraint!
     @IBOutlet weak var tableViewHeight: NSLayoutConstraint!
-    
-    // MARK: - Team Info
+
+    private let rowHeight: CGFloat = 88
+
     private var currentTeamId: String? { UserDefaults.standard.string(forKey: "current_team_id") }
     private var currentTeamNo: Int     { UserDefaults.standard.integer(forKey: "current_team_number") }
-    
+
     var statusCounts: [String: Int] = [:]
     private var tasksForTable: [SupabaseManager.TaskRow] = []
     var isEditingMode = false
 
-    // MARK: - ✅ Realtime channel (cross-device instant updates)
     private var realtimeChannel: RealtimeChannelV2?
-
-    // MARK: - Fallback poll timer (30s safety net)
     private var refreshTimer: Timer?
     private let pollInterval: TimeInterval = 30
 
@@ -78,19 +75,37 @@ class SDashboardViewController: UIViewController {
         ("airplane.circle.fill",        "Completed",    .systemBlue),
         ("circle.grid.3x3.fill",        "All",          .black)
     ]
-    
+
     var visibleStatuses: [(iconName: String, title: String, color: UIColor)] = []
     var removedStatuses: [(iconName: String, title: String, color: UIColor)] = []
-    
+
+    // MARK: - Shared date formatters (created once, reused everywhere)
+
+    /// Parses ISO8601 dates like "2026-03-31T00:00:00+00:00" or "2026-03-31T00:00:00Z"
+    private let isoParser: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private let isoParserNoFrac: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    /// Calendar using the device's current timezone for "is today" checks
+    private let localCalendar = Calendar.current
+
     // MARK: - Lifecycle
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         visibleStatuses = allStatuses
         loadStudentGreeting()
         loadAndCacheTeamInfo()
-        
+
         NotificationCenter.default.addObserver(self, selector: #selector(handleTasksDidUpdate),
                                                name: .tasksDidUpdate, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleDeleteNotification(_:)),
@@ -98,7 +113,7 @@ class SDashboardViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(handleAddNotification(_:)),
                                                name: .statusCardAddTapped, object: nil)
     }
-    
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         loadStudentGreeting()
@@ -114,33 +129,31 @@ class SDashboardViewController: UIViewController {
         super.viewDidDisappear(animated)
         stopRealtimeAndPolling()
     }
-    
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         taskCard.bringSubviewToFront(noTasksLabel)
-        debugScrollView()
     }
-    
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if let g = view.layer.sublayers?.first as? CAGradientLayer { g.frame = view.bounds }
     }
-    
-    override func viewWillTransition(to size: CGSize,
-                                     with coordinator: UIViewControllerTransitionCoordinator) {
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         coordinator.animate(alongsideTransition: { _ in
             self.collectionView.collectionViewLayout.invalidateLayout()
             self.updateCollectionViewHeight()
         }, completion: nil)
     }
-    
+
     deinit {
         stopRealtimeAndPolling()
         NotificationCenter.default.removeObserver(self)
     }
-    
-    // MARK: - ✅ Realtime + Polling
+
+    // MARK: - Realtime + Polling
 
     private func startRealtimeAndPolling() {
         subscribeRealtime()
@@ -151,19 +164,12 @@ class SDashboardViewController: UIViewController {
         }
     }
 
-    private func stopRealtimeAndPolling() {
-        stopRealtime()
-        stopPolling()
-    }
+    private func stopRealtimeAndPolling() { stopRealtime(); stopPolling() }
 
     private func subscribeRealtime() {
         stopRealtime()
-        guard let teamId = currentTeamId, !teamId.isEmpty else {
-            print("⚠️ Realtime: no teamId yet — will subscribe after team loads")
-            return
-        }
+        guard let teamId = currentTeamId, !teamId.isEmpty else { return }
         realtimeChannel = SupabaseManager.shared.subscribeToTaskChanges(teamId: teamId) { [weak self] in
-            print("🔔 Realtime: task change detected — reloading dashboard")
             self?.loadDashboardData()
         }
     }
@@ -173,48 +179,43 @@ class SDashboardViewController: UIViewController {
         realtimeChannel = nil
     }
 
-    private func stopPolling() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
-    }
+    private func stopPolling() { refreshTimer?.invalidate(); refreshTimer = nil }
 
     @objc private func handleTasksDidUpdate() { loadDashboardData() }
-    
+
     // MARK: - Team Info Loader
-    
+
     private func loadAndCacheTeamInfo() {
         guard let personId = UserDefaults.standard.string(forKey: "current_person_id"),
               !personId.isEmpty else { return }
         if currentTeamId != nil { subscribeRealtime(); return }
-        
         Task {
             do {
                 if let teamInfo = try await SupabaseManager.shared.fetchTeamInfoForStudent(personId: personId) {
                     await MainActor.run {
                         UserDefaults.standard.set(teamInfo.teamId,     forKey: "current_team_id")
                         UserDefaults.standard.set(teamInfo.teamNumber, forKey: "current_team_number")
-                        // ✅ Now we have teamId — subscribe to Realtime
                         self.subscribeRealtime()
                     }
                 }
-            } catch { print("❌ loadAndCacheTeamInfo error:", error) }
+            } catch { print("❌ loadAndCacheTeamInfo:", error) }
         }
     }
-    
+
     // MARK: - Greeting
-    
+
     private func loadStudentGreeting() {
         guard let personId = UserDefaults.standard.string(forKey: "current_person_id") else {
             codeGreetingLabel.text = "Hi user"; return
         }
         Task {
             do {
-                let greeting = try await SupabaseManager.shared.getStudentGreeting(personId: personId)
-                await MainActor.run { self.codeGreetingLabel.text = greeting }
+                let g = try await SupabaseManager.shared.getStudentGreeting(personId: personId)
+                await MainActor.run { self.codeGreetingLabel.text = g }
             } catch { await MainActor.run { self.codeGreetingLabel.text = "Hi user" } }
         }
     }
-    
+
     // MARK: - Dashboard Data
 
     private func loadDashboardData() {
@@ -243,13 +244,38 @@ class SDashboardViewController: UIViewController {
                     self.scrollView.refreshControl?.endRefreshing()
                 }
             } catch {
-                print("❌ loadDashboardData error:", error)
+                print("❌ loadDashboardData:", error)
                 await MainActor.run { self.scrollView.refreshControl?.endRefreshing() }
             }
         }
     }
 
+    // MARK: - ✅ Timezone-aware "is today" date check
+
+    /// Parses any ISO8601 string into a Date, trying with and without fractional seconds.
+    private func parseISO(_ string: String) -> Date? {
+        isoParser.date(from: string) ?? isoParserNoFrac.date(from: string)
+    }
+
+    /// Returns true if the ISO8601 date string falls on today in the device's local timezone.
+    private func isAssignedToday(_ isoString: String) -> Bool {
+        // Try full ISO parse first
+        if let date = parseISO(isoString) {
+            return localCalendar.isDateInToday(date)
+        }
+        // Fallback: compare just the yyyy-MM-dd prefix using a local-timezone formatter
+        let localDayFormatter = DateFormatter()
+        localDayFormatter.dateFormat    = "yyyy-MM-dd"
+        localDayFormatter.locale        = Locale(identifier: "en_US_POSIX")
+        localDayFormatter.timeZone      = .current
+        let todayString = localDayFormatter.string(from: Date())
+        // Strip the date portion from the raw string (first 10 chars)
+        let rawPrefix = String(isoString.prefix(10))
+        return rawPrefix == todayString
+    }
+
     private func updateUIWithTasks(_ tasks: [SupabaseManager.TaskRow]) {
+        // ── Status counts for the cards grid ──────────────────
         var counts: [String: Int] = [:]
         for status in allStatuses { counts[status.title] = 0 }
         for task in tasks {
@@ -268,22 +294,33 @@ class SDashboardViewController: UIViewController {
         }
         counts["All"] = tasks.count
         self.statusCounts = counts
-        let todayStr = currentLocalDateString()
+
+        // ── ✅ TODAY-ONLY filter ───────────────────────────────
+        // Show active tasks (assigned / ongoing) that were assigned TODAY.
+        // Uses timezone-aware comparison so UTC dates don't bleed into yesterday/tomorrow.
         self.tasksForTable = tasks.filter { task in
             let s = task.status.lowercased()
-            let active = s == "not_started" || s == "not started" || s == "assigned"
-                      || s == "ongoing" || s == "in progress" || s == "in_progress"
-            return active && String(task.assigned_date.prefix(10)) == todayStr
+            let isActive = s == "not_started" || s == "not started" || s == "assigned"
+                        || s == "ongoing"     || s == "in progress" || s == "in_progress"
+            return isActive && isAssignedToday(task.assigned_date)
         }
-        self.tasksDueTodayLabel.text = "You have \(self.tasksForTable.count) tasks due today"
+
+        // ── Header text ───────────────────────────────────────
+        let count = self.tasksForTable.count
+        switch count {
+        case 0:  tasksDueTodayLabel.text = "No tasks due today"
+        case 1:  tasksDueTodayLabel.text = "You have 1 task due today"
+        default: tasksDueTodayLabel.text = "You have \(count) tasks due today"
+        }
+
         self.collectionView.reloadData()
         updateTableViewVisibility()
     }
-    
+
     @objc private func handleRefresh() { loadDashboardData() }
-    
+
     // MARK: - Setup UI
-    
+
     private func setupUI() {
         applyBackgroundGradient()
         contentView.backgroundColor    = .clear
@@ -291,23 +328,34 @@ class SDashboardViewController: UIViewController {
         collectionView.backgroundColor = .clear
         taskCard.layer.cornerRadius    = 20
         taskCard.backgroundColor       = .white
+
+        tasksDueTodayLabel.font          = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        tasksDueTodayLabel.textColor     = .label
+        tasksDueTodayLabel.textAlignment = .left
+
         installCodeGreetingLabel()
+
         collectionView.dataSource             = self
         collectionView.delegate               = self
         collectionView.dragDelegate           = self
         collectionView.dropDelegate           = self
         collectionView.dragInteractionEnabled = true
-        tableView.dataSource         = self
-        tableView.delegate           = self
-        tableView.isScrollEnabled    = false
-        tableView.backgroundColor    = .clear
+
+        tableView.dataSource      = self
+        tableView.delegate        = self
+        tableView.isScrollEnabled = false
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle  = .none
         tableView.layer.cornerRadius = 20
         registerTaskCellIfNeeded()
+
         scrollView.isScrollEnabled              = true
         scrollView.showsVerticalScrollIndicator = false
+
         let rc = UIRefreshControl()
         rc.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
         scrollView.refreshControl = rc
+
         taskCard.addSubview(noTasksLabel)
         setupNoTasksLabelConstraints()
     }
@@ -356,7 +404,7 @@ class SDashboardViewController: UIViewController {
             tableView.register(tasksDueTodayTableViewCell.self, forCellReuseIdentifier: "TaskCell")
         }
     }
-    
+
     private func setupNoTasksLabelConstraints() {
         NSLayoutConstraint.activate([
             noTasksLabel.centerXAnchor.constraint(equalTo: taskCard.centerXAnchor),
@@ -366,7 +414,7 @@ class SDashboardViewController: UIViewController {
             noTasksLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 50)
         ])
     }
-    
+
     private func applyBackgroundGradient() {
         let g = CAGradientLayer()
         g.frame  = view.bounds
@@ -375,73 +423,64 @@ class SDashboardViewController: UIViewController {
         g.startPoint = CGPoint(x: 0.5, y: 0); g.endPoint = CGPoint(x: 0.5, y: 1)
         view.layer.insertSublayer(g, at: 0)
     }
-    
+
     // MARK: - Dynamic Height Management
-    
+
     private func updateCollectionViewHeight() {
         let count = isEditingMode ? (visibleStatuses.count + removedStatuses.count) : visibleStatuses.count
-        let rows = ceil(CGFloat(count) / 2.0)
+        let rows  = ceil(CGFloat(count) / 2.0)
         collectionViewCellHeight.constant = (rows * 100) + ((rows - 1) * 8) + 16
         updateContentHeight()
     }
-    
+
     private func updateTableViewVisibility() {
-        if tasksForTable.count > 0 {
-            tableView.isHidden = false; noTasksLabel.isHidden = true
-            tableView.reloadData(); tableView.layoutIfNeeded()
-            tableViewHeight.constant = max(100, tableView.contentSize.height)
+        let count = tasksForTable.count
+        if count > 0 {
+            tableView.isHidden    = false
+            noTasksLabel.isHidden = true
+            tableViewHeight.constant = CGFloat(count) * rowHeight
+            tableView.reloadData()
         } else {
-            tableView.isHidden = true; noTasksLabel.isHidden = false
-            tableViewHeight.constant = 100
+            tableView.isHidden       = true
+            noTasksLabel.isHidden    = false
+            tableViewHeight.constant = 60
         }
-        view.layoutIfNeeded(); taskCard.layoutIfNeeded()
+        view.layoutIfNeeded()
+        taskCard.layoutIfNeeded()
         taskCard.bringSubviewToFront(noTasksLabel)
         updateContentHeight()
     }
-    
+
     private func updateContentHeight() {
         view.layoutIfNeeded()
         let tvBottom = tableView.frame.origin.y + tableViewHeight.constant
-        var total: CGFloat = tvBottom + 100
+        var total: CGFloat = tvBottom + 120
         if total < view.frame.height + 20 { total = view.frame.height + 20 }
         contentViewHeight.constant = total
         contentView.setNeedsLayout(); contentView.layoutIfNeeded()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             self.scrollView.isScrollEnabled = true
             self.scrollView.alwaysBounceVertical = true
             self.scrollView.contentSize = CGSize(width: self.view.frame.width, height: total)
         }
     }
-    
-    private func debugScrollView() {
-        print("ScrollView contentSize: \(scrollView.contentSize)")
-        print("ContentViewHeight: \(contentViewHeight.constant)")
-    }
-    
+
     // MARK: - Status VC Navigation
-    
+
     private func openStatusScreen(for title: String) {
         switch title {
-        case "Not started":
-            injectTeamContext(into: NotStartedViewController(nibName: "NotStartedViewController", bundle: nil))
-        case "In Progress":
-            injectTeamContext(into: InProgressViewController(nibName: "InProgressViewController", bundle: nil))
-        case "For Review":
-            injectTeamContext(into: ForReviewViewController(nibName: "ForReviewViewController", bundle: nil))
-        case "Prepared":
-            injectTeamContext(into: PreparedViewController(nibName: "PreparedViewController", bundle: nil))
-        case "Approved":
-            injectTeamContext(into: ApprovedViewController(nibName: "ApprovedViewController", bundle: nil))
-        case "Completed":
-            injectTeamContext(into: CompletedViewController(nibName: "CompletedViewController", bundle: nil))
-        case "Rejected":
-            injectTeamContext(into: RejectedViewController(nibName: "RejectedViewController", bundle: nil))
-        case "All":
-            injectTeamContext(into: AllTasksViewController(nibName: "AllTasksViewController", bundle: nil))
+        case "Not started": injectTeamContext(into: NotStartedViewController(nibName: "NotStartedViewController", bundle: nil))
+        case "In Progress": injectTeamContext(into: InProgressViewController(nibName: "InProgressViewController", bundle: nil))
+        case "For Review":  injectTeamContext(into: ForReviewViewController(nibName: "ForReviewViewController", bundle: nil))
+        case "Prepared":    injectTeamContext(into: PreparedViewController(nibName: "PreparedViewController", bundle: nil))
+        case "Approved":    injectTeamContext(into: ApprovedViewController(nibName: "ApprovedViewController", bundle: nil))
+        case "Completed":   injectTeamContext(into: CompletedViewController(nibName: "CompletedViewController", bundle: nil))
+        case "Rejected":    injectTeamContext(into: RejectedViewController(nibName: "RejectedViewController", bundle: nil))
+        case "All":         injectTeamContext(into: AllTasksViewController(nibName: "AllTasksViewController", bundle: nil))
         default: break
         }
     }
-    
+
     private func injectTeamContext(into vc: UIViewController & TeamContextReceiver) {
         if let teamId = currentTeamId {
             vc.teamId = teamId; vc.teamNo = currentTeamNo; presentTaskScreen(vc); return
@@ -471,20 +510,20 @@ class SDashboardViewController: UIViewController {
         nav.navigationBar.prefersLargeTitles = true
         present(nav, animated: true)
     }
-    
+
     private func showNoTeamAlert() {
         let alert = UIAlertController(title: "No Team Found",
                                       message: "You are not part of a team yet.", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
-    
+
     @IBAction func editButtonTapped(_ sender: UIButton) {
         isEditingMode.toggle()
         editButton.setTitle(isEditingMode ? "Done" : "Edit", for: .normal)
         collectionView.reloadData(); updateCollectionViewHeight()
     }
-    
+
     @IBAction func profileTapped(_ sender: Any) {
         let vc = SProfileViewController(nibName: "SProfileViewController", bundle: nil)
         vc.modalPresentationStyle = .pageSheet; vc.modalTransitionStyle = .coverVertical
@@ -519,8 +558,8 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
                 cell.iconImageView.tintColor = s.color
                 cell.configure(iconName: s.iconName, title: s.title, count: count, mode: .editing)
             } else {
-                let removed = removedStatuses[indexPath.item - visibleStatuses.count]
-                cell.configure(iconName: nil, title: removed.title, count: nil, mode: .add)
+                let r = removedStatuses[indexPath.item - visibleStatuses.count]
+                cell.configure(iconName: nil, title: r.title, count: nil, mode: .add)
             }
         } else {
             let s = visibleStatuses[indexPath.item]; let count = statusCounts[s.title] ?? 0
@@ -551,14 +590,10 @@ extension SDashboardViewController: UICollectionViewDataSource, UICollectionView
 
 // MARK: - Date Formatting
 extension SDashboardViewController {
-    private func currentLocalDateString() -> String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: Date())
-    }
-    private func formatDisplayDate(_ isoString: String) -> String {
-        let inF = DateFormatter(); inF.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-        if let date = inF.date(from: isoString) {
-            let outF = DateFormatter(); outF.dateStyle = .medium; outF.timeStyle = .none
-            return outF.string(from: date)
+    func formatDisplayDate(_ isoString: String) -> String {
+        if let date = parseISO(isoString) {
+            let f = DateFormatter(); f.dateStyle = .medium; f.timeStyle = .none
+            return f.string(from: date)
         }
         return String(isoString.prefix(10))
     }
@@ -566,19 +601,31 @@ extension SDashboardViewController {
 
 // MARK: - UITableViewDataSource & Delegate
 extension SDashboardViewController: UITableViewDataSource, UITableViewDelegate {
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { tasksForTable.count }
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         registerTaskCellIfNeeded()
         let cell: tasksDueTodayTableViewCell
-        if let r = tableView.dequeueReusableCell(withIdentifier: "TaskCell") as? tasksDueTodayTableViewCell { cell = r }
-        else if let l = Bundle(for: tasksDueTodayTableViewCell.self)
-            .loadNibNamed("tasksDueTodayTableViewCell", owner: nil)?.first as? tasksDueTodayTableViewCell { cell = l }
-        else { cell = tasksDueTodayTableViewCell(style: .default, reuseIdentifier: "TaskCell") }
+        if let r = tableView.dequeueReusableCell(withIdentifier: "TaskCell") as? tasksDueTodayTableViewCell {
+            cell = r
+        } else if let l = Bundle(for: tasksDueTodayTableViewCell.self)
+            .loadNibNamed("tasksDueTodayTableViewCell", owner: nil)?.first as? tasksDueTodayTableViewCell {
+            cell = l
+        } else {
+            cell = tasksDueTodayTableViewCell(style: .default, reuseIdentifier: "TaskCell")
+        }
         let task = tasksForTable[indexPath.row]
-        cell.name.text = task.title; cell.taskDescription.text = task.description
-        cell.assignedTo.text = "Due: \(formatDisplayDate(task.assigned_date))"; cell.selectionStyle = .none
+        cell.configure(title:           task.title,
+                       dueLabel:        formatDisplayDate(task.assigned_date),
+                       descriptionText: task.description ?? "",
+                       colorIndex:      indexPath.row)
+        cell.selectionStyle = .none
         return cell
     }
+
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat { rowHeight }
+
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let task = tasksForTable[indexPath.row]
@@ -589,8 +636,6 @@ extension SDashboardViewController: UITableViewDataSource, UITableViewDelegate {
         model.taskId = task.id; model.teamId = task.team_id ?? (currentTeamId ?? ""); model.mentorId = task.mentor_id
         vc.task = model; vc.modalPresentationStyle = .fullScreen; present(vc, animated: true)
     }
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat { UITableView.automaticDimension }
-    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat { 60 }
 }
 
 // MARK: - Drag & Drop
