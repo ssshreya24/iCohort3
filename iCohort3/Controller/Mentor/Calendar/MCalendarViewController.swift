@@ -28,6 +28,7 @@ class MCalendarViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyTheme()
         
         setupCalendar()
         setupTableView()
@@ -45,6 +46,18 @@ class MCalendarViewController: UIViewController {
         
         // Load activities from Supabase
         loadActivitiesFromSupabase()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -207,6 +220,20 @@ class MCalendarViewController: UIViewController {
 // MARK: - Setup Methods
 extension MCalendarViewController {
     
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        tableView.superview?.backgroundColor = .clear
+        monthLabel.textColor = .label
+        emptyStateLabel.textColor = .secondaryLabel
+        calendarView.backgroundColor = AppTheme.elevatedCardBackground
+        calendarView.layer.borderWidth = 1
+        calendarView.layer.borderColor = AppTheme.borderColor.resolvedColor(with: traitCollection).cgColor
+        calendarView.tintColor = AppTheme.accent
+        styleFloatingButton(editButton, mode: .text(isEditingMode ? "Done" : "Edit"))
+        styleFloatingButton(addActivityButton, mode: .symbol("plus"))
+        chevronButton?.tintColor = .label
+    }
+
     private func setupCalendar() {
         calendarView.delegate = self
         calendarView.availableDateRange = DateInterval(start: Date(timeIntervalSince1970: 0),
@@ -219,7 +246,7 @@ extension MCalendarViewController {
         calendarView.translatesAutoresizingMaskIntoConstraints = false
         calendarView.layoutMargins = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         calendarView.wantsDateDecorations = true
-        calendarView.tintColor = .black
+        calendarView.tintColor = AppTheme.accent
     }
     
     private func setupTableView() {
@@ -229,6 +256,7 @@ extension MCalendarViewController {
         tableView.backgroundColor = .clear
         tableView.showsVerticalScrollIndicator = false
         tableView.allowsSelection = false
+        emptyStateLabel.textColor = .secondaryLabel
 
         let nib = UINib(nibName: "MactivityTableViewCell", bundle: nil)
         tableView.register(nib, forCellReuseIdentifier: "MactivityCell")
@@ -239,8 +267,38 @@ extension MCalendarViewController {
         editButton.setTitle("Done", for: .selected)
         editButton.addTarget(self, action: #selector(editButtonTapped), for: .touchUpInside)
         editButton.isHidden = true
+        styleFloatingButton(editButton, mode: .text("Edit"))
         
         updateAddActivityButtonPosition()
+    }
+    
+    private enum FloatingButtonMode {
+        case symbol(String)
+        case text(String)
+    }
+    
+    private func styleFloatingButton(_ button: UIButton?, mode: FloatingButtonMode) {
+        guard let button else { return }
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.background.backgroundColor = .clear
+        config.baseForegroundColor = foreground
+        config.cornerStyle = .capsule
+        switch mode {
+        case .symbol(let name):
+            config.image = UIImage(systemName: name)
+        case .text(let title):
+            config.title = title
+            config.attributedTitle = AttributedString(
+                title,
+                attributes: AttributeContainer([.foregroundColor: foreground])
+            )
+        }
+        button.configuration = config
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
+        button.backgroundColor = .clear
+        button.tintColor = foreground
+        button.setTitleColor(foreground, for: .normal)
     }
     
     @objc private func editButtonTapped() {
@@ -251,6 +309,7 @@ extension MCalendarViewController {
         isEditingMode.toggle()
         editButton.isSelected = isEditingMode
         tableView.setEditing(isEditingMode, animated: true)
+        styleFloatingButton(editButton, mode: .text(isEditingMode ? "Done" : "Edit"))
     }
     
     private func setupChevronButton() {

@@ -125,7 +125,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         var config = UIButton.Configuration.plain()
         let symbolConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
         config.image = UIImage(systemName: "bell", withConfiguration: symbolConfig)
-        config.baseForegroundColor = .black
+        config.baseForegroundColor = AppTheme.accent
         button.configuration = config
         return button
     }()
@@ -166,17 +166,12 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         loadMentorAvatar()
 
         profileImageView.isUserInteractionEnabled = true
-        applyBackgroundGradient()
+        AppTheme.applyScreenBackground(to: view)
         styleProfileButton()
         setupNotificationButton()
         setupCollectionView()
 
-        todayCardView.layer.cornerRadius  = 16
-        todayCardView.backgroundColor     = .white
-        todayCardView.layer.shadowColor   = UIColor.black.cgColor
-        todayCardView.layer.shadowOffset  = CGSize(width: 0, height: 2)
-        todayCardView.layer.shadowRadius  = 8
-        todayCardView.layer.shadowOpacity = 0.1
+        AppTheme.styleCard(todayCardView, cornerRadius: 16)
 
         todayTitleLabel.numberOfLines = 1
         todayTitleLabel.adjustsFontSizeToFitWidth = true
@@ -200,19 +195,17 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
         syncProfileButtonSize()
         notificationButton.layer.cornerRadius = notificationButton.bounds.width / 2
     }
 
     private func styleProfileButton() {
-        profileImageView.backgroundColor = .white
+        profileImageView.backgroundColor = AppTheme.floatingBackground
         profileImageView.layer.cornerRadius = profileImageView.bounds.width / 2
-        profileImageView.layer.shadowColor = UIColor.black.cgColor
-        profileImageView.layer.shadowOpacity = 0.08
-        profileImageView.layer.shadowRadius = 8
-        profileImageView.layer.shadowOffset = CGSize(width: 0, height: 3)
+        AppTheme.applyShadow(to: profileImageView)
         profileImageView.clipsToBounds = true
-        profileImageView.tintColor = .black
+        profileImageView.tintColor = .label
         syncProfileButtonSize()
     }
 
@@ -229,12 +222,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         view.addSubview(notificationButton)
         view.addSubview(notificationBadgeLabel)
 
-        notificationButton.backgroundColor = .white
-        notificationButton.layer.cornerRadius = 20
-        notificationButton.layer.shadowColor = UIColor.black.cgColor
-        notificationButton.layer.shadowOpacity = 0.08
-        notificationButton.layer.shadowRadius = 8
-        notificationButton.layer.shadowOffset = CGSize(width: 0, height: 3)
+        AppTheme.styleFloatingControl(notificationButton, cornerRadius: 20)
         notificationButton.clipsToBounds = false
 
         NSLayoutConstraint.activate([
@@ -299,7 +287,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     // MARK: - Profile
 
     private func setProfileAvatarImage(_ image: UIImage) {
-        profileImageView.backgroundColor = .white
+        profileImageView.backgroundColor = AppTheme.floatingBackground
         profileImageView.image       = image
         profileImageView.contentMode = .scaleAspectFill
         profileImageView.clipsToBounds = true
@@ -311,7 +299,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
 
         guard !currentMentorId.isEmpty else {
             profileImageView.image = placeholderImage
-            profileImageView.tintColor = .black
+            profileImageView.tintColor = .label
             profileImageView.contentMode = .center
             return
         }
@@ -326,7 +314,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                     self.setProfileAvatarImage(image)
                 } else {
                     self.profileImageView.image = placeholderImage
-                    self.profileImageView.tintColor = .black
+                    self.profileImageView.tintColor = .label
                     self.profileImageView.contentMode = .center
                 }
             }
@@ -345,7 +333,6 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
             ]
             sheet.prefersGrabberVisible  = true
             sheet.preferredCornerRadius  = 24
-            sheet.largestUndimmedDetentIdentifier          = .init("almostFull")
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
         present(vc, animated: true)
@@ -358,13 +345,7 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     // MARK: - Gradient
 
     private func applyBackgroundGradient() {
-        let g       = CAGradientLayer()
-        g.frame     = view.bounds
-        g.colors    = [UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor,
-                       UIColor(white: 0.95, alpha: 1).cgColor]
-        g.startPoint = CGPoint(x: 0.5, y: 0)
-        g.endPoint   = CGPoint(x: 0.5, y: 1)
-        view.layer.insertSublayer(g, at: 0)
+        AppTheme.applyScreenBackground(to: view)
     }
 
     // MARK: - Supabase Load

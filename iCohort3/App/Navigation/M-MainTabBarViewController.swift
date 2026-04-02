@@ -43,31 +43,12 @@ class MentorMainTabBarViewController: UITabBarController {
     }
     
     private func setupTabBar() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        appearance.backgroundColor = .systemBackground
-        
-        let itemAppearance = UITabBarItemAppearance()
-        
-        // Unselected
-        itemAppearance.normal.iconColor = .black.withAlphaComponent(0.4)
-        itemAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor.black.withAlphaComponent(0.4)
-        ]
-        
-        // Selected
-        itemAppearance.selected.iconColor = .black
-        itemAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor.black
-        ]
-        
-        appearance.stackedLayoutAppearance = itemAppearance
-        appearance.inlineLayoutAppearance = itemAppearance
-        appearance.compactInlineLayoutAppearance = itemAppearance
-        
-        tabBar.standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            tabBar.scrollEdgeAppearance = appearance
-        }
+        AppTheme.configureTabBarAppearance(tabBar)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        AppTheme.configureTabBarAppearance(tabBar)
     }
 }

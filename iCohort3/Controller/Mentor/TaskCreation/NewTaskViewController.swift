@@ -70,11 +70,6 @@ class NewTaskViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        taskView.layer.cornerRadius = 20
-        descriptionView.layer.cornerRadius = 20
-        assignView.layer.cornerRadius = 20
-        attachmentView.layer.cornerRadius = 20
         
         confirmAssign.isHidden = true
         
@@ -85,6 +80,60 @@ class NewTaskViewController: UIViewController {
         }
         
         updateAttachmentUI()
+        applyTheme()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+        styleFloatingButton(closeButton, imageName: "xmark")
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
+    }
+    
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        [headerView, taskView, descriptionView, assignView, attachmentView].forEach {
+            guard let card = $0 else { return }
+            AppTheme.styleElevatedCard(card, cornerRadius: 20)
+            card.layer.cornerCurve = .continuous
+        }
+        newTaskLabel.textColor = .label
+        [titleTextField, descritionTextField].forEach {
+            $0?.textColor = .label
+            $0?.tintColor = AppTheme.accent
+        }
+        assignButton.setTitleColor(.label, for: .normal)
+        assignButton.tintColor = .label
+        attachmentButton.setTitleColor(.secondaryLabel, for: .normal)
+        attachmentButton.tintColor = .secondaryLabel
+        confirmAssign.setTitleColor(.label, for: .normal)
+        confirmAssign.tintColor = .label
+        confirmAssign.backgroundColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.10)
+            : UIColor.systemFill
+        confirmAssign.layer.cornerRadius = confirmAssign.bounds.height / 2
+        datePicker.tintColor = AppTheme.accent
+        styleFloatingButton(closeButton, imageName: "xmark")
+        updateAttachmentUI()
+    }
+    
+    private func styleFloatingButton(_ button: UIButton, imageName: String) {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: imageName)
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        button.configuration = config
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
+        button.backgroundColor = .clear
+        button.tintColor = foreground
     }
     
     func loadExistingData() {
@@ -351,7 +400,9 @@ class NewTaskViewController: UIViewController {
     private func createLinkAttachmentView(url: String, index: Int) -> UIView {
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.1)
+        containerView.backgroundColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.systemBlue.withAlphaComponent(0.16)
+            : UIColor.systemBlue.withAlphaComponent(0.1)
         containerView.layer.cornerRadius = 12
         containerView.layer.borderWidth = 1
         containerView.layer.borderColor = UIColor.systemBlue.withAlphaComponent(0.3).cgColor
@@ -412,7 +463,9 @@ class NewTaskViewController: UIViewController {
     private func createImageAttachmentView(filename: String, index: Int) -> UIView {
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.backgroundColor = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+        containerView.backgroundColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.10)
+            : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
         containerView.layer.cornerRadius = 12
         
         let iconImageView = UIImageView()
@@ -438,7 +491,7 @@ class NewTaskViewController: UIViewController {
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         nameLabel.text = filename
         nameLabel.font = UIFont.systemFont(ofSize: 16)
-        nameLabel.textColor = .darkGray
+        nameLabel.textColor = .label
         nameLabel.numberOfLines = 1
         
         let deleteButton = UIButton(type: .system)

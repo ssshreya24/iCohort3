@@ -106,6 +106,7 @@ final class LiquidGlassSegmentControl: UIView {
             buttons.append(btn)
             stackView.addArrangedSubview(btn)
         }
+        applyTheme()
     }
 
     private func makeButton(for segment: TaskSegment) -> UIButton {
@@ -135,6 +136,19 @@ final class LiquidGlassSegmentControl: UIView {
         if pill.frame == .zero, bounds.width > 0 {
             pill.frame = pillFrame(for: selectedIndex)
         }
+        applyTheme()
+        updateButtonColors(animated: false)
+    }
+    
+    private func applyTheme() {
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        track.backgroundColor = isDark
+            ? UIColor.white.withAlphaComponent(0.10)
+            : UIColor(red: 233/255, green: 233/255, blue: 238/255, alpha: 1)
+        pill.backgroundColor = isDark
+            ? UIColor.white.withAlphaComponent(0.14)
+            : .white
+        pill.layer.shadowOpacity = isDark ? 0.16 : 0.10
         updateButtonColors(animated: false)
     }
 
@@ -245,16 +259,30 @@ final class StudentAllTasksViewController: UIViewController {
             currentMentorId = mid
         }
 
-        let bg = UIColor(red: 242/255, green: 242/255, blue: 247/255, alpha: 1)
-        view.backgroundColor = bg
-
         buildUI()
         setupTaskCollectionView()
         applyTitle()
+        applyTheme()
 
         Task {
             await loadTeamMembersFromNewTeams()
             await loadTasksFromSupabase()
+        }
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+        styleFloatingButton(backButton, imageName: "chevron.left")
+        styleFloatingButton(addButton, imageName: "plus")
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+            taskCollectionView.reloadData()
+            reloadTeamProfile()
         }
     }
 
@@ -271,6 +299,30 @@ final class StudentAllTasksViewController: UIViewController {
         buildTaskCollection()
         buildEmptyState()
         setupRefreshControl()
+    }
+    
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        teamTitleLabel?.textColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
+        emptyStateIcon.tintColor = .secondaryLabel
+        emptyStateLabel.textColor = .secondaryLabel
+        styleFloatingButton(backButton, imageName: "chevron.left")
+        styleFloatingButton(addButton, imageName: "plus")
+        segmentControl.setNeedsLayout()
+    }
+    
+    private func styleFloatingButton(_ button: UIButton?, imageName: String) {
+        guard let button else { return }
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: imageName)
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        button.configuration = config
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
+        button.backgroundColor = .clear
+        button.tintColor = foreground
     }
     
     private func setupRefreshControl() {
@@ -379,6 +431,7 @@ final class StudentAllTasksViewController: UIViewController {
     private func applyTitle() {
         // Use the storyboard's existing teamTitleLabel
         teamTitleLabel?.isHidden = false
+        teamTitleLabel?.textColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
         if !teamId.isEmpty {
             teamTitleLabel?.text = "Team \(teamNo)"
         } else if let teamName {
@@ -452,7 +505,7 @@ final class StudentAllTasksViewController: UIViewController {
             avatarView.backgroundColor    = .systemGray5
             // Ring
             avatarView.layer.borderWidth  = 2
-            avatarView.layer.borderColor  = UIColor.white.cgColor
+            avatarView.layer.borderColor  = UIColor.white.withAlphaComponent(traitCollection.userInterfaceStyle == .dark ? 0.22 : 1).cgColor
             avatarView.layer.shadowColor  = UIColor.black.cgColor
             avatarView.layer.shadowOpacity = 0.1
             avatarView.layer.shadowRadius = 4

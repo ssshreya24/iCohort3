@@ -59,6 +59,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     private var isEditingProfile = false
     private var currentPersonId: String?
     private var currentProfile: SupabaseManager.MentorProfile?
+    private var isShowingPlaceholderAvatar = true
 
     // MARK: - Convenience
     private var allTextFields: [UITextField?] {
@@ -97,14 +98,20 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         makeAvatarCircular()
-        makeTopButtonsRounded()
-        makeSignOutRounded()
         avatarImageView.layer.cornerRadius = avatarImageView.bounds.width / 2
         avatarImageView.layer.masksToBounds = true
         avatarEditButton.layer.cornerRadius = avatarEditButton.bounds.height / 2
         avatarEditButton.layer.masksToBounds = true
-        if avatarImageView.tintColor != nil {
+        refreshTheme()
+        if isShowingPlaceholderAvatar {
             configureAvatarPlaceholder()
+        }
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            refreshTheme()
         }
     }
 
@@ -116,11 +123,18 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     }
 
     private func configureAvatarPlaceholder() {
-        let pointSize = max(46, avatarImageView.bounds.width * 0.72)
-        let placeholderConfig = UIImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
-        avatarImageView.image = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
-        avatarImageView.tintColor = .black
-        avatarImageView.contentMode = .center
+        isShowingPlaceholderAvatar = true
+        if let logo = UIImage(named: "logo") {
+            avatarImageView.image = logo
+            avatarImageView.tintColor = nil
+            avatarImageView.contentMode = .scaleAspectFill
+        } else {
+            let pointSize = max(46, avatarImageView.bounds.width * 0.72)
+            let placeholderConfig = UIImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+            avatarImageView.image = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
+            avatarImageView.tintColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
+            avatarImageView.contentMode = .center
+        }
     }
     
     private func getCurrentUserPersonId() {
@@ -175,6 +189,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             avatarImageView.image = image
             avatarImageView.tintColor = nil
             avatarImageView.contentMode = .scaleAspectFill
+            isShowingPlaceholderAvatar = false
         }
         
         guard let profile = profile else {
@@ -207,12 +222,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     }
 
     private func setupUI() {
-        view.backgroundColor = UIColor(
-            red: 0xEF/255.0,
-            green: 0xEF/255.0,
-            blue: 0xF5/255.0,
-            alpha: 1.0
-        )
+        AppTheme.applyScreenBackground(to: view)
 
         applyCardStyle(to: profileCardView)
         applyCardStyle(to: academicCardView)
@@ -233,19 +243,18 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             config.title = nil
             config.image = UIImage(systemName: "camera.fill")
             config.baseBackgroundColor = .white
-            config.baseForegroundColor = .black
+            config.baseForegroundColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
             config.cornerStyle = .capsule
             avatarEditButton.configuration = config
         }
+        
+        refreshTheme()
     }
 
     private func applyCardStyle(to card: UIView?) {
         guard let card = card else { return }
-        card.layer.cornerRadius = 12
-        card.layer.masksToBounds = true
-        card.layer.borderWidth = 0.5
-        card.layer.borderColor = UIColor.systemGray5.cgColor
-        card.backgroundColor = .white
+        AppTheme.styleElevatedCard(card, cornerRadius: 20)
+        card.layer.cornerCurve = .continuous
     }
 
     private func makeAvatarCircular() {
@@ -254,34 +263,177 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         avatar.layer.masksToBounds = true
     }
 
-    private func makeTopButtonsRounded() {
-        [backButton, editButton].forEach { button in
-            guard let button = button else { return }
-            button.layer.cornerRadius = button.bounds.height / 2
-            button.layer.masksToBounds = true
-            button.backgroundColor = .white
-        }
-    }
-
-    private func makeSignOutRounded() {
-        guard let btn = signOutButton else { return }
-        btn.layer.cornerRadius = btn.bounds.height / 2
-        btn.layer.masksToBounds = true
-        btn.backgroundColor = UIColor.systemGray5
-        btn.setTitleColor(.systemRed, for: .normal)
-    }
-
     private func setupInitialState() {
         for tf in allTextFields.compactMap({ $0 }) {
             tf.isEnabled = false
             tf.placeholder = "Not Set"
             tf.textColor = .systemGray
             tf.text = ""
+            tf.borderStyle = .none
+            tf.backgroundColor = .clear
         }
         
         greetingLabel?.text = "Hi Mentor"
         greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
         personalMailSwitch?.isOn = false
+    }
+    
+    private func refreshTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        [profileCardView, academicCardView, personalCardView, featuresCardView].forEach { card in
+            applyCardStyle(to: card)
+        }
+        styleOuterHierarchy(in: view)
+        styleCardContent(profileCardView)
+        styleCardContent(academicCardView)
+        styleCardContent(personalCardView)
+        styleCardContent(featuresCardView)
+        styleBackButton()
+        styleEditButton()
+        styleAvatarEditButton()
+        styleSignOutButton()
+        styleNotificationSwitch()
+        loadingIndicator?.color = AppTheme.accent
+        greetingLabel?.textColor = .label
+    }
+    
+    private func styleBackButton() {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: "chevron.left")
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        backButton.configuration = config
+        AppTheme.styleNativeFloatingControl(backButton, cornerRadius: backButton.bounds.height / 2)
+        backButton.backgroundColor = .clear
+        backButton.tintColor = foreground
+    }
+    
+    private func styleEditButton() {
+        let title = isEditingProfile ? "Save" : "Edit"
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.title = title
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        config.attributedTitle = AttributedString(
+            title,
+            attributes: AttributeContainer([.foregroundColor: foreground])
+        )
+        editButton.configuration = config
+        AppTheme.styleNativeFloatingControl(editButton, cornerRadius: editButton.bounds.height / 2)
+        editButton.backgroundColor = .clear
+        editButton.tintColor = foreground
+        editButton.setTitleColor(foreground, for: .normal)
+    }
+    
+    private func styleAvatarEditButton() {
+        var config = UIButton.Configuration.plain()
+        config.title = nil
+        config.image = UIImage(systemName: "camera.fill")
+        config.baseForegroundColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        avatarEditButton.configuration = config
+        AppTheme.styleNativeFloatingControl(avatarEditButton, cornerRadius: avatarEditButton.bounds.height / 2)
+        avatarEditButton.backgroundColor = .clear
+    }
+    
+    private func styleSignOutButton() {
+        var config = UIButton.Configuration.plain()
+        config.title = "Sign Out"
+        config.baseForegroundColor = .systemRed
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        config.attributedTitle = AttributedString(
+            "Sign Out",
+            attributes: AttributeContainer([.foregroundColor: UIColor.systemRed])
+        )
+        signOutButton.configuration = config
+        AppTheme.styleNativeFloatingControl(signOutButton, cornerRadius: signOutButton.bounds.height / 2)
+        signOutButton.backgroundColor = .clear
+        signOutButton.tintColor = .systemRed
+        signOutButton.setTitleColor(.systemRed, for: .normal)
+    }
+    
+    private func styleNotificationSwitch() {
+        let offTrackColor: UIColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.18)
+            : UIColor(red: 0.21, green: 0.33, blue: 0.49, alpha: 0.24)
+        personalMailSwitch?.onTintColor = AppTheme.accent
+        personalMailSwitch?.tintColor = offTrackColor
+        personalMailSwitch?.backgroundColor = offTrackColor
+        personalMailSwitch?.thumbTintColor = .white
+        personalMailSwitch?.layer.cornerRadius = (personalMailSwitch?.bounds.height ?? 0) / 2
+        personalMailSwitch?.layer.masksToBounds = true
+    }
+    
+    private func styleCardContent(_ root: UIView?) {
+        guard let root else { return }
+        for subview in root.subviews {
+            if subview is UISwitch {
+                continue
+            }
+            if shouldStyleAsSeparator(subview) {
+                subview.backgroundColor = UIColor.separator.withAlphaComponent(
+                    traitCollection.userInterfaceStyle == .dark ? 0.42 : 0.18
+                )
+                continue
+            }
+            switch subview {
+            case let label as UILabel:
+                label.textColor = .label
+                label.backgroundColor = .clear
+            case let textField as UITextField:
+                textField.borderStyle = .none
+                textField.backgroundColor = .clear
+                textField.textColor = textField.isEnabled ? .label : (textField.text == "Not Set" ? .secondaryLabel : .label)
+                textField.tintColor = AppTheme.accent
+                if let placeholder = textField.placeholder {
+                    textField.attributedPlaceholder = NSAttributedString(
+                        string: placeholder,
+                        attributes: [.foregroundColor: UIColor.secondaryLabel]
+                    )
+                }
+            case let button as UIButton:
+                if button !== backButton && button !== editButton && button !== signOutButton && button !== avatarEditButton {
+                    button.backgroundColor = .clear
+                    button.tintColor = .secondaryLabel
+                    button.setTitleColor(.label, for: .normal)
+                }
+            default:
+                subview.backgroundColor = .clear
+            }
+            styleCardContent(subview)
+        }
+    }
+    
+    private func styleOuterHierarchy(in root: UIView) {
+        for subview in root.subviews {
+            if subview is UISwitch {
+                continue
+            }
+            switch subview {
+            case profileCardView, academicCardView, personalCardView, featuresCardView, backButton, editButton, signOutButton, avatarEditButton, avatarImageView:
+                break
+            case is UILabel, is UIStackView, is UIScrollView, is UIImageView, is UITextField:
+                subview.backgroundColor = .clear
+            default:
+                subview.backgroundColor = .clear
+            }
+            styleOuterHierarchy(in: subview)
+        }
+    }
+    
+    private func shouldStyleAsSeparator(_ view: UIView) -> Bool {
+        let constraintHeight = view.constraints
+            .filter { $0.firstAttribute == .height }
+            .map(\.constant)
+            .min() ?? .greatestFiniteMagnitude
+        let effectiveHeight = min(view.bounds.height, constraintHeight)
+        return effectiveHeight <= 1.5
     }
 
     // MARK: - Actions
@@ -333,6 +485,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             avatarImageView.image = square
             avatarImageView.tintColor = nil
             avatarImageView.contentMode = .scaleAspectFill
+            isShowingPlaceholderAvatar = false
             if let personId = currentPersonId,
                let base64 = SupabaseManager.shared.imageToBase64(image: square) {
                 SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "mentor")
@@ -396,11 +549,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
         if isEditingProfile {
             // ENTER EDIT MODE
-            editButton.setTitle("Save", for: .normal)
-            editButton.backgroundColor = .systemGreen
-
             for tf in allTextFields.compactMap({ $0 }) {
                 tf.isEnabled = true
+                tf.borderStyle = .none
+                tf.backgroundColor = .clear
                 tf.textColor = .label
                 if tf.text == "Not Set" || tf.text?.isEmpty == true {
                     tf.text = ""
@@ -411,16 +563,17 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
         } else {
             // EXIT EDIT MODE (SAVE)
-            editButton.setTitle("Edit", for: .normal)
-            editButton.backgroundColor = .systemBlue
-
             view.endEditing(true)
             saveProfileToSupabase()
 
             for tf in allTextFields.compactMap({ $0 }) {
                 tf.isEnabled = false
+                tf.borderStyle = .none
+                tf.backgroundColor = .clear
             }
         }
+        
+        refreshTheme()
     }
 
     // ✅ NEW: Save to Supabase

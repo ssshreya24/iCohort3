@@ -18,6 +18,7 @@ class TeamSummaryCell: UICollectionViewCell {
     override func awakeFromNib() {
             super.awakeFromNib()
             contentView.backgroundColor = .clear
+            backgroundColor = .clear
 
             circleView.backgroundColor = UIColor(red: 0x77/255, green: 0x9C/255, blue: 0xB3/255, alpha: 1)
             circleView.clipsToBounds = true
@@ -26,6 +27,7 @@ class TeamSummaryCell: UICollectionViewCell {
 
             teamImageView.tintColor = .white
             teamImageView.contentMode = .scaleAspectFit
+            teamNameLabel.textColor = .label
         }
 
         override func layoutSubviews() {

@@ -21,18 +21,14 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
     var onAttachmentTapped: (([AttachmentType]) -> Void)?
     
     private var attachments: [AttachmentType] = []
+    private let darkCardColor = UIColor(red: 0.27, green: 0.30, blue: 0.37, alpha: 0.98)
     
     override func awakeFromNib() {
         super.awakeFromNib()
 
-        containerView.layer.cornerRadius = 14
-        containerView.layer.masksToBounds = true
-
-        contentView.layer.shadowColor = UIColor.black.cgColor
-        contentView.layer.shadowOpacity = 0.06
-        contentView.layer.shadowRadius = 6
-        contentView.layer.shadowOffset = CGSize(width: 0, height: 3)
-        contentView.layer.masksToBounds = false
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        AppTheme.styleCard(containerView, cornerRadius: 14)
 
         tagLabel.layer.masksToBounds = true
         tagLabel.layer.cornerRadius = 12
@@ -46,6 +42,14 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
         // Setup attachment button
         attacthmentButton.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
         setupAttachmentButton()
+        applyTheme()
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
     
     private func setupAttachmentButton() {
@@ -155,5 +159,22 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
             responder = responder?.next
         }
         return nil
+    }
+    
+    private func applyTheme() {
+        let isDarkMode = traitCollection.userInterfaceStyle == .dark
+        containerView.backgroundColor = isDarkMode ? darkCardColor : .white
+        containerView.layer.borderWidth = 1
+        containerView.layer.borderColor = AppTheme.borderColor.resolvedColor(with: traitCollection).cgColor
+        containerView.layer.shadowColor = UIColor.black.cgColor
+        containerView.layer.shadowOpacity = isDarkMode ? 0.10 : 0.04
+        containerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        containerView.layer.shadowRadius = isDarkMode ? 8 : 12
+        titleLabel.textColor = isDarkMode ? .white : .label
+        bodyLabel.textColor = isDarkMode ? UIColor(white: 0.86, alpha: 1) : .secondaryLabel
+        metaLabel.textColor = isDarkMode ? UIColor(white: 0.68, alpha: 1) : .tertiaryLabel
+        infoButton.tintColor = isDarkMode ? .white : .label
+        attacthmentButton.setTitleColor(isDarkMode ? .white : .systemBlue, for: .normal)
+        attacthmentButton.tintColor = isDarkMode ? .white : .systemBlue
     }
 }

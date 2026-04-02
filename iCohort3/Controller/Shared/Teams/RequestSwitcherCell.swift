@@ -24,13 +24,20 @@ class RequestSwitcherCell: UICollectionViewCell {
                 segmented.insertSegment(withTitle: "Requests Send ↑", at: 0, animated: false)
                 segmented.insertSegment(withTitle: "Requests Received ↓", at: 1, animated: false)
             }
-            segmented.selectedSegmentTintColor = .systemBlue.withAlphaComponent(0.18)
+            contentView.backgroundColor = .clear
+            backgroundColor = .clear
+            segmented.backgroundColor = AppTheme.cardBackground
+            segmented.selectedSegmentTintColor = AppTheme.accent.withAlphaComponent(0.28)
             let normalAttrs: [NSAttributedString.Key : Any] = [
+                .foregroundColor: UIColor.secondaryLabel,
+                .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+            ]
+            let selectedAttrs: [NSAttributedString.Key : Any] = [
                 .foregroundColor: UIColor.label,
                 .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
             ]
             segmented.setTitleTextAttributes(normalAttrs, for: .normal)
-            segmented.setTitleTextAttributes(normalAttrs, for: .selected)
+            segmented.setTitleTextAttributes(selectedAttrs, for: .selected)
         }
 
         private func wireAction() {
@@ -54,6 +61,5 @@ class RequestSwitcherCell: UICollectionViewCell {
             wireAction()
         }
     }
-
 
 

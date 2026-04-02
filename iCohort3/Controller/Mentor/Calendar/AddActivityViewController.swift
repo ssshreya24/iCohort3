@@ -41,6 +41,21 @@ class AddActivityViewController: UIViewController {
         
         startDatePicker.datePickerMode = .date
         endDatePicker.datePickerMode = .date
+        applyTheme()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+        styleFloatingButton(closeButton, imageName: "xmark")
+        styleFloatingButton(doneButton, imageName: "checkmark")
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
     
     @available(iOS 14.0, *)
@@ -59,19 +74,67 @@ class AddActivityViewController: UIViewController {
 
     // MARK: - UI Setup
     private func setupUI() {
-
-        alertCardView.layer.cornerRadius = 20
-        dateCardView.layer.cornerRadius = 20
-        titleCardView.layer.cornerRadius = 20
-        sendcardView.layer.cornerRadius = 20
-        
-        closeButton.layer.cornerRadius = 16
-        doneButton.layer.cornerRadius = 16
-
         startDatePicker.datePickerMode = .date
         endDatePicker.datePickerMode = .date
 
         alertButton.setTitle("None", for: .normal)
+    }
+    
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        [sendcardView, alertCardView, dateCardView, titleCardView, topBarView].forEach {
+            guard let card = $0 else { return }
+            AppTheme.styleElevatedCard(card, cornerRadius: 20)
+            card.layer.cornerCurve = .continuous
+        }
+        [titleTextField, noteTextField].forEach {
+            $0?.textColor = .label
+            $0?.tintColor = AppTheme.accent
+        }
+        [alertButton, sendButton].forEach {
+            $0?.setTitleColor(.label, for: .normal)
+            $0?.tintColor = .label
+            $0?.backgroundColor = traitCollection.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.10)
+                : UIColor.systemFill
+            $0?.layer.cornerRadius = ($0?.bounds.height ?? 0) / 2
+        }
+        allDaySwitch.onTintColor = AppTheme.accent
+        allDaySwitch.thumbTintColor = .white
+        let offTrackColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.18)
+            : UIColor(red: 0.21, green: 0.33, blue: 0.49, alpha: 0.24)
+        allDaySwitch.tintColor = offTrackColor
+        allDaySwitch.backgroundColor = offTrackColor
+        allDaySwitch.layer.cornerRadius = allDaySwitch.bounds.height / 2
+        allDaySwitch.layer.masksToBounds = true
+        startDatePicker.tintColor = AppTheme.accent
+        endDatePicker.tintColor = AppTheme.accent
+        styleFloatingButton(closeButton, imageName: "xmark")
+        styleFloatingButton(doneButton, imageName: "checkmark")
+    }
+    
+    private func styleFloatingButton(_ button: UIButton, imageName: String? = nil, title: String? = nil) {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        if let imageName {
+            config.image = UIImage(systemName: imageName)
+        }
+        if let title {
+            config.title = title
+            config.attributedTitle = AttributedString(
+                title,
+                attributes: AttributeContainer([.foregroundColor: foreground])
+            )
+        }
+        button.configuration = config
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
+        button.backgroundColor = .clear
+        button.tintColor = foreground
+        button.setTitleColor(foreground, for: .normal)
     }
 
     // MARK: - Actions

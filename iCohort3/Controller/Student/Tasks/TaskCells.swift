@@ -323,13 +323,7 @@ class RejectedCollectionViewCell: UICollectionViewCell {
 // MARK: - Shared styling helpers (private, file-scoped)
 
 private func styleCard(_ view: UIView) {
-    view.layer.cornerRadius  = 15
-    view.layer.masksToBounds = false
-    view.backgroundColor     = .white
-    view.layer.shadowColor   = UIColor.black.cgColor
-    view.layer.shadowOpacity = 0.1
-    view.layer.shadowOffset  = CGSize(width: 0, height: 3)
-    view.layer.shadowRadius  = 6
+    AppTheme.styleCard(view, cornerRadius: 15)
 }
 
 private func styleProfileImage(_ iv: UIImageView) {
@@ -346,7 +340,8 @@ private func styleLabels(assigned: UILabel, name: UILabel,
     name.textColor = .label
 
     title.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+    title.textColor = .label
 
     desc.font      = UIFont.systemFont(ofSize: 14)
-    desc.textColor = .darkGray
+    desc.textColor = .secondaryLabel
 }

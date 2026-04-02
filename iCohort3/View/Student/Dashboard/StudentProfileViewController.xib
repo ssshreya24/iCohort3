@@ -418,7 +418,7 @@
                                     </connections>
                                 </button>
                             </subviews>
-                            <color key="backgroundColor" name="bg"/>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
                                 <constraint firstItem="ThP-ag-izu" firstAttribute="leading" secondItem="rBi-pP-RFc" secondAttribute="leading" id="3lT-aq-xUU"/>
                                 <constraint firstItem="a0y-X9-vb2" firstAttribute="trailing" secondItem="rBi-pP-RFc" secondAttribute="trailing" id="5va-Rz-NWZ"/>
@@ -452,7 +452,7 @@
                             </constraints>
                         </view>
                     </subviews>
-                    <color key="backgroundColor" name="bg"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <constraints>
                         <constraint firstItem="B25-RN-jzD" firstAttribute="leading" secondItem="0XH-xZ-e0e" secondAttribute="leading" constant="31" id="7f6-R3-3rs"/>
                         <constraint firstAttribute="bottom" secondItem="74N-Vx-PU3" secondAttribute="bottom" id="A93-cI-nIT"/>
@@ -469,7 +469,7 @@
                 </scrollView>
             </subviews>
             <viewLayoutGuide key="safeArea" id="jQG-D0-mCB"/>
-            <color key="backgroundColor" name="bg"/>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
             <constraints>
                 <constraint firstItem="0XH-xZ-e0e" firstAttribute="width" secondItem="jQG-D0-mCB" secondAttribute="width" id="AIo-We-XSv"/>
                 <constraint firstItem="0XH-xZ-e0e" firstAttribute="centerX" secondItem="jQG-D0-mCB" secondAttribute="centerX" id="Dam-jS-crO"/>

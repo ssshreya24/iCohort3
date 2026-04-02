@@ -40,12 +40,21 @@ class AdminTeamsViewController: UIViewController {
         super.viewDidLoad()
         
         setupUI()
+        applyTheme()
         loadData()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         AdminUIStyle.updateScreenBackgroundLayout(for: view)
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+            tableView.reloadData()
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -88,17 +97,20 @@ class AdminTeamsViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
+    
+    private func applyTheme() {
+        AdminUIStyle.styleScreenBackground(view)
+        tableView.backgroundColor = .clear
+        summarySubtitleLabel.textColor = .secondaryLabel
+        AdminUIStyle.styleCard(summaryCardView, cornerRadius: 20)
+        loadingIndicator?.color = AppTheme.accent
+    }
 
     private func configureTableHeader() {
         let headerContainer = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 88))
         headerContainer.backgroundColor = .clear
 
-        summaryCardView.backgroundColor = .white
-        summaryCardView.layer.cornerRadius = 20
-        summaryCardView.layer.shadowColor = UIColor.black.cgColor
-        summaryCardView.layer.shadowOffset = CGSize(width: 0, height: 8)
-        summaryCardView.layer.shadowRadius = 18
-        summaryCardView.layer.shadowOpacity = 0.08
+        AdminUIStyle.styleCard(summaryCardView, cornerRadius: 20)
         summaryCardView.translatesAutoresizingMaskIntoConstraints = false
         headerContainer.addSubview(summaryCardView)
 
@@ -384,12 +396,7 @@ class TeamCell: UITableViewCell {
         backgroundColor = .clear
         selectionStyle = .none
         
-        containerView.backgroundColor = .white
-        containerView.layer.cornerRadius = 20
-        containerView.layer.shadowColor = UIColor.black.cgColor
-        containerView.layer.shadowOffset = CGSize(width: 0, height: 8)
-        containerView.layer.shadowRadius = 18
-        containerView.layer.shadowOpacity = 0.08
+        AdminUIStyle.styleCard(containerView, cornerRadius: 20)
         containerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(containerView)
         
@@ -450,9 +457,12 @@ class TeamCell: UITableViewCell {
             membersStackView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -18),
             membersStackView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -18)
         ])
+        
+        applyTheme()
     }
     
     func configure(with team: TeamDisplayModel) {
+        applyTheme()
         teamNumberLabel.text = "Team \(team.teamNo)"
         
         if let mentorName = team.mentorName {
@@ -482,6 +492,17 @@ class TeamCell: UITableViewCell {
             emptyLabel.textColor = .secondaryLabel
             membersStackView.addArrangedSubview(emptyLabel)
         }
+    }
+    
+    private func applyTheme() {
+        AdminUIStyle.styleCard(containerView, cornerRadius: 20)
+        teamNumberLabel.textColor = .label
+        membersLabel.textColor = .label
+        membersStackView.arrangedSubviews.compactMap { $0 as? UILabel }.forEach { label in
+            label.textColor = label.text == "No members yet" ? .secondaryLabel : .label
+        }
+        assignMentorButton.setTitleColor(.white, for: .normal)
+        assignMentorButton.backgroundColor = AppTheme.accent
     }
     
     @objc private func assignMentorTapped() {
@@ -535,7 +556,7 @@ private final class MentorAssignmentSheetViewController: UIViewController, UITab
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = AdminUIStyle.backgroundColor
+        AdminUIStyle.styleScreenBackground(view)
 
         titleLabel.text = "Change Mentor"
         titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
@@ -590,11 +611,15 @@ private final class MentorAssignmentSheetViewController: UIViewController, UITab
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "MentorOptionCell", for: indexPath)
         var content = cell.defaultContentConfiguration()
+        cell.backgroundColor = AppTheme.cardBackground
+        cell.contentView.backgroundColor = AppTheme.cardBackground
 
         if indexPath.section == 0 {
             let mentor = mentors[indexPath.row]
             content.text = mentor.fullName
             content.secondaryText = mentor.email.isEmpty ? nil : mentor.email
+            content.textProperties.color = .label
+            content.secondaryTextProperties.color = .secondaryLabel
             cell.accessoryType = .disclosureIndicator
             cell.tintColor = AdminUIStyle.accentColor
         } else {

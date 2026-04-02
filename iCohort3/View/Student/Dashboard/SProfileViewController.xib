@@ -206,7 +206,7 @@
                                     </constraints>
                                 </view>
                             </subviews>
-                            <color key="backgroundColor" name="bg"/>
+                            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             <constraints>
                                 <constraint firstItem="fY3-rb-tKL" firstAttribute="leading" secondItem="OLm-ap-971" secondAttribute="leading" id="2Kd-XU-bX3"/>
                                 <constraint firstItem="fY3-rb-tKL" firstAttribute="trailing" secondItem="OLm-ap-971" secondAttribute="trailing" id="BLJ-C9-r6r"/>
@@ -228,7 +228,7 @@
                             </constraints>
                         </view>
                     </subviews>
-                    <color key="backgroundColor" name="bg"/>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     <constraints>
                         <constraint firstItem="EdK-Ob-6ue" firstAttribute="bottom" secondItem="daw-kb-mcF" secondAttribute="bottom" id="0fr-Yn-55z"/>
                         <constraint firstAttribute="bottom" secondItem="EdK-Ob-6ue" secondAttribute="bottom" id="1FO-SQ-wge"/>
@@ -243,7 +243,7 @@
                 </scrollView>
             </subviews>
             <viewLayoutGuide key="safeArea" id="6Vj-gy-4Wu"/>
-            <color key="backgroundColor" name="bg"/>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
             <constraints>
                 <constraint firstItem="Opn-Lf-A1I" firstAttribute="centerX" secondItem="6Vj-gy-4Wu" secondAttribute="centerX" id="JUL-6x-Mfq"/>
                 <constraint firstItem="6Vj-gy-4Wu" firstAttribute="trailing" secondItem="Opn-Lf-A1I" secondAttribute="trailing" id="eS1-sW-ke9"/>

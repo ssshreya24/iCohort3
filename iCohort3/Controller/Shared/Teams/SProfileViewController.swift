@@ -10,22 +10,26 @@ import UIKit
 
 class SProfileViewController: UIViewController {
 
-    @IBOutlet weak var closeButton: UIButton!
-    @IBOutlet weak var avatarImageView: UIImageView!
-    @IBOutlet weak var infoCardView: UIView!
-    @IBOutlet weak var notificationSwitch: UISwitch!
+    @IBOutlet weak var closeButton: UIButton?
+    @IBOutlet weak var avatarImageView: UIImageView?
+    @IBOutlet weak var infoCardView: UIView?
+    @IBOutlet weak var notificationSwitch: UISwitch?
     @IBOutlet weak var myDetailsTapArea: UIButton?
     @IBOutlet weak var myTeamTapArea: UIButton?
-    @IBOutlet weak var featuresCardView: UIView!
+    @IBOutlet weak var featuresCardView: UIView?
 
     // Cached so myTeamTapped knows whether to show sheet or go to detail
     private var cachedTeamInfo: SupabaseManager.StudentTeamInfo?
+    private let signOutButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
 
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0.94, green: 0.95, blue: 0.96, alpha: 1)
         configureStaticUI()
         restoreSwitchState()
     }
@@ -34,44 +38,59 @@ class SProfileViewController: UIViewController {
         super.viewWillAppear(animated)
         loadCachedAvatar()
         loadTeamStatus()
+        refreshTheme()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            refreshTheme()
+            applyTeamButtonStyle(teamInfo: cachedTeamInfo)
+        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        avatarImageView.layer.cornerRadius = avatarImageView.bounds.width / 2
+        avatarImageView?.layer.cornerRadius = (avatarImageView?.bounds.width ?? 0) / 2
+        refreshTheme()
     }
 
     // MARK: - Static UI
 
     private func configureStaticUI() {
-        avatarImageView.image = UIImage(systemName: "person.circle.fill")
-        avatarImageView.tintColor = .systemGray3
-        avatarImageView.contentMode = .center
-        avatarImageView.clipsToBounds = true
+        configureDefaultAvatar()
+        avatarImageView?.clipsToBounds = true
+        installSignOutButton()
+        styleNotificationSwitch()
+        refreshTheme()
+    }
 
-        [infoCardView, featuresCardView].forEach {
-            $0?.backgroundColor = .white
-            $0?.layer.cornerRadius = 16
-            $0?.layer.masksToBounds = true
+    private func configureDefaultAvatar() {
+        guard let avatarImageView else { return }
+
+        if let logo = UIImage(named: "logo") {
+            avatarImageView.image = logo
+            avatarImageView.tintColor = nil
+            avatarImageView.contentMode = .scaleAspectFill
+        } else {
+            avatarImageView.image = UIImage(systemName: "person.circle.fill")
+            avatarImageView.tintColor = .systemGray3
+            avatarImageView.contentMode = .center
         }
-
-        closeButton.layer.cornerRadius = closeButton.bounds.height / 2
-        closeButton.clipsToBounds = true
+        avatarImageView.clipsToBounds = true
     }
 
     private func loadCachedAvatar() {
         guard let personId = UserDefaults.standard.string(forKey: "current_person_id"),
               let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "student"),
               let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) else {
-            avatarImageView.image = UIImage(systemName: "person.circle.fill")
-            avatarImageView.tintColor = .systemGray3
-            avatarImageView.contentMode = .center
+            configureDefaultAvatar()
             return
         }
 
-        avatarImageView.image = image
-        avatarImageView.tintColor = nil
-        avatarImageView.contentMode = .scaleAspectFill
+        avatarImageView?.image = image
+        avatarImageView?.tintColor = nil
+        avatarImageView?.contentMode = .scaleAspectFill
     }
 
     // MARK: - Team Status
@@ -136,7 +155,6 @@ class SProfileViewController: UIViewController {
             ]
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = 24
-            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
         present(vc, animated: true)
@@ -157,7 +175,6 @@ class SProfileViewController: UIViewController {
                 ]
                 sheet.prefersGrabberVisible = true
                 sheet.preferredCornerRadius = 24
-                sheet.largestUndimmedDetentIdentifier = .init("almostFull")
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = false
             }
             present(detailVC, animated: true)
@@ -206,11 +223,232 @@ class SProfileViewController: UIViewController {
         }
     }
 
+    @objc private func signOutTapped() {
+        UserDefaults.standard.removeObject(forKey: "current_person_id")
+        UserDefaults.standard.removeObject(forKey: "current_user_name")
+        UserDefaults.standard.removeObject(forKey: "current_user_email")
+        UserDefaults.standard.removeObject(forKey: "current_user_role")
+        UserDefaults.standard.set(false, forKey: "is_logged_in")
+
+        guard let windowScene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }),
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
+            return
+        }
+
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        guard let loginVC = storyboard.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController else {
+            return
+        }
+
+        let loginNav = UINavigationController(rootViewController: loginVC)
+        loginNav.navigationBar.isTranslucent = false
+
+        let transition = CATransition()
+        transition.duration = 0.35
+        transition.type = .push
+        transition.subtype = .fromBottom
+        transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        window.layer.add(transition, forKey: kCATransition)
+        window.rootViewController = loginNav
+        window.makeKeyAndVisible()
+    }
+
     // MARK: - Helpers
 
     private func restoreSwitchState() {
         let on = UserDefaults.standard.bool(forKey: "profile_notifications_enabled")
-        notificationSwitch.setOn(on, animated: false)
+        notificationSwitch?.setOn(on, animated: false)
+    }
+
+    private func applyThemeToHierarchy() {
+        styleViewHierarchy(view)
+        [infoCardView, featuresCardView].forEach { card in
+            guard let card else { return }
+            AppTheme.styleElevatedCard(card, cornerRadius: 20)
+            card.layer.cornerCurve = .continuous
+            styleCardContent(in: card)
+        }
+    }
+
+    private func refreshTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        styleCloseButton()
+        styleNotificationSwitch()
+        styleSignOutButton()
+        applyThemeToHierarchy()
+        styleOuterHierarchy(in: view)
+    }
+
+    private func styleNotificationSwitch() {
+        guard let notificationSwitch else { return }
+
+        let offTrackColor: UIColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.18)
+            : UIColor(red: 0.21, green: 0.33, blue: 0.49, alpha: 0.24)
+
+        notificationSwitch.onTintColor = AppTheme.accent
+        notificationSwitch.tintColor = offTrackColor
+        notificationSwitch.backgroundColor = offTrackColor
+        notificationSwitch.thumbTintColor = .white
+        notificationSwitch.layer.cornerRadius = notificationSwitch.bounds.height / 2
+        notificationSwitch.layer.masksToBounds = true
+    }
+
+    private func installSignOutButton() {
+        guard signOutButton.superview == nil,
+              let featuresCardView,
+              let container = featuresCardView.superview else { return }
+        container.addSubview(signOutButton)
+        signOutButton.addTarget(self, action: #selector(signOutTapped), for: .touchUpInside)
+
+        NSLayoutConstraint.activate([
+            signOutButton.topAnchor.constraint(equalTo: featuresCardView.bottomAnchor, constant: 20),
+            signOutButton.leadingAnchor.constraint(equalTo: featuresCardView.leadingAnchor),
+            signOutButton.trailingAnchor.constraint(equalTo: featuresCardView.trailingAnchor),
+            signOutButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+
+    private func styleSignOutButton() {
+        var config = UIButton.Configuration.plain()
+        config.title = "Sign Out"
+        config.baseForegroundColor = .systemRed
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        config.attributedTitle = AttributedString(
+            "Sign Out",
+            attributes: AttributeContainer([.foregroundColor: UIColor.systemRed])
+        )
+        signOutButton.configuration = config
+        AppTheme.styleNativeFloatingControl(signOutButton, cornerRadius: 22)
+        signOutButton.backgroundColor = .clear
+        signOutButton.setTitleColor(.systemRed, for: .normal)
+        signOutButton.tintColor = .systemRed
+    }
+
+    private func styleCloseButton() {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: "xmark")
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        closeButton?.configuration = config
+
+        if let closeButton {
+            AppTheme.styleNativeFloatingControl(closeButton, cornerRadius: 22)
+            closeButton.backgroundColor = .clear
+            closeButton.tintColor = foreground
+            closeButton.setTitleColor(foreground, for: .normal)
+        }
+    }
+
+    private func styleViewHierarchy(_ root: UIView) {
+        for subview in root.subviews {
+            if subview is UISwitch {
+                continue
+            }
+
+            if shouldStyleAsSeparator(subview) {
+                subview.backgroundColor = UIColor.separator.withAlphaComponent(
+                    traitCollection.userInterfaceStyle == .dark ? 0.46 : 0.22
+                )
+                continue
+            }
+
+            switch subview {
+            case let label as UILabel:
+                label.textColor = .label
+            case let button as UIButton:
+                if button === closeButton {
+                    button.tintColor = .label
+                } else {
+                    button.tintColor = .secondaryLabel
+                    button.setTitleColor(.label, for: .normal)
+                    if let config = button.configuration {
+                        var updated = config
+                        if button === myTeamTapArea {
+                            // Team status tint is applied separately.
+                        } else {
+                            updated.baseForegroundColor = .secondaryLabel
+                        }
+                        button.configuration = updated
+                    }
+                }
+                button.backgroundColor = .clear
+            case let imageView as UIImageView:
+                if imageView !== avatarImageView {
+                    imageView.tintColor = .secondaryLabel
+                }
+                imageView.backgroundColor = .clear
+            case let stack as UIStackView:
+                stack.backgroundColor = .clear
+            case let scroll as UIScrollView:
+                scroll.backgroundColor = .clear
+            default:
+                if subview !== infoCardView && subview !== featuresCardView {
+                    subview.backgroundColor = .clear
+                }
+            }
+            styleViewHierarchy(subview)
+        }
+    }
+
+    private func styleCardContent(in root: UIView) {
+        for subview in root.subviews {
+            if subview is UISwitch {
+                continue
+            }
+
+            if shouldStyleAsSeparator(subview) {
+                subview.backgroundColor = UIColor.separator.withAlphaComponent(
+                    traitCollection.userInterfaceStyle == .dark ? 0.46 : 0.18
+                )
+                continue
+            }
+
+            if subview is UILabel || subview is UIStackView || subview is UIImageView || subview is UIScrollView {
+                subview.backgroundColor = .clear
+            } else if subview is UISwitch {
+                // Keep system switch rendering.
+            } else if let button = subview as? UIButton, button !== closeButton {
+                button.backgroundColor = .clear
+            } else if subview !== infoCardView && subview !== featuresCardView {
+                subview.backgroundColor = .clear
+            }
+
+            styleCardContent(in: subview)
+        }
+    }
+
+    private func styleOuterHierarchy(in root: UIView) {
+        for subview in root.subviews {
+            if subview is UISwitch {
+                continue
+            }
+
+            switch subview {
+            case infoCardView, featuresCardView, closeButton, avatarImageView:
+                break
+            case is UILabel, is UIStackView, is UIScrollView, is UIImageView:
+                subview.backgroundColor = .clear
+            default:
+                subview.backgroundColor = .clear
+            }
+            styleOuterHierarchy(in: subview)
+        }
+    }
+
+    private func shouldStyleAsSeparator(_ view: UIView) -> Bool {
+        let constraintHeight = view.constraints
+            .filter { $0.firstAttribute == .height }
+            .map(\.constant)
+            .min() ?? .greatestFiniteMagnitude
+        let effectiveHeight = min(view.bounds.height, constraintHeight)
+        return effectiveHeight <= 1.5
     }
 
     private func presentTeamVC(startMode: TeamStartMode) {
@@ -227,7 +465,6 @@ class SProfileViewController: UIViewController {
             ]
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = 24
-            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
         present(vc, animated: true)
@@ -246,7 +483,6 @@ class SProfileViewController: UIViewController {
             ]
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = 24
-            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
         present(vc, animated: true)

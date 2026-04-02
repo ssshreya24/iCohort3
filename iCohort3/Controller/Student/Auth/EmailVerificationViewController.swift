@@ -52,7 +52,7 @@ class EmailVerificationViewController: UIViewController {
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
         let backImage = UIImage(systemName: "chevron.left", withConfiguration: config)
         backButton.setImage(backImage, for: .normal)
-        backButton.tintColor = .black
+        backButton.tintColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
         backButton.backgroundColor = .white
         backButton.layer.cornerRadius = 22
         backButton.layer.masksToBounds = true

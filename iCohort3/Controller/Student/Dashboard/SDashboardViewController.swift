@@ -20,6 +20,7 @@ class SDashboardViewController: UIViewController {
     @IBOutlet weak var taskCard: UIView!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var editButton: UIButton!
+    @IBOutlet weak var profileButton: UIButton!
     @IBOutlet weak var tasksDueTodayLabel: UILabel!
     @IBOutlet weak var contentView: UIView!
     @IBOutlet weak var greetingLabel: UILabel!
@@ -137,7 +138,15 @@ class SDashboardViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        if let g = view.layer.sublayers?.first as? CAGradientLayer { g.frame = view.bounds }
+        AppTheme.applyScreenBackground(to: view)
+        applyHeaderFloatingControls()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyHeaderFloatingControls()
+        }
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -322,16 +331,17 @@ class SDashboardViewController: UIViewController {
     // MARK: - Setup UI
 
     private func setupUI() {
-        applyBackgroundGradient()
+        AppTheme.applyScreenBackground(to: view)
         contentView.backgroundColor    = .clear
         cardView.backgroundColor       = .clear
         collectionView.backgroundColor = .clear
-        taskCard.layer.cornerRadius    = 20
-        taskCard.backgroundColor       = .white
+        AppTheme.styleCard(taskCard, cornerRadius: 20)
 
         tasksDueTodayLabel.font          = UIFont.systemFont(ofSize: 17, weight: .semibold)
         tasksDueTodayLabel.textColor     = .label
         tasksDueTodayLabel.textAlignment = .left
+
+        applyHeaderFloatingControls()
 
         installCodeGreetingLabel()
 
@@ -358,6 +368,28 @@ class SDashboardViewController: UIViewController {
 
         taskCard.addSubview(noTasksLabel)
         setupNoTasksLabelConstraints()
+    }
+
+    private func applyHeaderFloatingControls() {
+        let iconColor: UIColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
+
+        AppTheme.styleNativeFloatingControl(editButton, cornerRadius: editButton.bounds.height / 2)
+        editButton.setTitleColor(.black, for: .normal)
+        editButton.tintColor = .black
+        if var config = editButton.configuration {
+            config.baseForegroundColor = .black
+            config.baseBackgroundColor = .clear
+            editButton.configuration = config
+        }
+
+        guard let profileButton else { return }
+        AppTheme.styleNativeFloatingControl(profileButton, cornerRadius: profileButton.bounds.height / 2)
+        profileButton.tintColor = iconColor
+        if var config = profileButton.configuration {
+            config.baseForegroundColor = iconColor
+            config.baseBackgroundColor = .clear
+            profileButton.configuration = config
+        }
     }
 
     private func installCodeGreetingLabel() {
@@ -395,6 +427,7 @@ class SDashboardViewController: UIViewController {
         return nil
     }
 
+
     private func registerTaskCellIfNeeded() {
         let bundle = Bundle(for: tasksDueTodayTableViewCell.self)
         if bundle.path(forResource: "tasksDueTodayTableViewCell", ofType: "nib") != nil {
@@ -413,15 +446,6 @@ class SDashboardViewController: UIViewController {
             noTasksLabel.trailingAnchor.constraint(equalTo: taskCard.trailingAnchor, constant: -20),
             noTasksLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 50)
         ])
-    }
-
-    private func applyBackgroundGradient() {
-        let g = CAGradientLayer()
-        g.frame  = view.bounds
-        g.colors = [UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor,
-                    UIColor(white: 0.95, alpha: 1).cgColor]
-        g.startPoint = CGPoint(x: 0.5, y: 0); g.endPoint = CGPoint(x: 0.5, y: 1)
-        view.layer.insertSublayer(g, at: 0)
     }
 
     // MARK: - Dynamic Height Management
@@ -530,7 +554,6 @@ class SDashboardViewController: UIViewController {
         if let sheet = vc.sheetPresentationController {
             sheet.detents = [.custom(identifier: .init("almostFull")) { ctx in ctx.maximumDetentValue }]
             sheet.prefersGrabberVisible = true; sheet.preferredCornerRadius = 24
-            sheet.largestUndimmedDetentIdentifier = .init("almostFull")
             sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
         present(vc, animated: true)

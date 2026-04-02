@@ -26,6 +26,7 @@ final class JoinTeamsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyTheme()
         setupTitle()
         setupCollectionView()
         
@@ -37,11 +38,26 @@ final class JoinTeamsViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        applyTheme()
         Task { await loadDataForCurrentMode() }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+            collectionView.reloadData()
+        }
     }
 
     private func setupTitle() {
         titleLabel.text = "Join Team"
+        titleLabel.textColor = .white
     }
 
     private func setupCollectionView() {
@@ -59,6 +75,16 @@ final class JoinTeamsViewController: UIViewController {
             RequestItemCell.self,
             forCellWithReuseIdentifier: "RequestItemCell"
         )
+    }
+
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        view.tintColor = AppTheme.accent
+        titleLabel?.textColor = .white
+        collectionView?.backgroundColor = .clear
+        AppTheme.styleFloatingControl(closeButton, cornerRadius: 22)
+        closeButton.tintColor = .label
+        closeButton.setTitleColor(.label, for: .normal)
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {

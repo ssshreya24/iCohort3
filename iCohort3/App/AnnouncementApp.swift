@@ -18,7 +18,7 @@ class AnnouncementApp: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        // Just return true - window setup is now in SceneDelegate
+        AppTheme.configureGlobalAppearance()
         return true
     }
     

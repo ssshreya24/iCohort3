@@ -43,13 +43,7 @@ class tasksDueTodayTableViewCell: UITableViewCell {
         didBuildUI = true
 
         card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor     = .white
-        card.layer.cornerRadius  = 18
-        card.layer.masksToBounds = false
-        card.layer.shadowColor   = UIColor.black.cgColor
-        card.layer.shadowOpacity = 0.07
-        card.layer.shadowOffset  = CGSize(width: 0, height: 2)
-        card.layer.shadowRadius  = 8
+        AppTheme.styleCard(card, cornerRadius: 18)
         contentView.addSubview(card)
 
         NSLayoutConstraint.activate([
@@ -89,7 +83,7 @@ class tasksDueTodayTableViewCell: UITableViewCell {
         chevronImage.image = UIImage(
             systemName: "chevron.right",
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .medium)
-        )?.withTintColor(.systemGray3, renderingMode: .alwaysOriginal)
+        )?.withTintColor(.tertiaryLabel, renderingMode: .alwaysOriginal)
         chevronImage.contentMode = .scaleAspectFit
         card.addSubview(chevronImage)
 

@@ -32,6 +32,12 @@ class SCalendarViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        AppTheme.applyScreenBackground(to: view)
+        view.subviews.forEach { subview in
+            if subview !== scrollingCalendarView && subview !== monthLabel && subview !== tableView && subview !== emptyStateLabel {
+                subview.backgroundColor = .clear
+            }
+        }
         
         setupScrollingCalendar()
         setupTableView()
@@ -49,6 +55,12 @@ class SCalendarViewController: UIViewController {
         
         // Load activities from Supabase
         loadActivitiesFromSupabase()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+        tableView.superview?.backgroundColor = .clear
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -198,8 +210,15 @@ extension SCalendarViewController {
         tableView.dataSource = self
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
+        tableView.backgroundView = {
+            let bg = UIView()
+            bg.backgroundColor = .clear
+            return bg
+        }()
         tableView.showsVerticalScrollIndicator = false
         tableView.allowsSelection = false
+        monthLabel.textColor = .label
+        emptyStateLabel.textColor = .secondaryLabel
         
         let nib = UINib(nibName: "MactivityTableViewCell", bundle: nil)
         tableView.register(nib, forCellReuseIdentifier: "MactivityCell")
@@ -383,7 +402,7 @@ class DateScrollCell: UICollectionViewCell {
     }
     
     private func setupViews() {
-        contentView.backgroundColor = .white
+        contentView.backgroundColor = .clear
         contentView.layer.cornerRadius = 12
         contentView.clipsToBounds = true
         
@@ -437,20 +456,20 @@ class DateScrollCell: UICollectionViewCell {
         activityDot.isHidden = !hasActivity
         
         if isSelected {
-            contentView.backgroundColor = .black
+            contentView.backgroundColor = AppTheme.accent
             dayLabel.textColor = .white
             dateLabel.textColor = .white
             activityDot.backgroundColor = .white
         } else if calendar.isDateInToday(date) {
-            contentView.backgroundColor = .black.withAlphaComponent(0.2)
-            dayLabel.textColor = .black
-            dateLabel.textColor = .black
-            activityDot.backgroundColor = .black
+            contentView.backgroundColor = UIColor.systemFill
+            dayLabel.textColor = .label
+            dateLabel.textColor = .label
+            activityDot.backgroundColor = AppTheme.accent
         } else {
-            contentView.backgroundColor = .white
+            contentView.backgroundColor = UIColor.clear
             dayLabel.textColor = .secondaryLabel
             dateLabel.textColor = .label
-            activityDot.backgroundColor = .black
+            activityDot.backgroundColor = AppTheme.accent
         }
     }
 }
@@ -486,7 +505,7 @@ class CalendarPickerViewController: UIViewController {
         selection.selectedDate = Calendar.current.dateComponents([.year, .month, .day], from: selectedDate)
         
         calendarView.wantsDateDecorations = true
-        calendarView.tintColor = .black
+        calendarView.tintColor = AppTheme.accent
         
         view.addSubview(calendarView)
         
@@ -521,7 +540,7 @@ extension CalendarPickerViewController: UICalendarViewDelegate, UICalendarSelect
         let normalizedDate = Calendar.current.startOfDay(for: date)
         
         if let dayActivities = activities[normalizedDate], !dayActivities.isEmpty {
-            return .default(color: .black, size: .small)
+            return .default(color: AppTheme.accent, size: .small)
         }
         
         return nil

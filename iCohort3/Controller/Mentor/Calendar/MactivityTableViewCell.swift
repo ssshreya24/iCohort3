@@ -15,29 +15,23 @@ class MactivityTableViewCell: UITableViewCell {
         super.awakeFromNib()
         setupUI()
     }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
+    }
 
     private func setupUI() {
-
-        // Same clean card style like student cell
-        containerView.layer.cornerRadius = 20
-        containerView.backgroundColor = .white
-        containerView.layer.masksToBounds = true
-
-        // Remove any leftover borders/shadows
-        containerView.layer.borderWidth = 0
-        containerView.layer.borderColor = UIColor.clear.cgColor
-        containerView.layer.shadowOpacity = 0
-
         // Title style
         titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        titleLabel.textColor = .label
 
         // Time label pill style
         timeLabel.layer.cornerRadius = 8
         timeLabel.clipsToBounds = true
         timeLabel.textAlignment = .center
         timeLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        timeLabel.textColor = .label
 
         // No highlight on tap
         selectionStyle = .none
@@ -45,6 +39,7 @@ class MactivityTableViewCell: UITableViewCell {
         // Clear cell backgrounds
         backgroundColor = .clear
         contentView.backgroundColor = .clear
+        applyTheme()
     }
 
     func configure(with title: String, time: String?) {
@@ -56,5 +51,17 @@ class MactivityTableViewCell: UITableViewCell {
         } else {
             timeLabel.isHidden = true
         }
+    }
+    
+    private func applyTheme() {
+        AppTheme.styleElevatedCard(containerView, cornerRadius: 20)
+        containerView.backgroundColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor(red: 0.27, green: 0.30, blue: 0.37, alpha: 0.98)
+            : .white
+        titleLabel.textColor = .label
+        timeLabel.textColor = AppTheme.accent
+        timeLabel.backgroundColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.10)
+            : UIColor.systemFill
     }
 }

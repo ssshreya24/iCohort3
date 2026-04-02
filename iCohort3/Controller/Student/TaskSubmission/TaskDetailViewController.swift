@@ -116,7 +116,7 @@ class TaskDetailViewController: UIViewController {
         backButton.layer.cornerRadius = 22
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
         backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        backButton.tintColor = .black
+        backButton.tintColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         view.addSubview(backButton)
         NSLayoutConstraint.activate([

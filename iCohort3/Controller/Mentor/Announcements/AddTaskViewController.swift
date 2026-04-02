@@ -69,6 +69,21 @@ class AddTaskViewController: UIViewController {
         
         // Initialize attachment container height
         updateAttachmentContainerHeight()
+        applyTheme()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+        styleFloatingButton(closeButton, imageName: "xmark")
+        styleFloatingButton(doneButton, imageName: "checkmark")
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
     
     private func setupTextFieldListener() {
@@ -148,6 +163,69 @@ class AddTaskViewController: UIViewController {
         for btn in allButtons {
             btn?.setImage(nil, for: .normal)
         }
+    }
+    
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        styleOuterHierarchy(in: view)
+        [headerView, titleView, categoryView, colorOptionsView, addAttachmentView].forEach {
+            guard let card = $0 else { return }
+            AppTheme.styleElevatedCard(card, cornerRadius: 20)
+            card.layer.cornerCurve = .continuous
+        }
+        colorChangeView.backgroundColor = selectedColor
+        titleTextField.textColor = .label
+        titleTextField.tintColor = AppTheme.accent
+        descriptionTextField.textColor = .label
+        descriptionTextField.tintColor = AppTheme.accent
+        categoryName.textColor = .label
+        categoryName.tintColor = AppTheme.accent
+        categoryName.backgroundColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.10)
+            : UIColor.systemFill
+        categoryLabel.layer.cornerRadius = categoryLabel.bounds.height / 2
+        categoryLabel.clipsToBounds = true
+        addAttachmentButton.tintColor = .label
+        addAttachmentButton.setTitleColor(.label, for: .normal)
+        styleFloatingButton(closeButton, imageName: "xmark")
+        styleFloatingButton(doneButton, imageName: "checkmark")
+    }
+    
+    private func styleOuterHierarchy(in root: UIView) {
+        for subview in root.subviews {
+            switch subview {
+            case headerView, titleView, categoryView, colorOptionsView, addAttachmentView, closeButton, doneButton:
+                break
+            case is UILabel, is UIStackView, is UIScrollView, is UIImageView, is UITextField:
+                subview.backgroundColor = .clear
+            default:
+                subview.backgroundColor = .clear
+            }
+            styleOuterHierarchy(in: subview)
+        }
+    }
+    
+    private func styleFloatingButton(_ button: UIButton, imageName: String? = nil, title: String? = nil) {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        if let imageName {
+            config.image = UIImage(systemName: imageName)
+        }
+        if let title {
+            config.title = title
+            config.attributedTitle = AttributedString(
+                title,
+                attributes: AttributeContainer([.foregroundColor: foreground])
+            )
+        }
+        button.configuration = config
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
+        button.backgroundColor = .clear
+        button.tintColor = foreground
+        button.setTitleColor(foreground, for: .normal)
     }
     
     internal func showAlert(message: String) {
@@ -576,4 +654,3 @@ extension UIColor {
             return UIColor(red: r, green: g, blue: b, alpha: a)
         }
 }
-

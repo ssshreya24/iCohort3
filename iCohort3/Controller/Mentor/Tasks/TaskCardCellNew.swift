@@ -33,10 +33,8 @@ class TaskCardCellNew: UICollectionViewCell {
 
     override func awakeFromNib() {
         super.awakeFromNib()
-
-        backgroundColor = UIColor(hex: "#F2F2F7")
-
-        cardView.backgroundColor = .white
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
         cardView.layer.cornerRadius = 15
         cardView.layer.masksToBounds = true
 
@@ -64,6 +62,14 @@ class TaskCardCellNew: UICollectionViewCell {
         
         // Setup attachment button
         attachmentButton.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
+        applyTheme()
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
 
     override func prepareForReuse() {
@@ -93,6 +99,25 @@ class TaskCardCellNew: UICollectionViewCell {
     
     @objc func attachmentButtonTapped() {
         onAttachmentTapped?()
+    }
+    
+    private func applyTheme() {
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        AppTheme.styleElevatedCard(cardView, cornerRadius: 15)
+        cardView.backgroundColor = isDark
+            ? UIColor(red: 0.27, green: 0.30, blue: 0.37, alpha: 0.98)
+            : .white
+        assignedToLabel.textColor = .secondaryLabel
+        nameLabel.textColor = .label
+        descriptionLabel.textColor = isDark ? UIColor(white: 0.86, alpha: 1) : .secondaryLabel
+        taskTitleLabel.textColor = .label
+        remarkTitleLabel.textColor = .label
+        remarkDescriptionLabel.textColor = .secondaryLabel
+        dateLabel.textColor = .secondaryLabel
+        separatorLine.backgroundColor = UIColor.separator.withAlphaComponent(isDark ? 0.28 : 0.18)
+        attachmentButton.setTitleColor(isDark ? .white : .systemBlue, for: .normal)
+        attachmentButton.tintColor = isDark ? .white : .systemBlue
+        elipsisTapped.tintColor = isDark ? .white : .label
     }
 
     static func makeAssignedAvatar(from displayName: String, size: CGSize = CGSize(width: 40, height: 40)) -> UIImage {

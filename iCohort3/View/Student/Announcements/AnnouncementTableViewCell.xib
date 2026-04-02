@@ -76,7 +76,7 @@
                         </constraints>
                     </view>
                 </subviews>
-                <color key="backgroundColor" name="bg"/>
+                <color key="backgroundColor" systemColor="clearColor"/>
                 <constraints>
                     <constraint firstAttribute="trailing" secondItem="pN4-ZA-8bN" secondAttribute="trailing" constant="16" id="D4U-tb-k6J"/>
                     <constraint firstItem="pN4-ZA-8bN" firstAttribute="top" secondItem="H2p-sc-9uM" secondAttribute="top" constant="8" id="ZMZ-u4-o6j"/>
@@ -85,7 +85,7 @@
                 </constraints>
             </tableViewCellContentView>
             <viewLayoutGuide key="safeArea" id="njF-e1-oar"/>
-            <color key="backgroundColor" name="Color"/>
+            <color key="backgroundColor" systemColor="clearColor"/>
             <connections>
                 <outlet property="attachmentButton" destination="GXe-Ci-y51" id="egJ-xs-ZEo"/>
                 <outlet property="bodyLabel" destination="8US-3w-fAY" id="AFZ-bU-Pau"/>
@@ -99,12 +99,9 @@
     </objects>
     <resources>
         <image name="rectangle.and.paperclip" catalog="system" width="128" height="106"/>
-        <namedColor name="Color">
-            <color red="0.75686274509803919" green="0.75294117647058822" blue="0.75686274509803919" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
-        <namedColor name="bg">
-            <color red="0.93725490196078431" green="0.93725490196078431" blue="0.96078431372549022" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
+        <systemColor name="clearColor">
+            <color alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>

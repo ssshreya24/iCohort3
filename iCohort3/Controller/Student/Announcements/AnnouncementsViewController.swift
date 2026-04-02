@@ -28,6 +28,7 @@ class AnnouncementsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        AppTheme.applyScreenBackground(to: view)
 
         setupViews()
         setupTableView()
@@ -38,6 +39,12 @@ class AnnouncementsViewController: UIViewController {
         edgesForExtendedLayout = [.top, .bottom]
         
         loadAnnouncementsFromSupabase()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+        tableView.superview?.backgroundColor = .clear
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -92,8 +99,16 @@ class AnnouncementsViewController: UIViewController {
     }
 
     private func setupViews() {
+        titleLabel.textColor = .label
+        placeholderLabel.textColor = .secondaryLabel
+        view.subviews.forEach { subview in
+            if subview !== tableView && subview !== titleLabel && subview !== searchButton && subview !== placeholderLabel {
+                subview.backgroundColor = .clear
+            }
+        }
         searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
-        searchButton.tintColor = .label
+        searchButton.tintColor = AppTheme.accent
+        AppTheme.styleFloatingControl(searchButton, cornerRadius: 22)
     }
 
     private func setupTableView() {
@@ -105,6 +120,11 @@ class AnnouncementsViewController: UIViewController {
 
         tableView.rowHeight = UITableView.automaticDimension
         tableView.tableFooterView = UIView()
+        tableView.backgroundView = {
+            let bg = UIView()
+            bg.backgroundColor = .clear
+            return bg
+        }()
     }
 
     // MARK: Search UI
@@ -114,8 +134,7 @@ class AnnouncementsViewController: UIViewController {
         searchField = UITextField()
 
         searchContainer.translatesAutoresizingMaskIntoConstraints = false
-        searchContainer.backgroundColor = .white
-        searchContainer.layer.cornerRadius = 20
+        AppTheme.styleFloatingControl(searchContainer, cornerRadius: 20)
         searchContainer.alpha = 0
         searchContainer.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
 
@@ -128,6 +147,7 @@ class AnnouncementsViewController: UIViewController {
 
         searchField.placeholder = "Search"
         searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.textColor = .label
         searchField.addTarget(self, action: #selector(searchTextChanged), for: .editingChanged)
         searchContainer.addSubview(searchField)
 

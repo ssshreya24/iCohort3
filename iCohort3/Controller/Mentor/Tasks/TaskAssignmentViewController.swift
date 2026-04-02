@@ -29,6 +29,10 @@ class TaskAssignmentViewController: UIViewController {
             updateEditMode()
         }
     }
+
+    private static let dynamicIconTint = UIColor { trait in
+        trait.userInterfaceStyle == .dark ? .white : .black
+    }
     
     // MARK: - UI Components
     private let scrollView: UIScrollView = {
@@ -46,7 +50,7 @@ class TaskAssignmentViewController: UIViewController {
     private let backButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.setImage(UIImage(systemName: "chevron.left"), for: .normal)
-        btn.tintColor = .black
+        btn.tintColor = dynamicIconTint
         btn.backgroundColor = .white
         btn.layer.cornerRadius = 22
         btn.translatesAutoresizingMaskIntoConstraints = false
@@ -64,7 +68,7 @@ class TaskAssignmentViewController: UIViewController {
     private let editButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.setTitle("Edit", for: .normal)
-        btn.setTitleColor(.black, for: .normal)
+        btn.setTitleColor(dynamicIconTint, for: .normal)
         btn.titleLabel?.font = .systemFont(ofSize: 17)
         btn.backgroundColor = .white
         btn.layer.cornerRadius = 22
@@ -75,7 +79,7 @@ class TaskAssignmentViewController: UIViewController {
     private let checkButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.setImage(UIImage(systemName: "checkmark"), for: .normal)
-        btn.tintColor = .black
+        btn.tintColor = dynamicIconTint
         btn.backgroundColor = .white
         btn.layer.cornerRadius = 22
         btn.isHidden = true
@@ -86,7 +90,7 @@ class TaskAssignmentViewController: UIViewController {
     private let closeButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.setImage(UIImage(systemName: "xmark"), for: .normal)
-        btn.tintColor = .black
+        btn.tintColor = dynamicIconTint
         btn.backgroundColor = .white
         btn.layer.cornerRadius = 22
         btn.isHidden = true
@@ -120,7 +124,7 @@ class TaskAssignmentViewController: UIViewController {
     
     private let pencilIcon: UIImageView = {
         let iv = UIImageView(image: UIImage(systemName: "pencil"))
-        iv.tintColor = .black
+        iv.tintColor = dynamicIconTint
         iv.translatesAutoresizingMaskIntoConstraints = false
         return iv
     }()

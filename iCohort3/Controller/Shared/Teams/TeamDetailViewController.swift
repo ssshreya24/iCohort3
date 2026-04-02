@@ -98,10 +98,22 @@ final class TeamDetailViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0.94, green: 0.95, blue: 0.96, alpha: 1)
+        applyTheme()
         buildUI()
         populateStaticInfo()
         Task { await loadMemberDetails() }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
 
     // MARK: - Build UI
@@ -112,6 +124,7 @@ final class TeamDetailViewController: UIViewController {
         scrollView.alwaysBounceVertical = true
         scrollView.showsVerticalScrollIndicator = false
         scrollView.showsHorizontalScrollIndicator = false
+        scrollView.backgroundColor = .clear
         view.addSubview(scrollView)
 
         // Content stack
@@ -542,10 +555,18 @@ final class TeamDetailViewController: UIViewController {
     // MARK: - Helpers
 
     private func styleCard(_ card: UIView) {
-        card.backgroundColor      = .white
-        card.layer.cornerRadius   = 16
-        card.layer.masksToBounds  = true
+        AppTheme.styleElevatedCard(card, cornerRadius: 16)
         card.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        view.tintColor = AppTheme.accent
+        scrollView.backgroundColor = .clear
+        contentStack.backgroundColor = .clear
+        problemTextView.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(
+            traitCollection.userInterfaceStyle == .dark ? 0.72 : 0.9
+        )
     }
 
     @objc private func saveProblemStatementTapped() {

@@ -52,6 +52,7 @@ class AdminDashboardViewController: UIViewController {
         super.viewDidLoad()
         
         setupUI()
+        applyTheme()
         getAdminInfo()
     }
     
@@ -65,21 +66,20 @@ class AdminDashboardViewController: UIViewController {
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        gradientLayer?.frame = view.bounds
+        AdminUIStyle.updateScreenBackgroundLayout(for: view)
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+            updateUI()
+        }
     }
     
     // MARK: - Setup
     private func setupUI() {
-        // Gradient background
-        gradientLayer = CAGradientLayer()
-        gradientLayer.colors = [
-            UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor,
-            UIColor(white: 0.95, alpha: 1).cgColor
-        ]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
-        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
-        gradientLayer.frame = view.bounds
-        view.layer.insertSublayer(gradientLayer, at: 0)
+        AdminUIStyle.styleScreenBackground(view)
         
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsVerticalScrollIndicator = true
@@ -143,7 +143,7 @@ class AdminDashboardViewController: UIViewController {
         
         viewAllTeamsButton.setTitle("View All", for: .normal)
         viewAllTeamsButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        viewAllTeamsButton.setTitleColor(.black, for: .normal)
+        viewAllTeamsButton.setTitleColor(.label, for: .normal)
         viewAllTeamsButton.addTarget(self, action: #selector(viewAllTeamsTapped), for: .touchUpInside)
         viewAllTeamsButton.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(viewAllTeamsButton)
@@ -231,6 +231,36 @@ class AdminDashboardViewController: UIViewController {
             requestsStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             requestsStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
         ])
+    }
+    
+    private func applyTheme() {
+        AdminUIStyle.styleScreenBackground(view)
+        scrollView.backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        headerContainerView.backgroundColor = .clear
+        titleLabel.textColor = .label
+        institutionLabel.textColor = .secondaryLabel
+        teamsHeaderLabel.textColor = .label
+        pendingRequestsLabel.textColor = .label
+        viewAllTeamsButton.setTitleColor(traitCollection.userInterfaceStyle == .dark ? .white : .black, for: .normal)
+        AdminUIStyle.styleCard(teamsContainerView)
+        styleSegmentedControl()
+        loadingIndicator?.color = AppTheme.accent
+        approvedStudentsCard?.applyTheme()
+        approvedMentorsCard?.applyTheme()
+    }
+    
+    private func styleSegmentedControl() {
+        let selectedTextColor = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        let normalTextColor = UIColor.secondaryLabel
+        segmentedControl.backgroundColor = AppTheme.floatingBackground
+        segmentedControl.selectedSegmentTintColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.12)
+            : UIColor.white.withAlphaComponent(0.72)
+        segmentedControl.setTitleTextAttributes([.foregroundColor: normalTextColor], for: .normal)
+        segmentedControl.setTitleTextAttributes([.foregroundColor: selectedTextColor], for: .selected)
+        segmentedControl.layer.cornerRadius = 16
+        segmentedControl.layer.masksToBounds = true
     }
     
     // MARK: - Data Loading
@@ -424,6 +454,7 @@ class AdminDashboardViewController: UIViewController {
                     let viewAllButton = UIButton(type: .system)
                     viewAllButton.setTitle("View all pending requests (\(pendingStudents.count))", for: .normal)
                     viewAllButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+                    viewAllButton.setTitleColor(AppTheme.accent, for: .normal)
                     viewAllButton.addTarget(self, action: #selector(viewAllPendingRequests), for: .touchUpInside)
                     requestsStackView.addArrangedSubview(viewAllButton)
                 }
@@ -452,6 +483,7 @@ class AdminDashboardViewController: UIViewController {
                     let viewAllButton = UIButton(type: .system)
                     viewAllButton.setTitle("View all pending requests (\(pendingMentors.count))", for: .normal)
                     viewAllButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+                    viewAllButton.setTitleColor(AppTheme.accent, for: .normal)
                     viewAllButton.addTarget(self, action: #selector(viewAllPendingRequests), for: .touchUpInside)
                     requestsStackView.addArrangedSubview(viewAllButton)
                 }
@@ -461,12 +493,7 @@ class AdminDashboardViewController: UIViewController {
 
     private func createPendingStudentCard(for student: SupabaseManager.StudentRegistration, index: Int) -> UIView {
         let card = UIView()
-        card.backgroundColor = .white
-        card.layer.cornerRadius = 16
-        card.layer.shadowColor = UIColor.black.cgColor
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
-        card.layer.shadowRadius = 8
-        card.layer.shadowOpacity = 0.05
+        AdminUIStyle.styleCard(card)
         card.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarView = UIView()
@@ -601,12 +628,7 @@ class AdminDashboardViewController: UIViewController {
     
     private func createPendingMentorCard(for mentor: SupabaseManager.MentorRegistration, index: Int) -> UIView {
         let card = UIView()
-        card.backgroundColor = .white
-        card.layer.cornerRadius = 16
-        card.layer.shadowColor = UIColor.black.cgColor
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
-        card.layer.shadowRadius = 8
-        card.layer.shadowOpacity = 0.05
+        AdminUIStyle.styleCard(card)
         card.translatesAutoresizingMaskIntoConstraints = false
         
         let avatarView = UIView()
@@ -1028,14 +1050,9 @@ class StatisticCardView: UIControl {
     
     init(icon: UIImage, iconColor: UIColor, count: String, title: String) {
         super.init(frame: .zero)
-        
-        backgroundColor = .white
-        layer.cornerRadius = 16
-        layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOffset = CGSize(width: 0, height: 2)
-        layer.shadowRadius = 8
-        layer.shadowOpacity = 0.05
-        
+
+        AdminUIStyle.styleCard(self)
+
         iconImageView.image = icon
         iconImageView.tintColor = iconColor
         iconImageView.contentMode = .scaleAspectFit
@@ -1071,6 +1088,8 @@ class StatisticCardView: UIControl {
             titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -18)
         ])
+        
+        applyTheme()
     }
     
     required init?(coder: NSCoder) {
@@ -1079,6 +1098,12 @@ class StatisticCardView: UIControl {
     
     func updateCount(_ count: String) {
         countLabel.text = count
+    }
+    
+    func applyTheme() {
+        AdminUIStyle.styleCard(self)
+        countLabel.textColor = .label
+        titleLabel.textColor = .secondaryLabel
     }
     
     override var isHighlighted: Bool {

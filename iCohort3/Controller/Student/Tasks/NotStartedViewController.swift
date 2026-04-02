@@ -37,7 +37,7 @@ final class NotStartedViewController: UIViewController, TeamContextReceiver {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        applyBackgroundGradient()
+        AppTheme.applyScreenBackground(to: view)
         StudentTaskScreenUIHelper.removeLegacyHeader(from: view, collectionView: collectionView)
         setupCollectionView()
         setupEmptyLabel()
@@ -199,20 +199,13 @@ final class NotStartedViewController: UIViewController, TeamContextReceiver {
     // MARK: - UI Setup
 
     private func applyBackgroundGradient() {
-        let g = CAGradientLayer()
-        g.colors = [
-            UIColor(red: 0.78, green: 0.88, blue: 0.95, alpha: 1).cgColor,
-            UIColor(white: 0.95, alpha: 1).cgColor
-        ]
-        g.startPoint = CGPoint(x: 0.5, y: 0)
-        g.endPoint   = CGPoint(x: 0.5, y: 1)
-        view.layer.insertSublayer(g, at: 0)
-        gradientLayer = g
+        AppTheme.applyScreenBackground(to: view)
+        gradientLayer = view.layer.sublayers?.first(where: { $0.name == "AppThemeGradientLayer" }) as? CAGradientLayer
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        gradientLayer?.frame = view.bounds
+        AppTheme.applyScreenBackground(to: view)
     }
 
     @objc private func closeTapped() {

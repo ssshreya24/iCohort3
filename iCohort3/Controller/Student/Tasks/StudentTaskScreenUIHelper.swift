@@ -31,11 +31,13 @@ enum StudentTaskScreenUIHelper {
     }
 
     static func makeCloseBarButton(target: Any?, action: Selector) -> UIBarButtonItem {
-        UIBarButtonItem(
+        let button = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
             style: .plain,
             target: target,
             action: action
         )
+        button.tintColor = AppTheme.accent
+        return button
     }
 }

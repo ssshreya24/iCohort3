@@ -62,10 +62,12 @@ final class RequestItemCell: UICollectionViewCell {
 
         actionButton.layer.cornerRadius = actionButton.bounds.height / 2
         actionButton.layer.masksToBounds = true
+        applyTheme()
     }
 
     private func buildUI() {
         contentView.backgroundColor = .clear
+        backgroundColor = .clear
 
         // Root stack
         rootStack.axis = .horizontal
@@ -162,7 +164,7 @@ final class RequestItemCell: UICollectionViewCell {
 
         // Divider
         divider.translatesAutoresizingMaskIntoConstraints = false
-        divider.backgroundColor = UIColor.black.withAlphaComponent(0.12)
+        divider.backgroundColor = UIColor.separator.withAlphaComponent(0.4)
         contentView.addSubview(divider)
 
         NSLayoutConstraint.activate([
@@ -238,6 +240,7 @@ final class RequestItemCell: UICollectionViewCell {
     // MARK: - Helpers
 
     private func apply(name: String, subtitle: String, avatar: UIImage?, showsDivider: Bool) {
+        applyTheme()
         nameLabel.text = name
         subtitleLabel.text = subtitle
         divider.isHidden = !showsDivider
@@ -254,5 +257,19 @@ final class RequestItemCell: UICollectionViewCell {
             avatarImageView.isHidden = true
             initialLabel.isHidden = false
         }
+    }
+
+    private func applyTheme() {
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        avatarCircle.backgroundColor = isDark
+            ? AppTheme.cardBackground.withAlphaComponent(0.95)
+            : accent.withAlphaComponent(0.22)
+        divider.backgroundColor = UIColor.separator.withAlphaComponent(isDark ? 0.28 : 0.4)
+        actionButton.backgroundColor = isDark ? AppTheme.floatingBackground : .clear
+        actionButton.layer.borderColor = AppTheme.accent.withAlphaComponent(isDark ? 0.45 : 0.85).cgColor
+        actionButton.tintColor = AppTheme.accent
+        nameLabel.textColor = .label
+        subtitleLabel.textColor = .secondaryLabel
+        initialLabel.textColor = .label
     }
 }

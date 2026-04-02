@@ -26,31 +26,43 @@ class StatusCardCell: UICollectionViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         
-        // Make cell backgrounds clear so gradient shows through
-        self.backgroundColor = .white
+        self.backgroundColor = .clear
         self.contentView.backgroundColor = .clear
         
-        containerView.layer.cornerRadius = 16
-        containerView.layer.masksToBounds = false
-        containerView.layer.shadowColor = UIColor.black.cgColor
-        containerView.layer.shadowOpacity = 0.08
-        containerView.layer.shadowOffset = CGSize(width: 0, height: 3)
-        containerView.layer.shadowRadius = 5
-        
-        // Make container clear/transparent so main gradient shows through
-        containerView.backgroundColor = .white
+        applyFloatingCardStyle()
         
         iconImageView.clipsToBounds = true
         iconImageView.contentMode = .scaleAspectFit
+        titleLabel.textColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        }
+        countLabel.textColor = .label
         
         actionButton.isHidden = true
         actionButton.tintColor = .systemRed
         actionButton.layer.zPosition = 10
     }
+
+    override var isHighlighted: Bool {
+        didSet {
+            animateFloatingState()
+        }
+    }
     
     override func layoutSubviews() {
         super.layoutSubviews()
         iconImageView.layer.cornerRadius = iconImageView.frame.width / 2
+        containerView.layer.shadowPath = UIBezierPath(
+            roundedRect: containerView.bounds,
+            cornerRadius: containerView.layer.cornerRadius
+        ).cgPath
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyFloatingCardStyle()
+        }
     }
     
     func configure(iconName: String?, title: String?, count: Int?, mode: StatusCardMode) {
@@ -133,6 +145,43 @@ class StatusCardCell: UICollectionViewCell {
     private func stopWiggle() {
         containerView.layer.removeAnimation(forKey: "wiggle")
         containerView.layer.removeAnimation(forKey: "nudge")
+    }
+
+    private func applyFloatingCardStyle() {
+        let isDarkMode = traitCollection.userInterfaceStyle == .dark
+        let darkCardColor = UIColor(red: 0.27, green: 0.30, blue: 0.37, alpha: 0.98)
+
+        containerView.layer.cornerRadius = 16
+        containerView.layer.masksToBounds = false
+        containerView.layer.borderWidth = 1
+        containerView.layer.borderColor = AppTheme.borderColor.resolvedColor(with: traitCollection).cgColor
+        containerView.backgroundColor = isDarkMode
+            ? darkCardColor
+            : .white
+
+        containerView.layer.shadowColor = UIColor.black.cgColor
+        containerView.layer.shadowOpacity = isDarkMode ? 0.10 : 0.0
+        containerView.layer.shadowOffset = CGSize(width: 0, height: 3)
+        containerView.layer.shadowRadius = isDarkMode ? 8 : 0
+
+        titleLabel.textColor = isDarkMode ? .white : .black
+        countLabel.textColor = isDarkMode ? .white : .black
+    }
+
+    private func animateFloatingState() {
+        UIView.animate(withDuration: 0.18,
+                       delay: 0,
+                       usingSpringWithDamping: 0.86,
+                       initialSpringVelocity: 0.6,
+                       options: [.allowUserInteraction, .beginFromCurrentState]) {
+            if self.isHighlighted {
+                self.containerView.transform = CGAffineTransform(translationX: 0, y: -4).scaledBy(x: 0.985, y: 0.985)
+                self.containerView.layer.shadowOpacity = self.traitCollection.userInterfaceStyle == .dark ? 0.14 : 0.04
+            } else {
+                self.containerView.transform = .identity
+                self.containerView.layer.shadowOpacity = self.traitCollection.userInterfaceStyle == .dark ? 0.10 : 0.0
+            }
+        }
     }
 }
 

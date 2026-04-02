@@ -255,6 +255,7 @@
                         <outlet property="contentView" destination="Crs-0h-64e" id="L16-Id-G39"/>
                         <outlet property="contentViewHeight" destination="7Vl-12-XLT" id="1SS-pj-JjY"/>
                         <outlet property="editButton" destination="11x-Xo-cA0" id="zJw-PU-jEj"/>
+                        <outlet property="profileButton" destination="jcH-wj-SRC" id="1gv-0o-BW1"/>
                         <outlet property="scrollView" destination="8yd-Tr-L65" id="mXF-Tf-SIS"/>
                         <outlet property="tableView" destination="Olb-95-I2y" id="obl-Rf-vb6"/>
                         <outlet property="tableViewHeight" destination="UxP-eJ-o6j" id="IrL-aY-La6"/>

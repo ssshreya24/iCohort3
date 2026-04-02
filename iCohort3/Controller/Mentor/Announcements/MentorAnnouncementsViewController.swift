@@ -41,6 +41,7 @@ class MentorAnnouncementsViewController: UIViewController {
         setupViews()
         setupTableView()
         setupSearchUI()
+        applyTheme()
         
         navigationController?.isNavigationBarHidden = true
         extendedLayoutIncludesOpaqueBars = true
@@ -48,6 +49,19 @@ class MentorAnnouncementsViewController: UIViewController {
         
         loadAnnouncementsFromSupabase()
         subscribeToRealtimeUpdates()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+        tableView.superview?.backgroundColor = .clear
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -226,7 +240,7 @@ class MentorAnnouncementsViewController: UIViewController {
 
     private func setupViews() {
         searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
-        searchButton.tintColor = .label
+        applyTheme()
     }
 
     private func setupTableView() {
@@ -238,6 +252,7 @@ class MentorAnnouncementsViewController: UIViewController {
 
         tableView.rowHeight = UITableView.automaticDimension
         tableView.tableFooterView = UIView()
+        tableView.backgroundColor = .clear
     }
 
     // MARK: Search UI
@@ -246,7 +261,7 @@ class MentorAnnouncementsViewController: UIViewController {
         searchField = UITextField()
 
         searchContainer.translatesAutoresizingMaskIntoConstraints = false
-        searchContainer.backgroundColor = .white
+        searchContainer.backgroundColor = .clear
         searchContainer.layer.cornerRadius = 20
         searchContainer.alpha = 0
         searchContainer.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
@@ -287,6 +302,8 @@ class MentorAnnouncementsViewController: UIViewController {
             searchField.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
             searchField.centerYAnchor.constraint(equalTo: searchContainer.centerYAnchor)
         ])
+        
+        styleSearchContainer()
     }
     
     @IBAction func addTaskButtonTapped(_ sender: Any) {
@@ -366,6 +383,54 @@ class MentorAnnouncementsViewController: UIViewController {
         }
         
         updateEmptyState() // ✅ Update empty state
+    }
+    
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        view.subviews.forEach { subview in
+            if subview !== tableView && subview !== searchContainer && subview !== searchButton && subview !== addTaskButton {
+                subview.backgroundColor = .clear
+            }
+        }
+        titleLabel.textColor = .label
+        placeholderLabel.textColor = .secondaryLabel
+        tableView.backgroundColor = .clear
+        tableView.superview?.backgroundColor = .clear
+        styleFloatingButton(searchButton, imageName: "magnifyingglass")
+        styleFloatingButton(addTaskButton, imageName: "plus")
+        styleSearchContainer()
+    }
+    
+    private func styleFloatingButton(_ button: UIButton, imageName: String?) {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        if let imageName, !imageName.isEmpty {
+            config.image = UIImage(systemName: imageName)
+        } else if let currentImage = button.currentImage {
+            config.image = currentImage
+        }
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        button.configuration = config
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
+        button.backgroundColor = .clear
+        button.tintColor = foreground
+        button.setTitleColor(foreground, for: .normal)
+    }
+    
+    private func styleSearchContainer() {
+        guard searchContainer != nil else { return }
+        AppTheme.styleNativeFloatingControl(searchContainer, cornerRadius: 20)
+        searchContainer.backgroundColor = .clear
+        searchIcon.tintColor = .secondaryLabel
+        searchField.textColor = .label
+        searchField.tintColor = AppTheme.accent
+        searchField.attributedPlaceholder = NSAttributedString(
+            string: "Search",
+            attributes: [.foregroundColor: UIColor.secondaryLabel]
+        )
+        closeButton.tintColor = .secondaryLabel
     }
     
     // ✅ NEW METHOD: Smart empty state handling

@@ -18,30 +18,38 @@ class AnnouncementCell: UITableViewCell {
     var onAttachmentTapped: (([AttachmentType]) -> Void)?
     
     private var attachments: [AttachmentType] = []
+    private let darkCardColor = UIColor(red: 0.27, green: 0.30, blue: 0.37, alpha: 0.98)
     
     var customTagColor: UIColor?
     
     override func awakeFromNib() {
         super.awakeFromNib()
 
-        containerView.layer.cornerRadius = 14
-        containerView.layer.masksToBounds = true
-
-        contentView.layer.shadowColor = UIColor.black.cgColor
-        contentView.layer.shadowOpacity = 0.06
-        contentView.layer.shadowRadius = 6
-        contentView.layer.shadowOffset = CGSize(width: 0, height: 3)
-        contentView.layer.masksToBounds = false
+        containerView.layer.masksToBounds = false
+        AppTheme.styleCard(containerView, cornerRadius: 14)
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
 
         tagLabel.layer.masksToBounds = true
         tagLabel.layer.cornerRadius = 12
         tagLabel.font = UIFont.systemFont(ofSize: 13, weight: .semibold)
         tagLabel.textColor = .white
         tagLabel.textAlignment = .center
+        titleLabel.textColor = .label
+        bodyLabel.textColor = .secondaryLabel
+        metaLabel.textColor = .tertiaryLabel
         
         // Setup attachment button
         attachmentButton.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
         setupAttachmentButton()
+        applyTheme()
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
     }
     
     private func setupAttachmentButton() {
@@ -118,5 +126,22 @@ class AnnouncementCell: UITableViewCell {
     @objc private func attachmentButtonTapped() {
         guard !attachments.isEmpty else { return }
         onAttachmentTapped?(attachments)
+    }
+    
+    private func applyTheme() {
+        let isDarkMode = traitCollection.userInterfaceStyle == .dark
+        containerView.backgroundColor = isDarkMode ? darkCardColor : .white
+        containerView.layer.borderWidth = 1
+        containerView.layer.borderColor = AppTheme.borderColor.resolvedColor(with: traitCollection).cgColor
+        containerView.layer.shadowColor = UIColor.black.cgColor
+        containerView.layer.shadowOpacity = isDarkMode ? 0.10 : 0.04
+        containerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        containerView.layer.shadowRadius = isDarkMode ? 8 : 12
+        
+        titleLabel.textColor = isDarkMode ? .white : .label
+        bodyLabel.textColor = isDarkMode ? UIColor(white: 0.86, alpha: 1) : .secondaryLabel
+        metaLabel.textColor = isDarkMode ? UIColor(white: 0.68, alpha: 1) : .tertiaryLabel
+        attachmentButton.setTitleColor(isDarkMode ? .white : .systemBlue, for: .normal)
+        attachmentButton.tintColor = isDarkMode ? .white : .systemBlue
     }
 }

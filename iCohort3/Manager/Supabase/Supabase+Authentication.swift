@@ -53,6 +53,23 @@ extension SupabaseManager {
         let otp: String
         let role: String
     }
+
+    private func sanitizedLoginOTPMessage(_ rawMessage: String) -> String {
+        let message = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = message.lowercased()
+
+        if lowercased.contains("invalid_grant") ||
+            lowercased.contains("token has been expired or revoked") ||
+            lowercased.contains("failed to get google access token") {
+            return "The OTP email service is temporarily unavailable. Please try again in a few minutes. If the issue continues, contact support."
+        }
+
+        if lowercased.contains("failed to send gmail message") {
+            return "We couldn't send your verification email right now. Please try again shortly."
+        }
+
+        return message
+    }
     
     // MARK: - Password Hashing
     
@@ -92,9 +109,9 @@ extension SupabaseManager {
             let resolvedMessage: String
 
             if let message, !message.isEmpty {
-                resolvedMessage = message
+                resolvedMessage = sanitizedLoginOTPMessage(message)
             } else if let rawBody, !rawBody.isEmpty {
-                resolvedMessage = rawBody
+                resolvedMessage = sanitizedLoginOTPMessage(rawBody)
             } else {
                 resolvedMessage = "Failed to process OTP request"
             }
@@ -117,7 +134,9 @@ extension SupabaseManager {
         )
 
         if response.success != true {
-            let message = response.error ?? response.message ?? "Failed to send verification code"
+            let message = sanitizedLoginOTPMessage(
+                response.error ?? response.message ?? "Failed to send verification code"
+            )
             throw NSError(
                 domain: "LoginOTPStart",
                 code: -1,
@@ -137,7 +156,9 @@ extension SupabaseManager {
             return session
         }
 
-        let message = response.error ?? "Failed to verify verification code"
+        let message = sanitizedLoginOTPMessage(
+            response.error ?? "Failed to verify verification code"
+        )
         throw NSError(
             domain: "LoginOTPVerify",
             code: response.status ?? -1,

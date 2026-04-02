@@ -53,6 +53,7 @@ final class TeamViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyTheme()
         setupTitle()
         setupCollection()
         Task { await bootstrapIdentityAndLoad() }
@@ -60,6 +61,7 @@ final class TeamViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        applyTheme()
         Task {
             await loadSendAndReceivedLists()
             // ✅ Refresh team data to get updated team_number
@@ -69,16 +71,31 @@ final class TeamViewController: UIViewController {
         }
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+            collectionView.reloadData()
+        }
+    }
+
     private func setupTitle() {
         switch startMode {
         case .create: titleLabel.text = "Create Team"
         case .join:   titleLabel.text = "Join Team"
         }
+        titleLabel.textColor = .white
     }
 
     private func setupCollection() {
         collectionView.dataSource = self
         collectionView.delegate = self
+        collectionView.backgroundColor = .clear
         collectionView.collectionViewLayout = makeLayout()
 
         collectionView.register(UINib(nibName: "TeamSummaryCell", bundle: nil),
@@ -92,6 +109,25 @@ final class TeamViewController: UIViewController {
 
         collectionView.register(RequestItemCell.self,
                                 forCellWithReuseIdentifier: "RequestItemCell")
+    }
+
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        view.tintColor = AppTheme.accent
+        collectionView?.backgroundColor = .clear
+        titleLabel?.textColor = .white
+        styleButtons(in: view)
+    }
+
+    private func styleButtons(in root: UIView) {
+        for subview in root.subviews {
+            if let button = subview as? UIButton {
+                AppTheme.styleFloatingControl(button, cornerRadius: 22)
+                button.tintColor = .label
+                button.setTitleColor(.label, for: .normal)
+            }
+            styleButtons(in: subview)
+        }
     }
 
     private func makeLayout() -> UICollectionViewCompositionalLayout {
