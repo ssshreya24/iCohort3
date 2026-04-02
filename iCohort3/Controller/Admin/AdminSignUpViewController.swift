@@ -27,6 +27,7 @@ class AdminSignUpViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         
         setupUI()
         setupPlaceholders()

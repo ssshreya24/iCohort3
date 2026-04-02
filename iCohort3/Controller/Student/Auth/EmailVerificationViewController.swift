@@ -35,6 +35,7 @@ class EmailVerificationViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupUI()
         setupConstraints()
     }

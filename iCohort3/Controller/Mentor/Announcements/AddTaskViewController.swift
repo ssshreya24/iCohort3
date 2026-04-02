@@ -55,6 +55,7 @@ class AddTaskViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
     
         setupColorButtons()
         setupTextFieldListener()

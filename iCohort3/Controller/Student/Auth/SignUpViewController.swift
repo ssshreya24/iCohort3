@@ -28,6 +28,7 @@ class SignUpViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupBackButton()
         roundViews()
         setupPlaceholders()

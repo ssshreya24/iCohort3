@@ -636,6 +636,7 @@ class TaskAssignmentViewController: UIViewController {
     
     // MARK: - Actions
     @objc private func dismissCalendar() {
+        view.endEditing(true)
         calendarContainer.isHidden = true
     }
 

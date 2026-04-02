@@ -36,6 +36,7 @@ class MSignUpViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupUI()
         setupPlaceholders()
         loadInstitutes()

@@ -45,6 +45,7 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupInitialState()
         applyRoundedCorners()
         setupLoadingIndicator()

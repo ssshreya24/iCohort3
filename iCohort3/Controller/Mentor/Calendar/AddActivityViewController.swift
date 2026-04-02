@@ -28,6 +28,7 @@ class AddActivityViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupUI()
         
         if #available(iOS 14.0, *) {

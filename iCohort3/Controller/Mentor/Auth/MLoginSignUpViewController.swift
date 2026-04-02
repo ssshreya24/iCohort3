@@ -22,6 +22,7 @@ class MLoginSignUpViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupUI()
     }
     override func viewWillAppear(_ animated: Bool) {

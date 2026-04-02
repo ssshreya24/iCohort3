@@ -60,6 +60,7 @@ class OTPViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupUI()
         setupOTPFields()
         backButton.tintColor = .white

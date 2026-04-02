@@ -77,6 +77,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
         setupUI()
         setupInitialState()
         setupLoadingIndicator()
