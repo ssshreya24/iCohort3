@@ -8,6 +8,11 @@ import UIKit
 
 final class TeamDetailViewController: UIViewController {
 
+    private enum TeamCacheKeys {
+        static let currentTeamId = "current_team_id"
+        static let currentTeamNumber = "current_team_number"
+    }
+
     struct ViewModel {
         let teamId: String
         let teamNumber: Int
@@ -109,6 +114,7 @@ final class TeamDetailViewController: UIViewController {
         AppTheme.applyScreenBackground(to: view)
     }
 
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -666,6 +672,7 @@ final class TeamDetailViewController: UIViewController {
                           let team = try await SupabaseManager.shared.fetchActiveTeamForUser(userId: personId) else { return }
                     try await SupabaseManager.shared.leaveTeam(team: team, userId: personId)
                     await MainActor.run {
+                        self.clearLocalStudentTeamCache()
                         self.dismiss(animated: true)
                     }
                 } catch {
@@ -682,6 +689,13 @@ final class TeamDetailViewController: UIViewController {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func clearLocalStudentTeamCache() {
+        UserDefaults.standard.removeObject(forKey: TeamCacheKeys.currentTeamId)
+        UserDefaults.standard.removeObject(forKey: TeamCacheKeys.currentTeamNumber)
+        NotificationCenter.default.post(name: .tasksDidUpdate, object: nil)
+        NotificationCenter.default.post(name: .teamMembershipDidChange, object: nil)
     }
 
     private func avatarColor(for name: String) -> UIColor {

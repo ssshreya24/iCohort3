@@ -334,7 +334,7 @@ extension SupabaseManager {
             
             let update = LastLoginUpdate(last_login: ISO8601DateFormatter().string(from: Date()))
             
-            try? await client
+            _ = try? await client
                 .from("admin_accounts")
                 .update(update)
                 .eq("email", value: email)

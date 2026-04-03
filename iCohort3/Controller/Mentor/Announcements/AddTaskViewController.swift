@@ -80,6 +80,7 @@ class AddTaskViewController: UIViewController {
         styleFloatingButton(doneButton, imageName: "checkmark")
     }
     
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -254,8 +255,6 @@ class AddTaskViewController: UIViewController {
                 let description = descriptionTextField.text
                 let category = categoryName.text
                 let colorHex = selectedColor.toHexString()
-                let author = "Program Mentor"
-
                 Task {
                     do {
                         try await SupabaseManager.shared.saveAnnouncementToSupabase(

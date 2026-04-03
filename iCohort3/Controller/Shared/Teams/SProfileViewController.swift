@@ -20,6 +20,8 @@ class SProfileViewController: UIViewController {
 
     // Cached so myTeamTapped knows whether to show sheet or go to detail
     private var cachedTeamInfo: SupabaseManager.StudentTeamInfo?
+    private var teamStatusTask: Task<Void, Never>?
+    private var teamStatusRevision: Int = 0
     private let signOutButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -32,6 +34,18 @@ class SProfileViewController: UIViewController {
         super.viewDidLoad()
         configureStaticUI()
         restoreSwitchState()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleTeamMembershipDidChange),
+            name: .teamMembershipDidChange,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAvatarUpdated),
+            name: NSNotification.Name("ProfileAvatarUpdated"),
+            object: nil
+        )
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -41,6 +55,7 @@ class SProfileViewController: UIViewController {
         refreshTheme()
     }
 
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -65,19 +80,21 @@ class SProfileViewController: UIViewController {
         refreshTheme()
     }
 
+    @objc private func handleAvatarUpdated() {
+        loadCachedAvatar()
+    }
+
     private func configureDefaultAvatar() {
         guard let avatarImageView else { return }
 
-        if let logo = UIImage(named: "logo") {
-            avatarImageView.image = logo
-            avatarImageView.tintColor = nil
-            avatarImageView.contentMode = .scaleAspectFill
-        } else {
-            avatarImageView.image = UIImage(systemName: "person.circle.fill")
-            avatarImageView.tintColor = .systemGray3
-            avatarImageView.contentMode = .center
-        }
+        let name = UserDefaults.standard.string(forKey: "current_user_name") ?? "Student"
+        let initial = String(name.first ?? "S")
+
+        avatarImageView.image = UIImage.generateAvatar(initials: initial)
+        avatarImageView.tintColor = nil
+        avatarImageView.contentMode = .scaleAspectFill
         avatarImageView.clipsToBounds = true
+        avatarImageView.backgroundColor = .clear
     }
 
     private func loadCachedAvatar() {
@@ -96,16 +113,24 @@ class SProfileViewController: UIViewController {
     // MARK: - Team Status
 
     private func loadTeamStatus() {
+        teamStatusRevision += 1
+        let revision = teamStatusRevision
+        teamStatusTask?.cancel()
+
         guard let personId = UserDefaults.standard.string(forKey: "current_person_id"),
               !personId.isEmpty else {
+            cachedTeamInfo = nil
             applyTeamButtonStyle(teamInfo: nil)
             return
         }
 
-        Task {
+        teamStatusTask = Task { [weak self] in
+            guard let self else { return }
             let teamInfo = try? await SupabaseManager.shared.fetchTeamInfoForStudent(personId: personId)
-            cachedTeamInfo = teamInfo
+            guard !Task.isCancelled else { return }
             await MainActor.run {
+                guard self.teamStatusRevision == revision else { return }
+                self.cachedTeamInfo = teamInfo
                 self.applyTeamButtonStyle(teamInfo: teamInfo)
             }
         }
@@ -116,15 +141,15 @@ class SProfileViewController: UIViewController {
     private func applyTeamButtonStyle(teamInfo: SupabaseManager.StudentTeamInfo?) {
         guard let btn = myTeamTapArea else { return }
 
-        // Reset to plain style first
-        btn.setTitleColor(.label, for: .normal)
-        btn.backgroundColor = .clear
-
         guard let info = teamInfo else {
-            // No team yet — leave the button as-is (storyboard title like "My Team")
+            // No team yet — right side says "Not Set"
+            btn.setTitle("Not Set", for: .normal)
+            btn.setTitleColor(.secondaryLabel, for: .normal)
+            btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .regular)
             return
         }
 
+        // Has team — show team info on button
         if info.isFull {
             // ✅ Green text: "Team 3  ·  Full ✓"
             let title = "Team \(info.teamNumber) "
@@ -181,32 +206,8 @@ class SProfileViewController: UIViewController {
             return
         }
 
-        // Not full — show Create / Join sheet as before
-        let sheet = UIAlertController(
-            title: "My Team",
-            message: "Choose an option",
-            preferredStyle: .actionSheet
-        )
-        sheet.addAction(UIAlertAction(title: "Create Team", style: .default) { [weak self] _ in
-            self?.presentTeamVC(startMode: .create)
-        })
-        sheet.addAction(UIAlertAction(title: "Join Team", style: .default) { [weak self] _ in
-            self?.presentJoinTeamsVC()
-        })
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-
-        if let popover = sheet.popoverPresentationController {
-            if let view = sender as? UIView {
-                popover.sourceView = view
-                popover.sourceRect = view.bounds
-            } else {
-                popover.sourceView = self.view
-                popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY,
-                                            width: 0, height: 0)
-            }
-            popover.permittedArrowDirections = .up
-        }
-        present(sheet, animated: true)
+        // Not full — go directly to TeamViewController (handles both create and join)
+        presentTeamVC(startMode: .create)
     }
 
     @IBAction func notificationChanged(_ sender: UISwitch) {
@@ -254,6 +255,25 @@ class SProfileViewController: UIViewController {
         window.layer.add(transition, forKey: kCATransition)
         window.rootViewController = loginNav
         window.makeKeyAndVisible()
+    }
+
+    @objc private func handleTeamMembershipDidChange() {
+        teamStatusRevision += 1
+        teamStatusTask?.cancel()
+        cachedTeamInfo = nil
+        applyTeamButtonStyle(teamInfo: nil)
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard let self else { return }
+            await MainActor.run {
+                self.loadTeamStatus()
+            }
+        }
+    }
+
+    deinit {
+        teamStatusTask?.cancel()
+        NotificationCenter.default.removeObserver(self)
     }
 
     // MARK: - Helpers
@@ -470,21 +490,4 @@ class SProfileViewController: UIViewController {
         present(vc, animated: true)
     }
 
-    private func presentJoinTeamsVC() {
-        let vc = JoinTeamsViewController(nibName: "JoinTeamsViewController", bundle: nil)
-        vc.modalPresentationStyle = .pageSheet
-        vc.modalTransitionStyle = .coverVertical
-
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [
-                .custom(identifier: .init("almostFull")) { context in
-                    context.maximumDetentValue
-                }
-            ]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 24
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-        }
-        present(vc, animated: true)
-    }
 }

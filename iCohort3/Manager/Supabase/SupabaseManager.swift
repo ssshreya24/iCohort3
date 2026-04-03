@@ -410,6 +410,34 @@ extension SupabaseManager {
             case member3Id = "member3_id"
             case member3Name = "member3_name"
         }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+
+            if let member2Id {
+                try container.encode(member2Id, forKey: .member2Id)
+            } else {
+                try container.encodeNil(forKey: .member2Id)
+            }
+
+            if let member2Name {
+                try container.encode(member2Name, forKey: .member2Name)
+            } else {
+                try container.encodeNil(forKey: .member2Name)
+            }
+
+            if let member3Id {
+                try container.encode(member3Id, forKey: .member3Id)
+            } else {
+                try container.encodeNil(forKey: .member3Id)
+            }
+
+            if let member3Name {
+                try container.encode(member3Name, forKey: .member3Name)
+            } else {
+                try container.encodeNil(forKey: .member3Name)
+            }
+        }
     }
 
     func fetchActiveTeamForUser(userId: String) async throws -> NewTeamRow? {
@@ -506,7 +534,7 @@ extension SupabaseManager {
                 .update(update)
                 .eq("id", value: team.id.uuidString)
                 .execute()
-            
+
             // ✅ FIXED: No need to clear student_profile_complete
             // The view automatically updates when new_teams changes
             print("✅ Removed member2 from team")
@@ -525,7 +553,7 @@ extension SupabaseManager {
                 .update(update)
                 .eq("id", value: team.id.uuidString)
                 .execute()
-            
+
             // ✅ FIXED: No need to clear student_profile_complete
             print("✅ Removed member3 from team")
             return
@@ -756,18 +784,18 @@ extension SupabaseManager {
     }
     
     /// Fetch students for picker (includes is_profile_complete filter)
-    func fetchProfileCompleteStudents() async throws -> [StudentPickerRow] {
-        print("🔍 [fetchProfileCompleteStudents] START")
+    /// Fetches all students (even if profile is incomplete) so they can be invited right after admin approval
+    func fetchAllEligibleStudents() async throws -> [StudentPickerRow] {
+        print("🔍 [fetchAllEligibleStudents] START")
         
         let rows: [StudentPickerRow] = try await client
             .from("student_profile_complete")
             .select("person_id,full_name,first_name,last_name,department,reg_no,srm_mail")
-            .eq("is_profile_complete", value: true)
             .order("full_name", ascending: true)
             .execute()
             .value
         
-        print("✅ [fetchProfileCompleteStudents] COUNT =", rows.count)
+        print("✅ [fetchAllEligibleStudents] COUNT =", rows.count)
         return rows
     }
 }

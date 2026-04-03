@@ -29,6 +29,12 @@ final class JoinTeamsViewController: UIViewController {
         applyTheme()
         setupTitle()
         setupCollectionView()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleTeamMembershipDidChange),
+            name: .teamMembershipDidChange,
+            object: nil
+        )
         
         Task {
             await bootstrapIdentity()
@@ -47,6 +53,7 @@ final class JoinTeamsViewController: UIViewController {
         AppTheme.applyScreenBackground(to: view)
     }
 
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -57,7 +64,7 @@ final class JoinTeamsViewController: UIViewController {
 
     private func setupTitle() {
         titleLabel.text = "Join Team"
-        titleLabel.textColor = .white
+        titleLabel.textColor = .label
     }
 
     private func setupCollectionView() {
@@ -80,7 +87,7 @@ final class JoinTeamsViewController: UIViewController {
     private func applyTheme() {
         AppTheme.applyScreenBackground(to: view)
         view.tintColor = AppTheme.accent
-        titleLabel?.textColor = .white
+        titleLabel?.textColor = .label
         collectionView?.backgroundColor = .clear
         AppTheme.styleFloatingControl(closeButton, cornerRadius: 22)
         closeButton.tintColor = .label
@@ -371,6 +378,16 @@ final class JoinTeamsViewController: UIViewController {
     /// Check if a team has already been sent a request
     private func hasAlreadySentRequest(to teamId: UUID) -> Bool {
         return sentRequests.contains { $0.to_team_id == teamId }
+    }
+
+    @objc private func handleTeamMembershipDidChange() {
+        if presentedViewController == nil {
+            dismiss(animated: true)
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }
 

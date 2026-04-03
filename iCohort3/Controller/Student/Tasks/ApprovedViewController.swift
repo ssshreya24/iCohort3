@@ -162,7 +162,7 @@ class ApprovedViewController: UIViewController, TeamContextReceiver {
 
     private func moveApprovedTask(taskId: String, to status: String) async {
         do {
-            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: status)
+            _ = try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: status)
             if let teamId, !teamId.isEmpty {
                 try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId, teamNo: teamNo)
             }

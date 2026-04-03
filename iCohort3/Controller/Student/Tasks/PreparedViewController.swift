@@ -156,7 +156,7 @@ class PreparedViewController: UIViewController, TeamContextReceiver {
 
     private func movePreparedTaskToCompleted(taskId: String) async {
         do {
-            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "completed")
+            _ = try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "completed")
             if let teamId, !teamId.isEmpty {
                 try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId, teamNo: teamNo)
             }

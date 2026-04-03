@@ -55,6 +55,7 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         loadCachedAvatar()
     }
 
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -140,18 +141,13 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
 
     private func configureAvatarPlaceholder() {
         guard let avatarImageView = avatarImageView else { return }
-        if let logo = UIImage(named: "logo") {
-            avatarImageView.image = logo
-            avatarImageView.tintColor = nil
-            avatarImageView.contentMode = .scaleAspectFill
-        } else {
-            let pointSize = max(42, avatarImageView.bounds.width * 0.72)
-            let placeholderConfig = UIImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
-            avatarImageView.image = UIImage(systemName: "person.circle.fill", withConfiguration: placeholderConfig)
-            avatarImageView.tintColor = .systemGray3
-            avatarImageView.contentMode = .center
-        }
+        let name = UserDefaults.standard.string(forKey: "current_user_name") ?? "Student"
+        let initial = String(name.first ?? "S")
+        avatarImageView.image = UIImage.generateAvatar(initials: initial)
+        avatarImageView.tintColor = nil
+        avatarImageView.contentMode = .scaleAspectFill
         avatarImageView.clipsToBounds = true
+        avatarImageView.backgroundColor = .clear
     }
 
     private func configureAvatarEditButton() {
@@ -492,6 +488,7 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
                let base64 = SupabaseManager.shared.imageToBase64(image: square) {
                 currentPersonId = personId
                 SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "student")
+                NotificationCenter.default.post(name: NSNotification.Name("ProfileAvatarUpdated"), object: nil)
             }
         }
         dismiss(animated: true)

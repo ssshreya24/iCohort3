@@ -11,6 +11,7 @@ import Supabase
 
 extension Notification.Name {
     static let tasksDidUpdate = Notification.Name("TasksDidUpdate")
+    static let teamMembershipDidChange = Notification.Name("TeamMembershipDidChange")
 }
 
 class SDashboardViewController: UIViewController {
@@ -142,6 +143,7 @@ class SDashboardViewController: UIViewController {
         applyHeaderFloatingControls()
     }
 
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -656,7 +658,7 @@ extension SDashboardViewController: UITableViewDataSource, UITableViewDelegate {
         var model = DashboardTask(title: task.title, dueDate: formatDisplayDate(task.assigned_date),
                                   assigneeName: "Team \(currentTeamNo)", assigneeImage: nil,
                                   attachmentNames: [], status: task.status, remark: task.remark)
-        model.taskId = task.id; model.teamId = task.team_id ?? (currentTeamId ?? ""); model.mentorId = task.mentor_id
+        model.taskId = task.id; model.teamId = task.team_id; model.mentorId = task.mentor_id
         vc.task = model; vc.modalPresentationStyle = .fullScreen; present(vc, animated: true)
     }
 }

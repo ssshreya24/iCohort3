@@ -312,7 +312,7 @@ extension SupabaseManager {
             .eq("email", value: normalizedEmail)
             .execute()
 
-        try? await client
+        _ = try? await client
             .from("mentor_registrations")
             .update(update)
             .eq("email", value: normalizedEmail)

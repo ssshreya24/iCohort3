@@ -109,6 +109,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         }
     }
     
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -125,17 +126,11 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
     private func configureAvatarPlaceholder() {
         isShowingPlaceholderAvatar = true
-        if let logo = UIImage(named: "logo") {
-            avatarImageView.image = logo
-            avatarImageView.tintColor = nil
-            avatarImageView.contentMode = .scaleAspectFill
-        } else {
-            let pointSize = max(46, avatarImageView.bounds.width * 0.72)
-            let placeholderConfig = UIImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
-            avatarImageView.image = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
-            avatarImageView.tintColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
-            avatarImageView.contentMode = .center
-        }
+        let name = UserDefaults.standard.string(forKey: "current_user_name") ?? "Mentor"
+        let initial = String(name.first ?? "M")
+        avatarImageView.image = UIImage.generateAvatar(initials: initial)
+        avatarImageView.tintColor = nil
+        avatarImageView.contentMode = .scaleAspectFill
     }
     
     private func getCurrentUserPersonId() {
@@ -659,7 +654,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
                     
                     // Reload to get updated greeting
                     Task {
-                        await self.loadProfileData(personId: personId)
+                        self.loadProfileData(personId: personId)
                     }
                 }
                 

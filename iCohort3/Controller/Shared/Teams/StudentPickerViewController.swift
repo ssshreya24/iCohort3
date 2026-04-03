@@ -39,7 +39,7 @@ final class StudentPickerViewController: UIViewController {
             do {
                 print("🟣 [StudentPickerVC] loadStudents() called")
 
-                let rows = try await SupabaseManager.shared.fetchProfileCompleteStudents()
+                let rows = try await SupabaseManager.shared.fetchAllEligibleStudents()
 
                 // optional: remove yourself from list
                 let cleaned = rows.filter { $0.person_id != myUserId }

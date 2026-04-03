@@ -33,7 +33,7 @@ extension SupabaseManager {
 
         // Listen for INSERT
         Task {
-            await channel.onPostgresChange(
+            _ = channel.onPostgresChange(
                 InsertAction.self,
                 schema: "public",
                 table:  "tasks",
@@ -43,7 +43,7 @@ extension SupabaseManager {
             }
 
             // Listen for UPDATE (status changes, edits)
-            await channel.onPostgresChange(
+            _ = channel.onPostgresChange(
                 UpdateAction.self,
                 schema: "public",
                 table:  "tasks",
@@ -53,7 +53,7 @@ extension SupabaseManager {
             }
 
             // Listen for DELETE
-            await channel.onPostgresChange(
+            _ = channel.onPostgresChange(
                 DeleteAction.self,
                 schema: "public",
                 table:  "tasks",
@@ -62,8 +62,12 @@ extension SupabaseManager {
                 DispatchQueue.main.async { onChange() }
             }
 
-            await channel.subscribe()
-            print("✅ Realtime subscribed: \(channelName)")
+            do {
+                try await channel.subscribeWithError()
+                print("✅ Realtime subscribed: \(channelName)")
+            } catch {
+                print("❌ Realtime subscribe failed: \(error)")
+            }
         }
 
         return channel

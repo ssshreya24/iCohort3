@@ -46,6 +46,7 @@ class MentorMainTabBarViewController: UITabBarController {
         AppTheme.configureTabBarAppearance(tabBar)
     }
 
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }

@@ -12,6 +12,7 @@ class RequestSwitcherCell: UICollectionViewCell {
         @IBOutlet weak var segmented: UISegmentedControl!
 
         private var onToggle: ((Bool) -> Void)?
+        private var onSegmentChanged: ((Int) -> Void)?
 
         override func awakeFromNib() {
             super.awakeFromNib()
@@ -20,21 +21,21 @@ class RequestSwitcherCell: UICollectionViewCell {
         }
 
         private func setupAppearance() {
-            if segmented.numberOfSegments == 0 {
-                segmented.insertSegment(withTitle: "Requests Send ↑", at: 0, animated: false)
-                segmented.insertSegment(withTitle: "Requests Received ↓", at: 1, animated: false)
-            }
+            segmented.removeAllSegments()
+            segmented.insertSegment(withTitle: "Send Requests", at: 0, animated: false)
+            segmented.insertSegment(withTitle: "Received", at: 1, animated: false)
+            segmented.insertSegment(withTitle: "Join a Team", at: 2, animated: false)
             contentView.backgroundColor = .clear
             backgroundColor = .clear
             segmented.backgroundColor = AppTheme.cardBackground
             segmented.selectedSegmentTintColor = AppTheme.accent.withAlphaComponent(0.28)
             let normalAttrs: [NSAttributedString.Key : Any] = [
                 .foregroundColor: UIColor.secondaryLabel,
-                .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+                .font: UIFont.systemFont(ofSize: 13, weight: .semibold)
             ]
             let selectedAttrs: [NSAttributedString.Key : Any] = [
                 .foregroundColor: UIColor.label,
-                .font: UIFont.systemFont(ofSize: 14, weight: .semibold)
+                .font: UIFont.systemFont(ofSize: 13, weight: .semibold)
             ]
             segmented.setTitleTextAttributes(normalAttrs, for: .normal)
             segmented.setTitleTextAttributes(selectedAttrs, for: .selected)
@@ -46,18 +47,29 @@ class RequestSwitcherCell: UICollectionViewCell {
         }
 
         @objc private func segChanged() {
-            // true => Sent (index 0), false => Received (index 1)
             onToggle?(segmented.selectedSegmentIndex == 0)
+            onSegmentChanged?(segmented.selectedSegmentIndex)
         }
 
-        /// Call from your controller to set state + callback
+        /// Legacy 2-tab configure (for JoinTeamsViewController compatibility)
         func configure(showingSent: Bool, onToggle: @escaping (Bool) -> Void) {
             self.onToggle = onToggle
-            if segmented.numberOfSegments == 0 {
-                // Safety if awakeFromNib hasn’t run yet
+            self.onSegmentChanged = nil
+            if segmented.numberOfSegments < 2 {
                 setupAppearance()
             }
             segmented.selectedSegmentIndex = showingSent ? 0 : 1
+            wireAction()
+        }
+
+        /// 3-tab configure (for merged TeamViewController)
+        func configure(selectedIndex: Int, onSegmentChanged: @escaping (Int) -> Void) {
+            self.onSegmentChanged = onSegmentChanged
+            self.onToggle = nil
+            if segmented.numberOfSegments < 3 {
+                setupAppearance()
+            }
+            segmented.selectedSegmentIndex = selectedIndex
             wireAction()
         }
     }

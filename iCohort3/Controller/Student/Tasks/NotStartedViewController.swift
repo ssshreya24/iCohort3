@@ -174,7 +174,7 @@ final class NotStartedViewController: UIViewController, TeamContextReceiver {
 
     private func moveTaskToInProgress(taskId: String) async {
         do {
-            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "ongoing")
+            _ = try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "ongoing")
             if let tid = teamId, !tid.isEmpty {
                 try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: tid)
             }

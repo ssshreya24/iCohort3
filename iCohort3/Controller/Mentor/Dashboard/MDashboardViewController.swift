@@ -294,13 +294,14 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
     }
 
     private func loadMentorAvatar() {
-        let placeholderConfig = UIImage.SymbolConfiguration(pointSize: 28, weight: .medium)
-        let placeholderImage = UIImage(systemName: "person.crop.circle.fill", withConfiguration: placeholderConfig)
+        let name = UserDefaults.standard.string(forKey: "current_user_name") ?? "Mentor"
+        let initial = String(name.first ?? "M")
+        let placeholderImage = UIImage.generateAvatar(initials: initial)
 
         guard !currentMentorId.isEmpty else {
             profileImageView.image = placeholderImage
-            profileImageView.tintColor = .label
-            profileImageView.contentMode = .center
+            profileImageView.tintColor = nil
+            profileImageView.contentMode = .scaleAspectFill
             return
         }
 
@@ -314,8 +315,8 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                     self.setProfileAvatarImage(image)
                 } else {
                     self.profileImageView.image = placeholderImage
-                    self.profileImageView.tintColor = .label
-                    self.profileImageView.contentMode = .center
+                    self.profileImageView.tintColor = nil
+                    self.profileImageView.contentMode = .scaleAspectFill
                 }
             }
         }

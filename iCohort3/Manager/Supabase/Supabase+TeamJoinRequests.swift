@@ -268,27 +268,6 @@ extension SupabaseManager {
             .eq("id", value: team.id.uuidString)
             .execute()
         
-        // Clear team info from leaving creator using the existing private function
-        // We need to make clearStudentTeamInfo internal instead of private
-        // OR we can duplicate the code here
-        struct StudentTeamClear: Encodable {
-            let teamId: String?
-            let teamNo: Int?
-            
-            enum CodingKeys: String, CodingKey {
-                case teamId = "team_id"
-                case teamNo = "team_no"
-            }
-        }
-        
-        let clearUpdate = StudentTeamClear(teamId: nil, teamNo: nil)
-        
-        _ = try await client
-            .from("student_profile_complete")
-            .update(clearUpdate)
-            .eq("person_id", value: leavingCreatorId)
-            .execute()
-        
         print("✅ Promoted \(newCreatorName) to creator")
     }
     

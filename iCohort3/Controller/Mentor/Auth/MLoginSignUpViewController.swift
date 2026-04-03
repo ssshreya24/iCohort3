@@ -39,10 +39,6 @@ class MLoginSignUpViewController: UIViewController {
         rememberMeButton.tintColor = .clear
         rememberMeButton.layer.shadowOpacity = 0
         rememberMeButton.layer.masksToBounds = false
-        rememberMeButton.contentEdgeInsets = .zero
-        rememberMeButton.imageEdgeInsets = .zero
-        rememberMeButton.adjustsImageWhenHighlighted = false
-        rememberMeButton.showsTouchWhenHighlighted = false
         rememberMeButton.imageView?.contentMode = .scaleAspectFit
         rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
         rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)

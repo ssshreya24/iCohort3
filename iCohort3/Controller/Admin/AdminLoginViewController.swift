@@ -58,9 +58,6 @@ class AdminLoginViewController: UIViewController {
         rememberMeButton.backgroundColor = .clear
         rememberMeButton.tintColor = .clear
         rememberMeButton.layer.shadowOpacity = 0
-        rememberMeButton.contentEdgeInsets = .zero
-        rememberMeButton.imageEdgeInsets = .zero
-        rememberMeButton.adjustsImageWhenHighlighted = false
         rememberMeButton.imageView?.contentMode = .scaleAspectFit
         rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
         rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)

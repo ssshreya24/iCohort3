@@ -8,6 +8,11 @@ enum TeamStartMode {
 
 final class TeamViewController: UIViewController {
 
+    private enum TeamCacheKeys {
+        static let currentTeamId = "current_team_id"
+        static let currentTeamNumber = "current_team_number"
+    }
+
     @IBOutlet weak var collectionView: UICollectionView!
     @IBOutlet weak var titleLabel: UILabel!
 
@@ -15,11 +20,13 @@ final class TeamViewController: UIViewController {
         case summary
         case members
         case requestSwitcher
+        case search
         case requests
     }
 
     var startMode: TeamStartMode = .create
-    private var showingSent = true  // ✅ TRUE = Send Requests (student list), FALSE = Received Requests
+    /// 0 = Send Invites, 1 = Received Invites, 2 = Join a Team
+    private var requestSegment: Int = 0
 
     private var currentTeam: SupabaseManager.NewTeamRow?
 
@@ -49,14 +56,111 @@ final class TeamViewController: UIViewController {
     private var sentInvites: [SupabaseManager.TeamInviteRow] = []
 
     // ✅ Received Requests tab = received invites
-    private var receivedInvites: [SupabaseManager.TeamInviteRow] = []
+    enum ReceivedItem {
+        case invite(SupabaseManager.TeamInviteRow)
+        case joinRequest(SupabaseManager.TeamJoinRequestRow)
+    }
+    private var receivedItems: [ReceivedItem] = []
+    
+    // ✅ Join a Team tab = other teams to join
+    private var availableTeams: [(team: SupabaseManager.NewTeamRow, creator: SupabaseManager.StudentPickerRow)] = []
+    private var sentJoinRequests: [SupabaseManager.TeamJoinRequestRow] = []
+    private var incomingJoinRequests: [SupabaseManager.TeamJoinRequestRow] = []
+    private var mySrmMail: String = ""
+
+    private var searchQuery: String = ""
+
+    private var filteredEligibleStudents: [SupabaseManager.StudentPickerRow] {
+        if searchQuery.isEmpty { return eligibleStudents }
+        return eligibleStudents.filter { $0.displayName.lowercased().contains(searchQuery.lowercased()) }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         applyTheme()
         setupTitle()
         setupCollection()
+        setupCloseButton()
+        setupOptionsButton()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleTeamMembershipDidChange),
+            name: .teamMembershipDidChange,
+            object: nil
+        )
         Task { await bootstrapIdentityAndLoad() }
+    }
+
+    /// Finds the xmark close button from XIB and wires it to dismiss
+    private func setupCloseButton() {
+        // The XIB close button is a direct subview of the main view
+        for subview in view.subviews {
+            if let btn = subview as? UIButton {
+                // It's the only UIButton that is not the collectionView or titleLabel
+                btn.addTarget(self, action: #selector(didTapClose), for: .touchUpInside)
+                // Style it properly
+                AppTheme.styleFloatingControl(btn, cornerRadius: btn.bounds.height / 2)
+                btn.tintColor = .label
+                break
+            }
+        }
+    }
+
+    @objc private func didTapClose() {
+        dismiss(animated: true)
+    }
+
+    /// Adds a top-right options button since there is no UINavigationBar
+    private func setupOptionsButton() {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        btn.addTarget(self, action: #selector(didTapOptions), for: .touchUpInside)
+        
+        AppTheme.styleFloatingControl(btn, cornerRadius: 22) // 44/2
+        btn.tintColor = .label
+        
+        view.addSubview(btn)
+        NSLayoutConstraint.activate([
+            btn.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            btn.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -31),
+            btn.widthAnchor.constraint(equalToConstant: 44),
+            btn.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+
+    @objc private func didTapOptions() {
+        let sheet = UIAlertController(title: "Team Options", message: nil, preferredStyle: .actionSheet)
+        
+        if let team = currentTeam {
+            if team.createdById == myUserId {
+                sheet.addAction(UIAlertAction(title: "Delete Team", style: .destructive) { [weak self] _ in
+                    self?.didTapDeleteTeam()
+                })
+            } else {
+                sheet.addAction(UIAlertAction(title: "Leave Team", style: .destructive) { [weak self] _ in
+                    self?.didTapLeaveTeam()
+                })
+            }
+        } else {
+            sheet.addAction(UIAlertAction(title: "Create Team", style: .default) { [weak self] _ in
+                self?.didTapCreateTeamAuth()
+            })
+        }
+        
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.width - 40, y: 40, width: 1, height: 1)
+        }
+        
+        present(sheet, animated: true)
+    }
+
+    // Wrapper to match selector if needed, or simply re-use existing
+    @objc private func didTapCreateTeamAuth() {
+        didTapCreateTeam()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -64,10 +168,8 @@ final class TeamViewController: UIViewController {
         applyTheme()
         Task {
             await loadSendAndReceivedLists()
-            // ✅ Refresh team data to get updated team_number
-            if currentTeam != nil {
-                await loadOrCreateTeamIfNeeded(personIdString: myUserId)
-            }
+            // ✅ Refresh team data
+            await loadExistingTeam(personIdString: myUserId)
         }
     }
 
@@ -76,6 +178,7 @@ final class TeamViewController: UIViewController {
         AppTheme.applyScreenBackground(to: view)
     }
 
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
@@ -85,11 +188,8 @@ final class TeamViewController: UIViewController {
     }
 
     private func setupTitle() {
-        switch startMode {
-        case .create: titleLabel.text = "Create Team"
-        case .join:   titleLabel.text = "Join Team"
-        }
-        titleLabel.textColor = .white
+        titleLabel.text = "My Team"
+        titleLabel.textColor = .label
     }
 
     private func setupCollection() {
@@ -109,13 +209,19 @@ final class TeamViewController: UIViewController {
 
         collectionView.register(RequestItemCell.self,
                                 forCellWithReuseIdentifier: "RequestItemCell")
+
+        collectionView.register(UICollectionViewCell.self,
+                                forCellWithReuseIdentifier: "EmptyStateCell")
+        
+        collectionView.register(SearchCell.self,
+                                forCellWithReuseIdentifier: "SearchCell")
     }
 
     private func applyTheme() {
         AppTheme.applyScreenBackground(to: view)
         view.tintColor = AppTheme.accent
         collectionView?.backgroundColor = .clear
-        titleLabel?.textColor = .white
+        titleLabel?.textColor = .label
         styleButtons(in: view)
     }
 
@@ -181,6 +287,20 @@ final class TeamViewController: UIViewController {
                 s.contentInsets = .init(top: 12, leading: 16, bottom: 4, trailing: 16)
                 return s
 
+            case .search:
+                let item = NSCollectionLayoutItem(
+                    layoutSize: .init(widthDimension: .fractionalWidth(1.0),
+                                      heightDimension: .estimated(50))
+                )
+                let group = NSCollectionLayoutGroup.vertical(
+                    layoutSize: .init(widthDimension: .fractionalWidth(1.0),
+                                      heightDimension: .estimated(50)),
+                    subitems: [item]
+                )
+                let s = NSCollectionLayoutSection(group: group)
+                s.contentInsets = .init(top: 0, leading: 16, bottom: 8, trailing: 16)
+                return s
+
             case .requests:
                 let item = NSCollectionLayoutItem(
                     layoutSize: .init(widthDimension: .fractionalWidth(1.0),
@@ -232,12 +352,13 @@ final class TeamViewController: UIViewController {
             let mini = try await SupabaseManager.shared.fetchStudentMiniProfile(personIdString: myUserId)
             myRegNo = mini.reg_no ?? ""
             myDept  = mini.department ?? ""
+            mySrmMail = mini.srm_mail ?? ""
             print("✅ [TeamVC] MiniProfile => reg:", myRegNo, "dept:", myDept)
         } catch {
             print("❌ [TeamVC] MiniProfile fetch FAILED:", error.localizedDescription)
         }
 
-        await loadOrCreateTeamIfNeeded(personIdString: myUserId)
+        await loadExistingTeam(personIdString: myUserId)
         await loadSendAndReceivedLists()
 
         await MainActor.run {
@@ -245,45 +366,57 @@ final class TeamViewController: UIViewController {
         }
     }
 
-    // MARK: - Load / Create Team
+    // MARK: - Load Existing Team (no auto-create)
 
-    private func loadOrCreateTeamIfNeeded(personIdString: String) async {
+    private func loadExistingTeam(personIdString: String) async {
         do {
-            // ✅ First check if team exists
             if let team = try await SupabaseManager.shared.fetchActiveTeamForUser(userId: personIdString) {
                 currentTeam = team
                 print("✅ [TeamVC] Loaded existing team #\(team.teamNumber)")
-                
-                // ✅ Load member info with names
                 await loadTeamMemberInfo(team: team)
-                
-            } else if startMode == .create {
-                // ✅ Only create if in create mode
-                let newTeam = try await SupabaseManager.shared.createTeamIfNone(
-                    personIdString: personIdString,
-                    fallbackUserName: myName
-                )
-                currentTeam = newTeam
-                print("✅ [TeamVC] Created new team #\(newTeam.teamNumber)")
-                
-                // ✅ Load member info
-                await loadTeamMemberInfo(team: newTeam)
-                
             } else {
                 currentTeam = nil
                 memberInfos = []
-                print("⚠️ [TeamVC] No team found (join mode)")
+                print("ℹ️ [TeamVC] No team found — user can create or join")
+                // Default to Join a Team tab when no team
+                await MainActor.run { self.requestSegment = 2 }
             }
 
             await MainActor.run {
                 self.applyTeamToUI()
-                self.configureActionButton()
-                self.collectionView.reloadSections(IndexSet([Section.summary.rawValue, Section.members.rawValue]))
+                self.collectionView.reloadData()
             }
         } catch {
-            print("❌ [TeamVC] loadOrCreateTeamIfNeeded error:", error.localizedDescription)
+            print("❌ [TeamVC] loadExistingTeam error:", error.localizedDescription)
             await MainActor.run {
                 self.showAlert(title: "Error", message: error.localizedDescription)
+            }
+        }
+    }
+
+    // MARK: - Create Team (explicit user action)
+
+    @objc private func didTapCreateTeam() {
+        Task {
+            do {
+                let newTeam = try await SupabaseManager.shared.createTeamIfNone(
+                    personIdString: myUserId,
+                    fallbackUserName: myName
+                )
+                currentTeam = newTeam
+                print("✅ [TeamVC] Created new team #\(newTeam.teamNumber)")
+                await loadTeamMemberInfo(team: newTeam)
+                await loadSendAndReceivedLists()
+
+                await MainActor.run {
+                    self.requestSegment = 0  // Switch to Send Invites
+                    self.applyTeamToUI()
+                    self.collectionView.reloadData()
+                }
+            } catch {
+                await MainActor.run {
+                    self.showAlert(title: "Error", message: error.localizedDescription)
+                }
             }
         }
     }
@@ -419,7 +552,7 @@ final class TeamViewController: UIViewController {
             print("🟦 [TeamVC] loadSendAndReceivedLists START")
 
             // 1) Students list for SEND tab
-            let students = try await SupabaseManager.shared.fetchProfileCompleteStudents()
+            let students = try await SupabaseManager.shared.fetchAllEligibleStudents()
             
             // ✅ Filter out self AND anyone in current team
             var filtered = students.filter { $0.person_id != myUserId }
@@ -431,9 +564,16 @@ final class TeamViewController: UIViewController {
             
             print("✅ [TeamVC] eligibleStudents =", filtered.count)
 
-            // 2) Received invites for RECEIVED tab
-            let received = try await SupabaseManager.shared.fetchReceivedInvites(toPersonId: myUserId)
-            print("✅ [TeamVC] receivedInvites =", received.count)
+            // 2) Received invites & Join requests for RECEIVED tab
+            let rInvites = try await SupabaseManager.shared.fetchReceivedInvites(toPersonId: myUserId)
+            let rJoinReqs = try? await SupabaseManager.shared.fetchReceivedJoinRequests(toPersonId: myUserId)
+            
+            var combinedReceived: [ReceivedItem] = rInvites.map { .invite($0) }
+            if let reqs = rJoinReqs {
+                combinedReceived.append(contentsOf: reqs.map { .joinRequest($0) })
+            }
+            
+            print("✅ [TeamVC] receivedItems =", combinedReceived.count)
 
             // 3) Sent invites (only for max-2 rule)
             if let team = currentTeam {
@@ -444,9 +584,26 @@ final class TeamViewController: UIViewController {
                 await MainActor.run { self.sentInvites = [] }
             }
 
+            // 4) Join a Team tab — load other teams and sent join requests
+            let allTeams = try await SupabaseManager.shared.fetchAllActiveTeams()
+            let myTeamId = currentTeam?.id
+            let otherTeams = allTeams.filter { $0.id != myTeamId }
+            
+            var teamsWithCreators: [(team: SupabaseManager.NewTeamRow, creator: SupabaseManager.StudentPickerRow)] = []
+            for team in otherTeams {
+                if let creatorInfo = try? await SupabaseManager.shared.fetchStudentPickerInfo(personId: team.createdById) {
+                    teamsWithCreators.append((team: team, creator: creatorInfo))
+                }
+            }
+            
+            let sentJoins = try await SupabaseManager.shared.fetchSentJoinRequests(fromPersonId: myUserId)
+            print("✅ [TeamVC] availableTeams =", teamsWithCreators.count, "sentJoinRequests =", sentJoins.count)
+
             await MainActor.run {
                 self.eligibleStudents = filtered
-                self.receivedInvites = received
+                self.receivedItems = combinedReceived
+                self.availableTeams = teamsWithCreators
+                self.sentJoinRequests = sentJoins
                 self.collectionView.reloadSections(IndexSet(integer: Section.requests.rawValue))
             }
         } catch {
@@ -502,6 +659,51 @@ final class TeamViewController: UIViewController {
         }
     }
 
+    // MARK: - Join a Team (send join request to another team)
+
+    private func hasAlreadySentJoinRequest(to teamId: UUID) -> Bool {
+        return sentJoinRequests.contains { $0.to_team_id == teamId }
+    }
+
+    private func sendJoinRequest(to teamInfo: (team: SupabaseManager.NewTeamRow, creator: SupabaseManager.StudentPickerRow)) {
+        let team = teamInfo.team
+        print("📨 [TeamVC] Sending join request to Team #\(team.teamNumber)")
+
+        Task {
+            do {
+                try await SupabaseManager.shared.sendTeamJoinRequest(
+                    fromPersonId: myUserId,
+                    fromName: myName,
+                    fromRegNo: myRegNo,
+                    fromDepartment: myDept,
+                    fromSrmMail: mySrmMail,
+                    toTeamId: team.id,
+                    toTeamNumber: team.teamNumber,
+                    toCreatedById: team.createdById
+                )
+
+                await loadSendAndReceivedLists()
+
+                await MainActor.run {
+                    self.showAlert(title: "Request Sent", message: "Join request sent to Team #\(team.teamNumber) ✅")
+                }
+            } catch {
+                print("❌ [TeamVC] sendJoinRequest error:", error.localizedDescription)
+
+                var errorMessage = error.localizedDescription
+                if errorMessage.contains("row-level security") || errorMessage.contains("RLS") {
+                    errorMessage = "Permission denied. Please check your database RLS policies."
+                } else if errorMessage.contains("duplicate") || errorMessage.contains("unique") {
+                    errorMessage = "You've already sent a request to this team."
+                }
+
+                await MainActor.run {
+                    self.showAlert(title: "Error", message: errorMessage)
+                }
+            }
+        }
+    }
+
     // ✅ Accept Invite
     private func acceptIncomingInvite(_ invite: SupabaseManager.TeamInviteRow) async {
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -514,46 +716,38 @@ final class TeamViewController: UIViewController {
         let shouldProceed = await withCheckedContinuation { continuation in
             DispatchQueue.main.async {
                 let alert = UIAlertController(
-                    title: "Accept Invite",
-                    message: "Join team #\(invite.team_number)? You will leave your current team if you have one.",
+                    title: "Join Team #\(invite.team_number)?",
+                    message: "You are about to join a new team. If you currently have your own empty team, it will be automatically deleted.",
                     preferredStyle: .alert
                 )
-                
                 alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
-                    print("❌ User cancelled")
                     continuation.resume(returning: false)
                 })
-                
-                alert.addAction(UIAlertAction(title: "Accept", style: .default) { _ in
-                    print("✅ User confirmed")
+                alert.addAction(UIAlertAction(title: "Join", style: .default) { _ in
                     continuation.resume(returning: true)
                 })
-                
                 self.present(alert, animated: true)
             }
         }
         
         guard shouldProceed else {
-            print("🛑 User cancelled - EXITING\n")
+            print("❌ User cancelled accept invite.")
             return
         }
         
-        let loadingAlert = await MainActor.run { () -> UIAlertController in
-            let alert = UIAlertController(title: nil, message: "Joining team...", preferredStyle: .alert)
-            let spinner = UIActivityIndicatorView(style: .medium)
-            spinner.translatesAutoresizingMaskIntoConstraints = false
-            spinner.startAnimating()
-            alert.view.addSubview(spinner)
-            NSLayoutConstraint.activate([
-                spinner.centerXAnchor.constraint(equalTo: alert.view.centerXAnchor),
-                spinner.bottomAnchor.constraint(equalTo: alert.view.bottomAnchor, constant: -20)
-            ])
-            self.present(alert, animated: true)
-            return alert
+        // Show loading
+        let loadingAlert = UIAlertController(title: "Joining...", message: "\nPlease wait", preferredStyle: .alert)
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.center = CGPoint(x: 135, y: 65)
+        spinner.startAnimating()
+        loadingAlert.view.addSubview(spinner)
+        
+        await MainActor.run {
+            present(loadingAlert, animated: true)
         }
         
         do {
-            print("⏸️  Calling acceptInvite...")
+            print("📡 Calling server: acceptInvite")
             
             try await SupabaseManager.shared.acceptInvite(
                 inviteId: invite.id,
@@ -569,7 +763,7 @@ final class TeamViewController: UIViewController {
             try? await Task.sleep(nanoseconds: 300_000_000)
             
             print("⏸️  Reloading...")
-            await loadOrCreateTeamIfNeeded(personIdString: myUserId)
+            await loadExistingTeam(personIdString: myUserId)
             await loadSendAndReceivedLists()
             print("✅ Reload complete")
             
@@ -599,35 +793,67 @@ final class TeamViewController: UIViewController {
         }
     }
 
+    // ✅ Accept Join Request
+    private func acceptIncomingJoinRequest(_ req: SupabaseManager.TeamJoinRequestRow) async {
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🎯 [TeamVC] acceptIncomingJoinRequest START")
+        print("   Request ID:", req.id)
+        print("   From:", req.from_name)
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        let shouldProceed = await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                let alert = UIAlertController(
+                    title: "Accept \(req.from_name)?",
+                    message: "Add \(req.from_name) to your team?",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+                    continuation.resume(returning: false)
+                })
+                alert.addAction(UIAlertAction(title: "Accept", style: .default) { _ in
+                    continuation.resume(returning: true)
+                })
+                self.present(alert, animated: true)
+            }
+        }
+        
+        guard shouldProceed else { return }
+        
+        let loadingAlert = UIAlertController(title: "Accepting...", message: "\nPlease wait", preferredStyle: .alert)
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.center = CGPoint(x: 135, y: 65)
+        spinner.startAnimating()
+        loadingAlert.view.addSubview(spinner)
+        
+        await MainActor.run { present(loadingAlert, animated: true) }
+        
+        do {
+            try await SupabaseManager.shared.acceptTeamJoinRequest(
+                requestId: req.id,
+                receiverId: myUserId
+            )
+            
+            await MainActor.run { loadingAlert.dismiss(animated: true) }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            
+            await loadExistingTeam(personIdString: myUserId)
+            await loadSendAndReceivedLists()
+            
+            await MainActor.run {
+                self.showAlert(title: "Success", message: "\(req.from_name) added to your team. ✅")
+            }
+        } catch {
+            await MainActor.run { loadingAlert.dismiss(animated: true) }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
+        }
+    }
+
     // MARK: - UI
 
     private func applyTeamToUI() {
         // This is now handled by memberInfos loaded from loadTeamMemberInfo
-    }
-
-    private func configureActionButton() {
-        guard let team = currentTeam else {
-            navigationItem.rightBarButtonItem = nil
-            return
-        }
-
-        if team.createdById == myUserId {
-            navigationItem.rightBarButtonItem = UIBarButtonItem(
-                title: "Delete Team",
-                style: .plain,
-                target: self,
-                action: #selector(didTapDeleteTeam)
-            )
-        } else if team.member2Id == myUserId || team.member3Id == myUserId {
-            navigationItem.rightBarButtonItem = UIBarButtonItem(
-                title: "Leave Team",
-                style: .plain,
-                target: self,
-                action: #selector(didTapLeaveTeam)
-            )
-        } else {
-            navigationItem.rightBarButtonItem = nil
-        }
     }
 
     @objc private func didTapDeleteTeam() {
@@ -646,12 +872,14 @@ final class TeamViewController: UIViewController {
     private func deleteTeamFlow(teamId: UUID) async {
         do {
             try await SupabaseManager.shared.deleteTeam(teamId: teamId, creatorId: myUserId)
+            await MainActor.run {
+                self.clearLocalStudentTeamCache()
+            }
             currentTeam = nil
             memberInfos = []
             await MainActor.run {
-                self.configureActionButton()
                 self.collectionView.reloadData()
-                self.showAlert(title: "Deleted", message: "Team deleted successfully.")
+                self.dismiss(animated: true)
             }
         } catch {
             await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
@@ -678,6 +906,9 @@ final class TeamViewController: UIViewController {
     private func leaveTeamFlow(team: SupabaseManager.NewTeamRow) async {
         do {
             try await SupabaseManager.shared.leaveTeam(team: team, userId: myUserId)
+            await MainActor.run {
+                self.clearLocalStudentTeamCache()
+            }
             currentTeam = try await SupabaseManager.shared.fetchActiveTeamForUser(userId: myUserId)
             
             if let updatedTeam = currentTeam {
@@ -687,9 +918,9 @@ final class TeamViewController: UIViewController {
             }
             
             await MainActor.run {
-                self.configureActionButton()
                 self.collectionView.reloadData()
-                self.showAlert(title: "Left Team", message: "You have been removed from the team.")
+                self.collectionView.reloadData()
+                self.dismiss(animated: true)
             }
         } catch {
             await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
@@ -700,6 +931,23 @@ final class TeamViewController: UIViewController {
         let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
         present(a, animated: true)
+    }
+
+    private func clearLocalStudentTeamCache() {
+        UserDefaults.standard.removeObject(forKey: TeamCacheKeys.currentTeamId)
+        UserDefaults.standard.removeObject(forKey: TeamCacheKeys.currentTeamNumber)
+        NotificationCenter.default.post(name: .tasksDidUpdate, object: nil)
+        NotificationCenter.default.post(name: .teamMembershipDidChange, object: nil)
+    }
+
+    @objc private func handleTeamMembershipDidChange() {
+        if presentedViewController == nil {
+            dismiss(animated: true)
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }
 
@@ -717,8 +965,14 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
         case .summary:         return 1
         case .members:         return 3
         case .requestSwitcher: return 1
+        case .search:          return requestSegment == 0 ? 1 : 0
         case .requests:
-            return showingSent ? eligibleStudents.count : receivedInvites.count
+            switch requestSegment {
+            case 0:  return max(1, filteredEligibleStudents.count)
+            case 1:  return max(1, receivedItems.count)
+            case 2:  return max(1, availableTeams.count)
+            default: return 0
+            }
         }
     }
 
@@ -738,7 +992,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
             if let team = currentTeam {
                 title = "Team \(team.teamNumber)"
             } else {
-                title = (startMode == .create) ? "Creating..." : "No Active Team"
+                title = "No Team Yet"
             }
 
             cell.configure(teamName: title,
@@ -780,30 +1034,109 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
 
         case .requestSwitcher:
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "RequestSwitcherCell", for: indexPath) as! RequestSwitcherCell
-            cell.configure(showingSent: showingSent) { [weak self] showSent in
+            cell.configure(selectedIndex: requestSegment) { [weak self] index in
                 guard let self else { return }
-                self.showingSent = showSent
-                self.collectionView.reloadSections(IndexSet(integer: Section.requests.rawValue))
+                self.requestSegment = index
+                self.searchQuery = "" // Reset search when switching tabs
+                UIView.performWithoutAnimation {
+                    self.collectionView.reloadSections(IndexSet([Section.search.rawValue, Section.requests.rawValue]))
+                }
+            }
+            return cell
+
+        case .search:
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "SearchCell", for: indexPath) as! SearchCell
+            cell.searchBar.text = searchQuery
+            cell.onSearchTextChanged = { [weak self] query in
+                guard self?.searchQuery != query else { return }
+                guard self?.requestSegment == 0 else { return }
+                self?.searchQuery = query
+                UIView.performWithoutAnimation {
+                    self?.collectionView.reloadSections(IndexSet(integer: Section.requests.rawValue))
+                }
             }
             return cell
 
         case .requests:
+            // ✅ Check for empty state first
+            let isEmpty: Bool
+            let emptyMessage: String
+            switch requestSegment {
+            case 0:
+                isEmpty = filteredEligibleStudents.isEmpty
+                emptyMessage = currentTeam == nil ? "Create a team to send invites" : (searchQuery.isEmpty ? "No students available" : "No results found")
+            case 1:
+                isEmpty = receivedItems.isEmpty
+                emptyMessage = "No received requests yet"
+            case 2:
+                isEmpty = availableTeams.isEmpty
+                emptyMessage = "No teams available to join"
+            default:
+                isEmpty = true
+                emptyMessage = ""
+            }
+
+            if isEmpty {
+                let emptyCell = collectionView.dequeueReusableCell(withReuseIdentifier: "EmptyStateCell", for: indexPath)
+                emptyCell.contentView.subviews.forEach { $0.removeFromSuperview() }
+                let label = UILabel()
+                label.text = emptyMessage
+                label.textColor = .secondaryLabel
+                label.font = .systemFont(ofSize: 15, weight: .regular)
+                label.textAlignment = .center
+                label.translatesAutoresizingMaskIntoConstraints = false
+                emptyCell.contentView.addSubview(label)
+                NSLayoutConstraint.activate([
+                    label.centerXAnchor.constraint(equalTo: emptyCell.contentView.centerXAnchor),
+                    label.centerYAnchor.constraint(equalTo: emptyCell.contentView.centerYAnchor),
+                    label.leadingAnchor.constraint(greaterThanOrEqualTo: emptyCell.contentView.leadingAnchor, constant: 16),
+                    label.trailingAnchor.constraint(lessThanOrEqualTo: emptyCell.contentView.trailingAnchor, constant: -16),
+                ])
+                return emptyCell
+            }
+
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "RequestItemCell", for: indexPath) as! RequestItemCell
 
-            if showingSent {
-                // ✅ STUDENT LIST (Send Requests)
-                let s = eligibleStudents[indexPath.item]
+            switch requestSegment {
+            case 0:
+                // ✅ SEND INVITES — student list
+                let s = filteredEligibleStudents[indexPath.item]
                 let subtitle = s.srm_mail ?? s.reg_no ?? s.department ?? "Student"
-                let isLast = indexPath.item == eligibleStudents.count - 1
+                let isLast = indexPath.item == filteredEligibleStudents.count - 1
 
-                // ✅ Check if limit reached
-                if sentInvites.count >= 2 {
+                // Check if this student already has a pending invite
+                if let existingInvite = sentInvites.first(where: { $0.to_person_id == s.person_id }) {
+                    // Already invited — show Undo
+                    cell.configureForSentWithUndo(
+                        name: s.displayName,
+                        subtitle: "Invite Sent",
+                        showsDivider: !isLast,
+                        onUndo: { [weak self] in
+                            guard let self else { return }
+                            Task {
+                                do {
+                                    try await SupabaseManager.shared.rejectInvite(inviteId: existingInvite.id)
+                                    await self.loadSendAndReceivedLists()
+                                    await MainActor.run {
+                                        self.showAlert(title: "Withdrawn", message: "Invite to \(s.displayName) withdrawn.")
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        self.showAlert(title: "Error", message: error.localizedDescription)
+                                    }
+                                }
+                            }
+                        }
+                    )
+                } else if sentInvites.count >= 2 {
+                    // Limit reached — disabled
                     cell.configureDisabled(
                         name: s.displayName,
                         subtitle: subtitle,
                         showsDivider: !isLast
                     )
                 } else {
+                    // Available to invite
                     cell.configure(
                         name: s.displayName,
                         subtitle: subtitle,
@@ -813,20 +1146,144 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                         showsDivider: !isLast
                     )
                 }
-            } else {
-                // ✅ RECEIVED INVITES
-                let inv = receivedInvites[indexPath.item]
-                let isLast = indexPath.item == receivedInvites.count - 1
-                cell.configureForReceived(
-                    name: inv.from_name,
-                    avatar: UIImage(systemName: "person.crop.circle.fill"),
-                    showsDivider: !isLast
-                ) { [weak self] in
-                    guard let self else { return }
-                    Task { await self.acceptIncomingInvite(inv) }
+
+            case 1:
+                // ✅ RECEIVED INVITES & JOIN REQUESTS — with Accept + Reject buttons
+                let item = receivedItems[indexPath.item]
+                let isLast = indexPath.item == receivedItems.count - 1
+                
+                switch item {
+                case .invite(let inv):
+                    cell.configureForReceived(
+                        name: inv.from_name,
+                        subtitle: "Invited you to Team #\(inv.team_number)",
+                        avatar: UIImage(systemName: "person.crop.circle.fill"),
+                        showsDivider: !isLast,
+                        onAccept: { [weak self] in
+                            guard let self else { return }
+                            Task { await self.acceptIncomingInvite(inv) }
+                        },
+                        onReject: { [weak self] in
+                            guard let self else { return }
+                            Task {
+                                do {
+                                    try await SupabaseManager.shared.rejectInvite(inviteId: inv.id)
+                                    await self.loadSendAndReceivedLists()
+                                    await MainActor.run {
+                                        self.showAlert(title: "Rejected", message: "Invite from \(inv.from_name) was rejected.")
+                                    }
+                                } catch {
+                                    await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
+                                }
+                            }
+                        }
+                    )
+                case .joinRequest(let req):
+                    cell.configureForReceived(
+                        name: req.from_name,
+                        subtitle: "Wants to join your team",
+                        avatar: UIImage(systemName: "person.crop.circle.fill"),
+                        showsDivider: !isLast,
+                        onAccept: { [weak self] in
+                            guard let self else { return }
+                            Task { await self.acceptIncomingJoinRequest(req) }
+                        },
+                        onReject: { [weak self] in
+                            guard let self else { return }
+                            Task {
+                                do {
+                                    try await SupabaseManager.shared.rejectTeamJoinRequest(requestId: req.id)
+                                    await self.loadSendAndReceivedLists()
+                                    await MainActor.run {
+                                        self.showAlert(title: "Rejected", message: "Join request from \(req.from_name) was rejected.")
+                                    }
+                                } catch {
+                                    await MainActor.run { self.showAlert(title: "Error", message: error.localizedDescription) }
+                                }
+                            }
+                        }
+                    )
                 }
+
+            case 2:
+                // ✅ JOIN A TEAM — browse other teams
+                let teamInfo = availableTeams[indexPath.item]
+                let team = teamInfo.team
+                let creator = teamInfo.creator
+                let teamName = "Team #\(team.teamNumber)"
+                let subtitle = "Created by \(creator.displayName)"
+                let isLast = indexPath.item == availableTeams.count - 1
+
+                if hasAlreadySentJoinRequest(to: team.id) {
+                    cell.configureForSentWithUndo(
+                        name: teamName,
+                        subtitle: "Request Sent",
+                        showsDivider: !isLast,
+                        onUndo: { [weak self] in
+                            guard let self else { return }
+                            // Find the matching sent request to withdraw
+                            guard let request = self.sentJoinRequests.first(where: { $0.to_team_id == team.id }) else { return }
+                            Task {
+                                do {
+                                    try await SupabaseManager.shared.rejectTeamJoinRequest(requestId: request.id)
+                                    await self.loadSendAndReceivedLists()
+                                    await MainActor.run {
+                                        self.showAlert(title: "Withdrawn", message: "Join request to Team #\(team.teamNumber) withdrawn.")
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        self.showAlert(title: "Error", message: error.localizedDescription)
+                                    }
+                                }
+                            }
+                        }
+                    )
+                } else {
+                    cell.configure(
+                        name: teamName,
+                        subtitle: subtitle,
+                        onTap: { [weak self] in
+                            self?.sendJoinRequest(to: teamInfo)
+                        },
+                        showsDivider: !isLast
+                    )
+                }
+
+            default:
+                break
             }
+
             return cell
         }
+    }
+}
+
+// MARK: - Search Cell
+
+class SearchCell: UICollectionViewCell, UISearchBarDelegate {
+    let searchBar = UISearchBar()
+    var onSearchTextChanged: ((String) -> Void)?
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        searchBar.searchBarStyle = .minimal
+        searchBar.placeholder = "Search users..."
+        searchBar.delegate = self
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(searchBar)
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: contentView.topAnchor),
+            searchBar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            searchBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            searchBar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
+        ])
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        onSearchTextChanged?(searchText)
     }
 }

@@ -147,7 +147,7 @@ final class InProgressViewController: UIViewController, TeamContextReceiver {
 
     private func submitTaskToForReview(taskId: String) async {
         do {
-            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "for_review")
+            _ = try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "for_review")
             do {
                 if let tid = teamId, !tid.isEmpty {
                     try await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: tid)

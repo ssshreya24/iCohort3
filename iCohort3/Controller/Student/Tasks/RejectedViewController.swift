@@ -177,7 +177,7 @@ class RejectedViewController: UIViewController, TeamContextReceiver {
     private func moveTaskToInProgress(taskId: String) async {
         do {
             // 1. Update status in the tasks table
-            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "ongoing")
+            _ = try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: "ongoing")
 
             // 2. Keep team-level counters in sync (non-fatal if it fails)
             do {

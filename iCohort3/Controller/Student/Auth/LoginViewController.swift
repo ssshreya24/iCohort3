@@ -41,10 +41,6 @@ class LoginViewController: UIViewController {
         rememberMeButton.tintColor = .clear
         rememberMeButton.layer.shadowOpacity = 0
         rememberMeButton.layer.masksToBounds = false
-        rememberMeButton.contentEdgeInsets = .zero
-        rememberMeButton.imageEdgeInsets = .zero
-        rememberMeButton.adjustsImageWhenHighlighted = false
-        rememberMeButton.showsTouchWhenHighlighted = false
         rememberMeButton.imageView?.contentMode = .scaleAspectFit
         rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
         rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)
@@ -154,14 +150,14 @@ class LoginViewController: UIViewController {
                 }
                 print("✅ Verification code sent")
 
-                let shouldRemember = await rememberMeButton.isSelected
-                await finishLogin {
+                let shouldRemember = rememberMeButton.isSelected
+                finishLogin {
                     self.navigateToOTPVerification(email: email, role: .student, shouldRemember: shouldRemember)
                 }
                 
             } catch let error as NSError where error.domain == "LoginTimeout" {
                 print("❌ Login timed out")
-                await finishLogin {
+                finishLogin {
                     self.showAlert(
                         title: "Connection Timeout",
                         message: "Could not connect to the server. Please check your internet and try again."
@@ -170,7 +166,7 @@ class LoginViewController: UIViewController {
                 
             } catch {
                 print("❌ Login error:", error.localizedDescription)
-                await finishLogin {
+                finishLogin {
                     self.showAlert(title: "Login Failed", message: error.localizedDescription)
                 }
             }

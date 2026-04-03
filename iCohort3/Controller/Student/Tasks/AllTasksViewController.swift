@@ -270,7 +270,7 @@ final class AllTasksViewController: UIViewController, TeamContextReceiver {
 
     private func shiftStatus(taskId: String, to newSection: TaskSection) async {
         do {
-            try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: newSection.dbStatus)
+            _ = try await SupabaseManager.shared.updateTaskStatus(taskId: taskId, status: newSection.dbStatus)
             try await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(
                 teamId: resolvedTeamId, teamNo: resolvedTeamNo)
             await loadAllTasksFromSupabase()
