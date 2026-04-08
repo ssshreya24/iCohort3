@@ -7,9 +7,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = makeInitialRootViewController()
+        
+        let splashVC = SplashViewController()
+        window.rootViewController = splashVC
         window.makeKeyAndVisible()
         self.window = window
+        
+        splashVC.onFinish = { [weak self] in
+            guard let self = self, let window = self.window else { return }
+            let nextVC = self.makeInitialRootViewController()
+            
+            UIView.transition(with: window, duration: 0.5, options: .transitionCrossDissolve, animations: {
+                window.rootViewController = nextVC
+            })
+        }
         
         print("✅ App initialization complete")
     }

@@ -167,7 +167,6 @@ class UserSelectionViewController: UIViewController {
     }
 
     private let contentView    = UIView()
-    private let titleLabel     = UILabel()
     private let footerLabel    = UILabel()
     private let cardsContainer = UIView()
 
@@ -211,13 +210,6 @@ class UserSelectionViewController: UIViewController {
         contentView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(contentView)
 
-        // Title
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = "Select Your Role"
-        titleLabel.textAlignment = .center
-        titleLabel.textColor = UIColor(red: 0.22, green: 0.31, blue: 0.40, alpha: 1)
-        titleLabel.font = UIFont.systemFont(ofSize: 34, weight: .bold)
-
         // Role cards
         let studentControl = makeRoleControl(for: .student, action: #selector(studentRoleTapped))
         let mentorControl  = makeRoleControl(for: .mentor,  action: #selector(mentorRoleTapped))
@@ -232,31 +224,23 @@ class UserSelectionViewController: UIViewController {
         footerLabel.translatesAutoresizingMaskIntoConstraints = false
         footerLabel.text = "Tap a card to continue"
         footerLabel.textAlignment = .center
-        footerLabel.textColor = UIColor(red: 0.55, green: 0.65, blue: 0.72, alpha: 1)
+        footerLabel.textColor = UIColor.white.withAlphaComponent(0.85)
         footerLabel.font = UIFont.systemFont(ofSize: 14, weight: .medium)
 
-        contentView.addSubview(titleLabel)
         contentView.addSubview(cardsContainer)
         contentView.addSubview(footerLabel)
 
-        // ─── Key change: push cardsContainer down by 340 pts from titleLabel ───
-        // This ensures all three cards land well inside the blue background blob.
-        // Adjust this constant (320–380) to taste if your background image differs.
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 24),
             contentView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -24),
-            contentView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 96),
-            contentView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -34),
+            contentView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            contentView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
 
-            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-
-            // ← Changed from 255 → 340 to submerge cards into the blue area
-            cardsContainer.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 340),
+            // Fix the cards entirely to the lower half by anchoring from the bottom footer
+            cardsContainer.bottomAnchor.constraint(equalTo: footerLabel.topAnchor, constant: -12),
             cardsContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             cardsContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            cardsContainer.heightAnchor.constraint(equalToConstant: 330),
+            cardsContainer.heightAnchor.constraint(equalToConstant: 332),
 
             // Student – left
             studentControl.leadingAnchor.constraint(equalTo: cardsContainer.leadingAnchor, constant: 8),

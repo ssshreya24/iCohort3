@@ -33,32 +33,77 @@ class MSignUpViewController: UIViewController {
     private var loadingIndicator: UIActivityIndicatorView?
     private var selectedInstitute: SupabaseManager.Institute?
     private var availableInstitutes: [SupabaseManager.Institute] = []
+    private var didInstallAnimatedLogo = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         setupUI()
         setupPlaceholders()
         loadInstitutes()
+        applyAuthSymbolTint()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        if !didInstallAnimatedLogo {
+            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(sizeMultiplier: 0.72, verticalOffset: -8)
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        refreshAnimatedAuthLogoIfNeeded()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        applyTheme()
+        setupPlaceholders()
+        applyAuthSymbolTint()
     }
     
     // MARK: - Setup
     
     func setupUI() {
+        applyTheme()
+
         let containers = [
             fullNameContainer, emailContainer, employeeIdContainer,
             designationContainer, departmentContainer, instituteContainer,
             passwordContainer, confirmPasswordContainer
         ]
+        let containerBg = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.12) : .white
+        }
         
         for container in containers {
             container?.layer.cornerRadius = 20
             container?.layer.masksToBounds = true
-            container?.backgroundColor = .white
+            container?.backgroundColor = containerBg
+            container?.layer.borderWidth = 0.5
+            container?.layer.borderColor = UIColor.opaqueSeparator.cgColor
+        }
+
+        [fullNameField, emailField, employeeIdField, designationField, departmentField, instituteField, passwordField, confirmPasswordField].forEach {
+            $0?.backgroundColor = .clear
+            $0?.textColor = .label
+            $0?.keyboardAppearance = traitCollection.userInterfaceStyle == .dark ? .dark : .default
         }
         
         signUpButton.layer.cornerRadius = 20
         signUpButton.layer.masksToBounds = true
+        signUpButton.backgroundColor = UIColor(named: "Primary") ?? UIColor(named: "Button Color")
+        signUpButton.setTitleColor(.white, for: .normal)
+        if var config = signUpButton.configuration {
+            config.baseBackgroundColor = UIColor(named: "Primary") ?? UIColor(named: "Button Color")
+            config.baseForegroundColor = .white
+            signUpButton.configuration = config
+        }
+        styleAuthBackButton(backButton)
         
         passwordField.isSecureTextEntry = true
         confirmPasswordField.isSecureTextEntry = true
@@ -69,7 +114,9 @@ class MSignUpViewController: UIViewController {
         instituteField.isUserInteractionEnabled = false
 
         let chevron = UIImageView(image: UIImage(systemName: "chevron.down"))
-        chevron.tintColor = .systemGray
+        chevron.tintColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? .white : .systemGray
+        }
         chevron.contentMode = .scaleAspectFit
         chevron.frame = CGRect(x: 0, y: 0, width: 18, height: 18)
 
@@ -79,19 +126,45 @@ class MSignUpViewController: UIViewController {
         instituteField.rightView = rightView
         instituteField.rightViewMode = .always
     }
+
+    private func applyTheme() {
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1)
+                : UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        }
+
+        view.subviews.compactMap { $0 as? UIScrollView }.forEach { scrollView in
+            scrollView.backgroundColor = .clear
+            scrollView.indicatorStyle = traitCollection.userInterfaceStyle == .dark ? .white : .black
+            scrollView.subviews.first?.backgroundColor = .clear
+        }
+
+        allSubviews(in: view).forEach { subview in
+            if let label = subview as? UILabel {
+                label.textColor = .label
+            }
+        }
+    }
+
+    private func allSubviews(in root: UIView) -> [UIView] {
+        root.subviews + root.subviews.flatMap { allSubviews(in: $0) }
+    }
     
     func setupPlaceholders() {
-        fullNameField.placeholder = "Enter your full name"
-        emailField.placeholder = "Enter your college email"
-        employeeIdField.placeholder = "Enter your employee ID"
-        designationField.placeholder = "e.g., Assistant Professor"
-        departmentField.placeholder = "e.g., Computer Science"
-        instituteField.placeholder = "Select your college"
-        passwordField.placeholder = "Enter your password"
-        confirmPasswordField.placeholder = "Confirm your password"
+        let placeholderColor = UIColor.secondaryLabel
+        fullNameField.attributedPlaceholder = NSAttributedString(string: "Enter your full name", attributes: [.foregroundColor: placeholderColor])
+        emailField.attributedPlaceholder = NSAttributedString(string: "Enter your college email", attributes: [.foregroundColor: placeholderColor])
+        employeeIdField.attributedPlaceholder = NSAttributedString(string: "Enter your employee ID", attributes: [.foregroundColor: placeholderColor])
+        designationField.attributedPlaceholder = NSAttributedString(string: "e.g., Assistant Professor", attributes: [.foregroundColor: placeholderColor])
+        departmentField.attributedPlaceholder = NSAttributedString(string: "e.g., Computer Science", attributes: [.foregroundColor: placeholderColor])
+        instituteField.attributedPlaceholder = NSAttributedString(string: "Select your college", attributes: [.foregroundColor: placeholderColor])
+        passwordField.attributedPlaceholder = NSAttributedString(string: "Enter your password", attributes: [.foregroundColor: placeholderColor])
+        confirmPasswordField.attributedPlaceholder = NSAttributedString(string: "Confirm your password", attributes: [.foregroundColor: placeholderColor])
         
         emailField.autocapitalizationType = .none
         emailField.keyboardType = .emailAddress
+        [fullNameField, emailField, employeeIdField, designationField, departmentField, instituteField, passwordField, confirmPasswordField].forEach { $0?.textColor = .label }
     }
     
     // MARK: - Load Institutes

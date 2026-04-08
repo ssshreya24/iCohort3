@@ -45,6 +45,10 @@ class AnnouncementsViewController: UIViewController {
         super.viewDidLayoutSubviews()
         AppTheme.applyScreenBackground(to: view)
         tableView.superview?.backgroundColor = .clear
+        styleFloatingButton(searchButton, imageName: "magnifyingglass")
+        if searchContainer != nil {
+            AppTheme.styleNativeFloatingControl(searchContainer, cornerRadius: 20)
+        }
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -71,16 +75,17 @@ class AnnouncementsViewController: UIViewController {
                         Date()
 
                     let color = row.color_hex.flatMap { UIColor.fromHex($0) }
+                    let decoded = AnnouncementPayloadCodec.decodeDescription(row.description)
 
                     return Announcement(
                         id: UUID(),
                         title: row.title,
-                        body: row.description ?? "",
+                        body: decoded.body,
                         tag: row.category,
                         tagColor: color,
                         createdAt: date,
                         author: row.author ?? "Mentor",
-                        attachments: nil
+                        attachments: decoded.attachments.isEmpty ? nil : decoded.attachments
                     )
                 }
 
@@ -107,8 +112,7 @@ class AnnouncementsViewController: UIViewController {
             }
         }
         searchButton.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
-        searchButton.tintColor = AppTheme.accent
-        AppTheme.styleFloatingControl(searchButton, cornerRadius: 22)
+        styleFloatingButton(searchButton, imageName: "magnifyingglass")
     }
 
     private func setupTableView() {
@@ -118,13 +122,16 @@ class AnnouncementsViewController: UIViewController {
         let nib = UINib(nibName: "AnnouncementTableViewCell", bundle: nil)
         tableView.register(nib, forCellReuseIdentifier: "AnnouncementCell")
 
-        tableView.rowHeight = UITableView.automaticDimension
+        tableView.rowHeight = 146
+        tableView.estimatedRowHeight = 146
         tableView.tableFooterView = UIView()
         tableView.backgroundView = {
             let bg = UIView()
             bg.backgroundColor = .clear
             return bg
         }()
+        tableView.separatorStyle = .none
+        tableView.showsVerticalScrollIndicator = false
     }
 
     // MARK: Search UI
@@ -236,6 +243,24 @@ class AnnouncementsViewController: UIViewController {
             $0.author.lowercased().contains(txt)
         }
         tableView.reloadData()
+    }
+
+    private func styleFloatingButton(_ button: UIButton, imageName: String?) {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var config = UIButton.Configuration.plain()
+        if let imageName, !imageName.isEmpty {
+            config.image = UIImage(systemName: imageName)
+        } else if let currentImage = button.currentImage {
+            config.image = currentImage
+        }
+        config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        button.configuration = config
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
+        button.backgroundColor = .clear
+        button.tintColor = foreground
+        button.setTitleColor(foreground, for: .normal)
     }
 
     private func updateUI() {

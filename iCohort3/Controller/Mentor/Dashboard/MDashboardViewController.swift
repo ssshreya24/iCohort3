@@ -6,6 +6,7 @@
 import UIKit
 import PostgREST
 import Supabase
+import UserNotifications
 
 // MARK: - Models
 
@@ -91,6 +92,20 @@ private final class NotificationManager {
             at: 0
         )
         save(Array(items.prefix(20)), role: role, personId: personId)
+
+        // Fire local UNUserNotification banner
+        if UserDefaults.standard.bool(forKey: "profile_notifications_enabled") {
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+    
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error { print("❌ [MentorNotification] Failed to schedule:", error.localizedDescription) }
+            }
+        }
     }
 
     private func save(_ items: [DashboardNotificationItem], role: String, personId: String) {
@@ -172,15 +187,22 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
         setupCollectionView()
 
         AppTheme.styleCard(todayCardView, cornerRadius: 16)
+        todayCardView.backgroundColor = .white
 
         todayTitleLabel.numberOfLines = 1
         todayTitleLabel.adjustsFontSizeToFitWidth = true
         todayTitleLabel.minimumScaleFactor = 0.85
+        todayTitleLabel.textColor = .black
+        todayCountLabel.textColor = .black
 
         collectionView.layer.cornerRadius = 16
         collectionView.backgroundColor    = .clear
 
         todayCountLabel.text = "0"
+
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            print(granted ? "✅ [MentorNotification] Permission granted" : "⚠️ [MentorNotification] Permission denied")
+        }
 
         Task { await loadDashboardFromSupabase() }
     }
@@ -305,6 +327,17 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
             return
         }
 
+        // Apply local cache synchronously first so it doesn't flicker/disappear on login
+        if let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: currentMentorId, role: "mentor"),
+           let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) {
+            self.profileImageView.tintColor = nil
+            self.setProfileAvatarImage(image)
+        } else {
+            self.profileImageView.image = placeholderImage
+            self.profileImageView.tintColor = nil
+            self.profileImageView.contentMode = .scaleAspectFill
+        }
+
         Task {
             _ = try? await SupabaseManager.shared.fetchBasicMentorProfile(personId: currentMentorId)
 
@@ -313,10 +346,6 @@ class MDashboardViewController: UIViewController, ProfileViewControllerDelegate 
                    let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) {
                     self.profileImageView.tintColor = nil
                     self.setProfileAvatarImage(image)
-                } else {
-                    self.profileImageView.image = placeholderImage
-                    self.profileImageView.tintColor = nil
-                    self.profileImageView.contentMode = .scaleAspectFill
                 }
             }
         }
@@ -671,7 +700,7 @@ extension MDashboardViewController: UICollectionViewDelegate {
         if indexPath.section == 1, !reviewTasks.isEmpty {
             let item = reviewTasks[indexPath.item]
 
-            let vc         = ReviewViewController(nibName: "ReviewViewController", bundle: nil)
+            let vc         = ReviewViewController()
             vc.taskId      = item.taskId
             vc.teamId      = item.teamId
             vc.teamNo      = item.teamNo

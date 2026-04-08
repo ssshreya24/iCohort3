@@ -25,40 +25,66 @@ class SignUpViewController: UIViewController {
     private var selectedInstitute: SupabaseManager.Institute?
     private var availableInstitutes: [SupabaseManager.Institute] = []
     private var loadingIndicator: UIActivityIndicatorView?
+    private var didInstallAnimatedLogo = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         setupBackButton()
         roundViews()
         setupPlaceholders()
         setupCollegePicker()
         loadInstitutes()
+        applyAuthSymbolTint()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        if !didInstallAnimatedLogo {
+            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(sizeMultiplier: 0.72, verticalOffset: -8)
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        refreshAnimatedAuthLogoIfNeeded()
     }
     
     func setupPlaceholders() {
-        collegeField.placeholder = "Select your college"
-        fullNameField.placeholder = "Enter your full name"
-        emailField.placeholder = "Enter your college email"
-        regField.placeholder = "Enter your registration number"
-        passwordField.placeholder = "Enter your password"
-        confirmField.placeholder = "Confirm your password"
+        let placeholderColor = UIColor.secondaryLabel
+        collegeField.attributedPlaceholder = NSAttributedString(string: "Select your college", attributes: [.foregroundColor: placeholderColor])
+        fullNameField.attributedPlaceholder = NSAttributedString(string: "Enter your full name", attributes: [.foregroundColor: placeholderColor])
+        emailField.attributedPlaceholder = NSAttributedString(string: "Enter your college email", attributes: [.foregroundColor: placeholderColor])
+        regField.attributedPlaceholder = NSAttributedString(string: "Enter your registration number", attributes: [.foregroundColor: placeholderColor])
+        passwordField.attributedPlaceholder = NSAttributedString(string: "Enter your password", attributes: [.foregroundColor: placeholderColor])
+        confirmField.attributedPlaceholder = NSAttributedString(string: "Confirm your password", attributes: [.foregroundColor: placeholderColor])
         
         passwordField.isSecureTextEntry = true
         confirmField.isSecureTextEntry = true
         emailField.autocapitalizationType = .none
         emailField.keyboardType = .emailAddress
+        [collegeField, fullNameField, emailField, regField, passwordField, confirmField].forEach { $0?.textColor = .label }
     }
     
     func roundViews() {
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1)
+                : UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        }
         let containers = [collegeContainer, fullNameContainer, emailContainer, regContainer, passwordContainer, confirmContainer]
+        let containerBg = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.12) : .white
+        }
         
         for view in containers {
             view?.layer.cornerRadius = 20
-            view?.layer.borderWidth  = 0
-            view?.layer.borderColor  = UIColor.systemGray4.cgColor
+            view?.layer.borderWidth  = 0.5
+            view?.layer.borderColor  = UIColor.opaqueSeparator.cgColor
             view?.layer.masksToBounds = true
-            view?.backgroundColor    = .white
+            view?.backgroundColor    = containerBg
         }
         
         signUpButton.layer.cornerRadius = 20
@@ -78,10 +104,14 @@ class SignUpViewController: UIViewController {
         let image = UIImage(systemName: "chevron.left", withConfiguration: config)
         backButton.setImage(image, for: .normal)
         
-        backButton.tintColor = UIColor.black
-        backButton.backgroundColor = UIColor.white
+        backButton.tintColor = UIColor { trait in trait.userInterfaceStyle == .dark ? .white : .black }
+        backButton.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.14) : .white
+        }
         backButton.layer.cornerRadius = 22
         backButton.layer.masksToBounds = true
+        backButton.layer.borderWidth = 1
+        backButton.layer.borderColor = UIColor.white.withAlphaComponent(0.10).cgColor
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
         view.addSubview(backButton)
         backButton.translatesAutoresizingMaskIntoConstraints = false

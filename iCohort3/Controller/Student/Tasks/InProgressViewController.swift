@@ -164,7 +164,7 @@ final class InProgressViewController: UIViewController, TeamContextReceiver {
     // MARK: - Task Detail
 
     private func openTaskDetail(for task: SupabaseManager.TaskRow) {
-        let vc = TaskDetailViewController(nibName: "TaskDetailViewController", bundle: nil)
+        let vc = TaskDetailViewController()
 
         // Explicit type annotation on assigneeImage: UIImage? avoids
         // the "'nil' requires a contextual type" compiler error.
@@ -262,6 +262,49 @@ extension InProgressViewController: UICollectionViewDataSource, UICollectionView
     func collectionView(_ collectionView: UICollectionView,
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
-        CGSize(width: collectionView.frame.width - 40, height: 160)
+        let available = collectionView.frame.width - 40
+        let cardWidth = min(available, 600)
+        let task = tasks[indexPath.row]
+        let height = estimatedCellHeight(
+            title: task.title,
+            desc: task.description ?? "",
+            cardWidth: cardWidth
+        )
+        return CGSize(width: cardWidth, height: height)
+    }
+
+    private func estimatedCellHeight(title: String, desc: String, cardWidth: CGFloat) -> CGFloat {
+        let titleWidth = cardWidth - 24 - 108
+        let descWidth  = cardWidth - 32
+
+        let titleFont = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        let descFont  = UIFont.systemFont(ofSize: 13)
+
+        let titleHeight = title.boundingRect(
+            with: CGSize(width: titleWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: titleFont],
+            context: nil
+        ).height.rounded(.up)
+
+        let trimmedDesc = desc.trimmingCharacters(in: .whitespacesAndNewlines)
+        let descHeight: CGFloat
+        if trimmedDesc.isEmpty {
+            descHeight = 0
+        } else {
+            descHeight = trimmedDesc.boundingRect(
+                with: CGSize(width: descWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: descFont],
+                context: nil
+            ).height.rounded(.up)
+        }
+
+        let titleRow   = max(titleHeight, 25)
+        let afterTitle: CGFloat = trimmedDesc.isEmpty ? 10 : 30
+        let afterDesc: CGFloat  = trimmedDesc.isEmpty ? 0  : 30
+        let chrome: CGFloat = 12 + 12 + afterTitle + afterDesc + 1 + 2 + 15 + 15 + 16
+        let computed = chrome + titleRow + descHeight
+        return max(computed, 110)
     }
 }

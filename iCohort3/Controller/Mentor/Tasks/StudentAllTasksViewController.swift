@@ -142,13 +142,20 @@ final class LiquidGlassSegmentControl: UIView {
     
     private func applyTheme() {
         let isDark = traitCollection.userInterfaceStyle == .dark
-        track.backgroundColor = isDark
-            ? UIColor.white.withAlphaComponent(0.10)
-            : UIColor(red: 233/255, green: 233/255, blue: 238/255, alpha: 1)
-        pill.backgroundColor = isDark
-            ? UIColor.white.withAlphaComponent(0.14)
-            : .white
-        pill.layer.shadowOpacity = isDark ? 0.16 : 0.10
+        
+        let blurEffect = UIBlurEffect(style: isDark ? .systemThinMaterialDark : .systemThinMaterialLight)
+        let blurView = UIVisualEffectView(effect: blurEffect)
+        blurView.frame = track.bounds
+        blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        blurView.layer.cornerRadius = 24
+        blurView.clipsToBounds = true
+        
+        track.subviews.filter { $0 is UIVisualEffectView }.forEach { $0.removeFromSuperview() }
+        track.insertSubview(blurView, at: 0)
+        track.backgroundColor = .clear
+
+        pill.backgroundColor = isDark ? UIColor.white.withAlphaComponent(0.22) : UIColor.white.withAlphaComponent(0.60)
+        pill.layer.shadowOpacity = isDark ? 0.22 : 0.18
         updateButtonColors(animated: false)
     }
 
@@ -224,6 +231,8 @@ final class StudentAllTasksViewController: UIViewController {
     private var reviewTasks:      [TaskModel] = []
     private var completedTasks:   [TaskModel] = []
     private var rejectedTasks:    [TaskModel] = []
+    private var attachmentLoadingOverlay: UIView?
+    private var attachmentLoadingIndicator: UIActivityIndicatorView?
 
     // MARK: - Segment State
     private var selectedSegment: TaskSegment = .assigned
@@ -540,8 +549,16 @@ final class StudentAllTasksViewController: UIViewController {
     private func loadTeamMembersFromNewTeams() async {
         guard !teamId.isEmpty else { return }
         do {
-            let names   = try await SupabaseManager.shared.fetchMemberNamesFromNewTeams(teamId: teamId)
-            let avatars = names.map { Self.makeInitialAvatar(from: $0, size: CGSize(width: 56, height: 56)) }
+            let details = try await SupabaseManager.shared.fetchMemberDetailsFromNewTeams(teamId: teamId)
+            let names = details.map { $0.name }
+            let avatars: [UIImage] = details.map { member in
+                if let base64 = SupabaseManager.shared.cachedProfilePhotoBase64(personId: member.id, role: "student"),
+                   let img = SupabaseManager.shared.base64ToImage(base64String: base64) {
+                    return img
+                }
+                return Self.makeInitialAvatar(from: member.name, size: CGSize(width: 56, height: 56))
+            }
+
             await MainActor.run {
                 self.teamMemberNames  = names
                 self.teamMemberImages = avatars
@@ -558,13 +575,15 @@ final class StudentAllTasksViewController: UIViewController {
             async let assignedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "assigned")
             async let ongoingRows   = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "ongoing")
             async let reviewRows    = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "for_review")
+            async let preparedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "prepared")
+            async let approvedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "approved")
             async let completedRows = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "completed")
             async let rejectedRows  = SupabaseManager.shared.fetchTasksForTeam(teamId: teamId, status: "rejected")
 
-            let (aData, oData, rData, cData, xData) = try await
-                (assignedRows, ongoingRows, reviewRows, completedRows, rejectedRows)
+            let (aData, oData, rData, prepData, pData, cData, xData) = try await
+                (assignedRows, ongoingRows, reviewRows, preparedRows, approvedRows, completedRows, rejectedRows)
 
-            let allRows = aData + oData + rData + cData + xData
+            let allRows = aData + oData + rData + prepData + pData + cData + xData
             let taskIds = allRows.map(\.id)
             async let assigneeNamesFetch = SupabaseManager.shared.resolveAssigneeNamesFromNewTeams(taskIds: taskIds, teamId: teamId)
             async let attachmentMetadataFetch = SupabaseManager.shared.fetchTaskAttachmentMetadata(taskIds: taskIds)
@@ -573,10 +592,10 @@ final class StudentAllTasksViewController: UIViewController {
             let attachmentFilenamesByTaskId = Dictionary(grouping: attachmentMetadata, by: \.task_id)
                 .mapValues { $0.map(\.filename) }
 
-            let assigned  = convert(aData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
+            let assigned  = convert(aData + oData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
             let ongoing   = convert(oData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
             let review    = convert(rData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
-            let completed = convert(cData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
+            let completed = convert(prepData + pData + cData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
             let rejected  = convert(xData, assigneeNamesByTaskId: assigneeNamesByTaskId, attachmentFilenamesByTaskId: attachmentFilenamesByTaskId)
 
             await MainActor.run {
@@ -631,7 +650,7 @@ final class StudentAllTasksViewController: UIViewController {
                                               task: TaskModel? = nil,
                                               category: TaskCategory? = nil,
                                               taskIndex: Int? = nil) {
-        let vc      = NewTaskViewController(nibName: "NewTaskViewController", bundle: nil)
+        let vc      = NewTaskViewController()
         vc.delegate = self
         vc.teamMemberImages = teamMemberImages
         vc.teamMemberNames  = teamMemberNames
@@ -663,6 +682,82 @@ final class StudentAllTasksViewController: UIViewController {
         let vc = AttachmentViewerViewController(attachments: attachments, attachmentFilenames: filenames)
         vc.modalPresentationStyle = .fullScreen
         vc.modalTransitionStyle   = .crossDissolve
+        present(vc, animated: true)
+    }
+
+    @MainActor
+    private func showAttachmentLoader() {
+        guard attachmentLoadingOverlay == nil else { return }
+
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.18)
+
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        blur.layer.cornerRadius = 16
+        blur.clipsToBounds = true
+
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.color = AppTheme.buttonColor
+        indicator.startAnimating()
+
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Opening attachment..."
+        label.font = .systemFont(ofSize: 15, weight: .medium)
+        label.textColor = .label
+
+        view.addSubview(overlay)
+        overlay.addSubview(blur)
+        blur.contentView.addSubview(indicator)
+        blur.contentView.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            blur.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            blur.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+            blur.widthAnchor.constraint(equalToConstant: 190),
+            blur.heightAnchor.constraint(equalToConstant: 118),
+
+            indicator.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
+            indicator.topAnchor.constraint(equalTo: blur.contentView.topAnchor, constant: 24),
+
+            label.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
+            label.topAnchor.constraint(equalTo: indicator.bottomAnchor, constant: 12)
+        ])
+
+        attachmentLoadingOverlay = overlay
+        attachmentLoadingIndicator = indicator
+    }
+
+    @MainActor
+    private func hideAttachmentLoader() {
+        attachmentLoadingIndicator?.stopAnimating()
+        attachmentLoadingIndicator = nil
+        attachmentLoadingOverlay?.removeFromSuperview()
+        attachmentLoadingOverlay = nil
+    }
+
+    // MARK: - Present Review VC
+    private func presentReviewVC(for task: TaskModel) {
+        guard let taskId = task.id else { return }
+        let vc       = ReviewViewController()
+        vc.taskId    = taskId
+        vc.teamId    = teamId
+        vc.teamNo    = teamNo
+        vc.taskTitle = task.title
+        vc.delegate  = self
+        vc.modalPresentationStyle = .pageSheet
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.prefersGrabberVisible = true
+        }
         present(vc, animated: true)
     }
 
@@ -824,22 +919,58 @@ extension StudentAllTasksViewController: UICollectionViewDelegate,
             remarkDesc:  task.remarkDesc,
             title:       task.title,
             attachments: task.attachments,
-            attachmentCount: task.attachmentFilenames?.count ?? 0
+            attachmentCount: task.attachmentFilenames?.count ?? 0,
+            isEditDisabled: task.status.lowercased() == "rejected"
         )
 
         cell.onEllipsisMenu = { [weak self] _ in
             guard let self else { return }
-            self.presentNewTaskViewController(
-                isEditMode: true, task: task,
-                category: cat, taskIndex: indexPath.row)
+            if self.selectedSegment == .review {
+                self.presentReviewVC(for: task)
+            } else {
+                self.presentNewTaskViewController(
+                    isEditMode: true, task: task,
+                    category: cat, taskIndex: indexPath.row)
+            }
         }
 
         cell.onAttachmentTapped = { [weak self] in
             guard let self else { return }
             Task {
-                let loaded = await self.loadAttachments(for: task)
-                guard !loaded.0.isEmpty || !loaded.1.isEmpty else { return }
+                await MainActor.run { self.showAttachmentLoader() }
+
+                let loaded: ([UIImage], [String])
+                if let cached = task.attachments, !cached.isEmpty {
+                    loaded = (cached, task.attachmentFilenames ?? [])
+                } else {
+                    loaded = await self.loadAttachments(for: task)
+                    await MainActor.run {
+                        if let idx = self.assignedTasks.firstIndex(where: { $0.id == task.id }) {
+                            self.assignedTasks[idx].attachments = loaded.0
+                            self.assignedTasks[idx].attachmentFilenames = loaded.1
+                        }
+                        if let idx = self.ongoingTasks.firstIndex(where: { $0.id == task.id }) {
+                            self.ongoingTasks[idx].attachments = loaded.0
+                            self.ongoingTasks[idx].attachmentFilenames = loaded.1
+                        }
+                        if let idx = self.reviewTasks.firstIndex(where: { $0.id == task.id }) {
+                            self.reviewTasks[idx].attachments = loaded.0
+                            self.reviewTasks[idx].attachmentFilenames = loaded.1
+                        }
+                        if let idx = self.completedTasks.firstIndex(where: { $0.id == task.id }) {
+                            self.completedTasks[idx].attachments = loaded.0
+                            self.completedTasks[idx].attachmentFilenames = loaded.1
+                        }
+                        if let idx = self.rejectedTasks.firstIndex(where: { $0.id == task.id }) {
+                            self.rejectedTasks[idx].attachments = loaded.0
+                            self.rejectedTasks[idx].attachmentFilenames = loaded.1
+                        }
+                    }
+                }
+
                 await MainActor.run {
+                    self.hideAttachmentLoader()
+                    guard !loaded.0.isEmpty || !loaded.1.isEmpty else { return }
                     self.presentAttachmentViewer(attachments: loaded.0, filenames: loaded.1)
                 }
             }
@@ -861,6 +992,13 @@ extension StudentAllTasksViewController: UICollectionViewDelegate,
         let height: CGFloat = hasRemarks ? 200 : 170
         let width = cv.frame.width - 32
         return CGSize(width: width, height: height)
+    }
+
+    // Tap entire card in Review segment to open ReviewVC
+    func collectionView(_ cv: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard selectedSegment == .review else { return }
+        let task = displayedTasks[indexPath.row]
+        presentReviewVC(for: task)
     }
 }
 
@@ -952,6 +1090,12 @@ extension StudentAllTasksViewController: NewTaskDelegate {
                 try await updateTaskRow(taskId: taskId, title: title, description: description,
                                         date: date, assignToAll: assignToAll,
                                         specificStudentId: specificStudentId)
+                // ⚠️ Delete existing attachment rows first to prevent count duplication
+                try? await SupabaseManager.shared.client
+                    .from("task_attachments")
+                    .delete()
+                    .eq("task_id", value: taskId)
+                    .execute()
                 await saveAttachments(taskId: taskId, filenames: attachmentFilenames, images: attachments)
                 
                 // Sync counters for mentor dashboard

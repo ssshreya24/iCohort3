@@ -13,10 +13,9 @@ class AdminTeamsViewController: UIViewController {
     
     // MARK: - UI Components
     private let tableView = UITableView()
-    private let refreshControl = UIRefreshControl()
-    private var loadingIndicator: UIActivityIndicatorView?
     private let summaryCardView = UIView()
     private let summarySubtitleLabel = UILabel()
+    private var loadingIndicator: UIActivityIndicatorView?
     
     // MARK: - Data
     private var teams: [TeamDisplayModel] = []
@@ -86,10 +85,6 @@ class AdminTeamsViewController: UIViewController {
         tableView.contentInsetAdjustmentBehavior = .automatic
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
-        configureTableHeader()
-        
-        refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
-        tableView.refreshControl = refreshControl
         
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -169,10 +164,6 @@ class AdminTeamsViewController: UIViewController {
                 await MainActor.run {
                     self.approvedMentors = mentors
                     self.teams = displayTeams.sorted { $0.teamNo < $1.teamNo }
-                    let count = self.teams.count
-                    self.summarySubtitleLabel.text = count == 0
-                        ? "No teams available for \(self.instituteName)"
-                        : "\(count) active team\(count == 1 ? "" : "s") for \(self.instituteName)"
                     self.tableView.reloadData()
                     self.hideLoadingIndicator()
                 }
@@ -218,13 +209,6 @@ class AdminTeamsViewController: UIViewController {
             )
         }
     }
-
-    
-    @objc private func refreshData() {
-        loadData()
-        refreshControl.endRefreshing()
-    }
-    
     // MARK: - Mentor Assignment
     private func showMentorAssignmentSheet(for team: TeamDisplayModel) {
         let picker = MentorAssignmentSheetViewController(

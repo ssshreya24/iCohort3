@@ -43,17 +43,17 @@ final class ReviewCollectionViewCell: UICollectionViewCell {
 
         // Labels
         teamLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        teamLabel.textColor = UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)
+        teamLabel.textColor = .black
         teamLabel.numberOfLines = 1
 
         taskLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        taskLabel.textColor = UIColor(red: 0.4, green: 0.4, blue: 0.4, alpha: 1.0)
+        taskLabel.textColor = .black
         taskLabel.numberOfLines = 1
         taskLabel.lineBreakMode = .byTruncatingTail
 
         // Chevron
         chevronImageView.image = UIImage(systemName: "chevron.right")
-        chevronImageView.tintColor = UIColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 1.0)
+        chevronImageView.tintColor = .black
         chevronImageView.contentMode = .scaleAspectFit
 
         taskCardButton.setTitle(nil, for: .normal)

@@ -1,4 +1,5 @@
 import UIKit
+import Supabase
 
 protocol AddActivityViewControllerDelegate: AnyObject {
     func didSaveActivity()
@@ -51,15 +52,6 @@ class AddActivityViewController: UIViewController {
         styleFloatingButton(closeButton, imageName: "xmark")
         styleFloatingButton(doneButton, imageName: "checkmark")
     }
-    
-    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
-            applyTheme()
-        }
-    }
-    
     @available(iOS 14.0, *)
     private func setupSendMenu() {
         let options = ["For Me", "Everyone", "All Mentors", "All Students"]
@@ -80,6 +72,9 @@ class AddActivityViewController: UIViewController {
         endDatePicker.datePickerMode = .date
 
         alertButton.setTitle("None", for: .normal)
+        sendButton.setTitle("For Me", for: .normal)
+        titleTextField.autocapitalizationType = .sentences
+        noteTextField.autocapitalizationType = .sentences
     }
     
     private func applyTheme() {
@@ -122,9 +117,11 @@ class AddActivityViewController: UIViewController {
         config.baseForegroundColor = foreground
         config.background.backgroundColor = .clear
         config.cornerStyle = .capsule
+        
         if let imageName {
             config.image = UIImage(systemName: imageName)
         }
+        
         if let title {
             config.title = title
             config.attributedTitle = AttributedString(
@@ -132,6 +129,7 @@ class AddActivityViewController: UIViewController {
                 attributes: AttributeContainer([.foregroundColor: foreground])
             )
         }
+        
         button.configuration = config
         AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
         button.backgroundColor = .clear
@@ -274,7 +272,7 @@ class AddActivityViewController: UIViewController {
         }
     }
 
-    @IBAction func sendButton(_ sender: Any) {
+    @IBAction func sendButtonTapped(_ sender: Any) {
         let options = ["For Me", "Everyone", "All Mentors", "All Students"]
 
         if #available(iOS 14.0, *) {

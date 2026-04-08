@@ -69,7 +69,7 @@ class AdminApprovalViewController: UIViewController {
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(nameLabel)
         
-        AdminUIStyle.styleCompactActionButton(logoutButton, systemImage: "rectangle.portrait.and.arrow.right")
+        AdminUIStyle.styleDestructiveCompactButton(logoutButton, systemImage: "rectangle.portrait.and.arrow.right")
         logoutButton.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
         logoutButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(logoutButton)
@@ -125,8 +125,8 @@ class AdminApprovalViewController: UIViewController {
             
             logoutButton.topAnchor.constraint(equalTo: greetingLabel.topAnchor, constant: -4),
             logoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            logoutButton.heightAnchor.constraint(equalToConstant: 44),
-            logoutButton.widthAnchor.constraint(equalToConstant: 44),
+            logoutButton.heightAnchor.constraint(equalToConstant: 36),
+            logoutButton.widthAnchor.constraint(equalToConstant: 36),
             
             segmentedControl.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 24),
             segmentedControl.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),

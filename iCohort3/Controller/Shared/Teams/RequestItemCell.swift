@@ -314,7 +314,6 @@ final class RequestItemCell: UICollectionViewCell {
         actionButton.setTitle(nil, for: .normal)
         actionButton.setImage(icon(systemName), for: .normal)
         actionButton.isEnabled = enabled
-        let isDark = traitCollection.userInterfaceStyle == .dark
 
         switch style {
         case .accent:

@@ -49,6 +49,16 @@ class SDashboardViewController: UIViewController {
         return label
     }()
 
+    private let notificationButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        var config = UIButton.Configuration.plain()
+        let symbolConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        config.image = UIImage(systemName: "bell", withConfiguration: symbolConfig)
+        button.configuration = config
+        return button
+    }()
+
     @IBOutlet weak var contentViewHeight: NSLayoutConstraint!
     @IBOutlet weak var scrollView: UIScrollView!
     @IBOutlet weak var collectionViewCellHeight: NSLayoutConstraint!
@@ -114,6 +124,9 @@ class SDashboardViewController: UIViewController {
                                                name: .statusCardDeleteTapped, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleAddNotification(_:)),
                                                name: .statusCardAddTapped, object: nil)
+
+        // Request notification permission so task-assignment banners can fire
+        StudentNotificationManager.shared.requestPermission()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -306,6 +319,11 @@ class SDashboardViewController: UIViewController {
         counts["All"] = tasks.count
         self.statusCounts = counts
 
+        // —— Fire local notifications for tasks not seen before ————————————
+        let teamName = "Team \(currentTeamNo)"
+        let taskSnippets = tasks.map { (id: $0.id, title: $0.title) }
+        StudentNotificationManager.shared.notifyNewTasks(taskIds: taskSnippets, teamName: teamName)
+
         // ── ✅ TODAY-ONLY filter ───────────────────────────────
         // Show active tasks (assigned / ongoing) that were assigned TODAY.
         // Uses timezone-aware comparison so UTC dates don't bleed into yesterday/tomorrow.
@@ -344,6 +362,7 @@ class SDashboardViewController: UIViewController {
         tasksDueTodayLabel.textAlignment = .left
 
         applyHeaderFloatingControls()
+        setupNotificationButton()
 
         installCodeGreetingLabel()
 
@@ -384,14 +403,50 @@ class SDashboardViewController: UIViewController {
             editButton.configuration = config
         }
 
-        guard let profileButton else { return }
-        AppTheme.styleNativeFloatingControl(profileButton, cornerRadius: profileButton.bounds.height / 2)
-        profileButton.tintColor = iconColor
-        if var config = profileButton.configuration {
-            config.baseForegroundColor = iconColor
-            config.baseBackgroundColor = .clear
-            profileButton.configuration = config
+        guard let profileButton = profileButton else { return }
+        
+        // Setup base config
+        if profileButton.configuration == nil {
+            profileButton.configuration = .plain()
         }
+        var config = profileButton.configuration!
+        config.baseBackgroundColor = .clear
+        
+        let targetSize = CGSize(width: profileButton.bounds.width > 0 ? profileButton.bounds.width : 44,
+                                height: profileButton.bounds.height > 0 ? profileButton.bounds.height : 44)
+                                
+        // 1. Attempt to load the user's cached profile avatar natively into the header button
+        var hasAvatar = false
+        if let personId = UserDefaults.standard.string(forKey: "current_person_id"),
+           let base64 = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "student"),
+           let data = Data(base64Encoded: base64),
+           let fullImage = UIImage(data: data) {
+            
+            // Resize and clip to pure circular shape
+            UIGraphicsBeginImageContextWithOptions(targetSize, false, 0.0)
+            let rect = CGRect(origin: .zero, size: targetSize)
+            UIBezierPath(roundedRect: rect, cornerRadius: targetSize.width / 2).addClip()
+            fullImage.draw(in: rect)
+            let circularImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            
+            config.image = circularImage?.withRenderingMode(.alwaysOriginal)
+            hasAvatar = true
+        }
+        
+        if !hasAvatar {
+            let symbolConfig = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
+            config.image = UIImage(systemName: "person.circle", withConfiguration: symbolConfig)
+            config.baseForegroundColor = iconColor
+            AppTheme.styleNativeFloatingControl(profileButton, cornerRadius: profileButton.bounds.height / 2)
+            profileButton.tintColor = iconColor
+        } else {
+            // Un-tint if an avatar is present
+            profileButton.tintColor = .clear
+            profileButton.layer.shadowOpacity = 0 // Avatars usually look cleaner without deep shadows directly on the button edge
+        }
+        
+        profileButton.configuration = config
     }
 
     private func installCodeGreetingLabel() {
@@ -427,6 +482,36 @@ class SDashboardViewController: UIViewController {
             if let found = findLegacyStoryboardGreeting(in: subview) { return found }
         }
         return nil
+    }
+    
+    private func setupNotificationButton() {
+        guard let profileButton = profileButton else { return }
+        notificationButton.addTarget(self, action: #selector(notificationButtonTapped), for: .touchUpInside)
+        view.addSubview(notificationButton)
+
+        AppTheme.styleNativeFloatingControl(notificationButton, cornerRadius: 22)
+        notificationButton.clipsToBounds = false
+
+        let iconColor: UIColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
+        notificationButton.tintColor = iconColor
+        if var config = notificationButton.configuration {
+            config.baseForegroundColor = iconColor
+            notificationButton.configuration = config
+        }
+
+        NSLayoutConstraint.activate([
+            notificationButton.widthAnchor.constraint(equalToConstant: profileButton.bounds.width > 0 ? profileButton.bounds.width : 44),
+            notificationButton.heightAnchor.constraint(equalToConstant: profileButton.bounds.height > 0 ? profileButton.bounds.height : 44),
+            notificationButton.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
+            notificationButton.centerYAnchor.constraint(equalTo: profileButton.centerYAnchor)
+        ])
+    }
+    
+    @objc private func notificationButtonTapped() {
+        // Handle student notification tap showing tasks & team
+        let ac = UIAlertController(title: "Notifications", message: "You will be notified about tasks and team formation details here soon.", preferredStyle: .alert)
+        ac.addAction(UIAlertAction(title: "OK", style: .default))
+        present(ac, animated: true)
     }
 
 
@@ -654,7 +739,7 @@ extension SDashboardViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let task = tasksForTable[indexPath.row]
-        let vc   = TaskDetailViewController(nibName: "TaskDetailViewController", bundle: nil)
+        let vc   = TaskDetailViewController()
         var model = DashboardTask(title: task.title, dueDate: formatDisplayDate(task.assigned_date),
                                   assigneeName: "Team \(currentTeamNo)", assigneeImage: nil,
                                   attachmentNames: [], status: task.status, remark: task.remark)

@@ -69,7 +69,9 @@ class AnnouncementCell: UITableViewCell {
 
     func configure(with a: Announcement) {
         titleLabel.text = a.title
-        bodyLabel.text = a.body
+        let visibleBody = a.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        bodyLabel.text = visibleBody
+        bodyLabel.isHidden = visibleBody.isEmpty
         
         if let t = a.tag {
             tagLabel.isHidden = false

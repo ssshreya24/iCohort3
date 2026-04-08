@@ -22,6 +22,7 @@ final class AllTasksViewController: UIViewController, TeamContextReceiver {
     private var resolvedTeamNo: Int    = 0
 
     private var gradientLayer: CAGradientLayer?
+    private var collapsedSections: Set<Int> = []
 
     // MARK: - Task Sections
 
@@ -312,6 +313,7 @@ extension AllTasksViewController: UICollectionViewDataSource, UICollectionViewDe
 
     func collectionView(_ collectionView: UICollectionView,
                         numberOfItemsInSection section: Int) -> Int {
+        if collapsedSections.contains(section) { return 0 }
         guard section < tasksBySections.count else { return 0 }
         return tasksBySections[section].count
     }
@@ -357,7 +359,23 @@ extension AllTasksViewController: UICollectionViewDataSource, UICollectionViewDe
         let header = collectionView.dequeueReusableSupplementaryView(
             ofKind: kind, withReuseIdentifier: "TaskSectionHeader", for: indexPath
         ) as! TaskSectionHeaderView
-        header.titleLabel.text = TaskSection.allCases[indexPath.section].title
+        
+        let section = indexPath.section
+        header.configure(
+            title: TaskSection.allCases[section].title,
+            isCollapsed: collapsedSections.contains(section)
+        )
+        
+        header.toggleAction = { [weak self] in
+            guard let self = self else { return }
+            if self.collapsedSections.contains(section) {
+                self.collapsedSections.remove(section)
+            } else {
+                self.collapsedSections.insert(section)
+            }
+            self.collectionView.reloadSections(IndexSet(integer: section))
+        }
+        
         return header
     }
 
@@ -370,7 +388,60 @@ extension AllTasksViewController: UICollectionViewDataSource, UICollectionViewDe
     func collectionView(_ collectionView: UICollectionView,
                         layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
-        CGSize(width: collectionView.frame.width - 40, height: 180)
+        let cardWidth = Self.cardWidth(for: collectionView)
+        let task = tasksBySections[indexPath.section][indexPath.row]
+        let height = Self.estimatedCellHeight(
+            title: task.title,
+            desc: task.description ?? "",
+            cardWidth: cardWidth
+        )
+        return CGSize(width: cardWidth, height: height)
+    }
+
+    /// Returns a card width that is at most 600pt (for iPad), otherwise full-width minus padding.
+    static func cardWidth(for collectionView: UICollectionView) -> CGFloat {
+        let available = collectionView.frame.width - 40
+        return min(available, 600)
+    }
+
+    /// Computes dynamic card height based on content.
+    static func estimatedCellHeight(title: String, desc: String, cardWidth: CGFloat) -> CGFloat {
+        // Available width for title (leaves ~108pt for profile image + name + padding)
+        let titleWidth = cardWidth - 24 - 108      // 24 = leading (12 card + 12 button spacing)
+        let descWidth  = cardWidth - 32             // 16 leading + 16 trailing
+
+        let titleFont = UIFont.systemFont(ofSize: 15, weight: .semibold)
+        let descFont  = UIFont.systemFont(ofSize: 13)
+
+        let titleHeight = title.boundingRect(
+            with: CGSize(width: titleWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: titleFont],
+            context: nil
+        ).height.rounded(.up)
+
+        let trimmedDesc = desc.trimmingCharacters(in: .whitespacesAndNewlines)
+        let descHeight: CGFloat
+        if trimmedDesc.isEmpty {
+            descHeight = 0
+        } else {
+            descHeight = trimmedDesc.boundingRect(
+                with: CGSize(width: descWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: descFont],
+                context: nil
+            ).height.rounded(.up)
+        }
+
+        // Layout breakdown:
+        // 12 top padding (card) + 12 button top + max(titleHeight, 25) + spacing(30) + descHeight
+        // + spacing(30 if desc, else 10) + 1 separator + 2 + 15 dueDate + 15 bottom + 8 cell padding
+        let titleRow   = max(titleHeight, 25)
+        let afterTitle: CGFloat = trimmedDesc.isEmpty ? 10 : 30
+        let afterDesc: CGFloat  = trimmedDesc.isEmpty ? 0  : 30
+        let chrome: CGFloat = 12 + 12 + afterTitle + afterDesc + 1 + 2 + 15 + 15 + 16
+        let computed = chrome + titleRow + descHeight
+        return max(computed, 110)  // minimum sensible card height
     }
 
     func collectionView(_ collectionView: UICollectionView,

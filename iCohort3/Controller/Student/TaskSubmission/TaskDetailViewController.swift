@@ -30,43 +30,52 @@ private struct AttachmentPayload {
 
 class TaskDetailViewController: UIViewController {
 
-    // MARK: - ScrollView & Content
-    @IBOutlet weak var scrollView: UIScrollView!
-    @IBOutlet weak var contentView: UIView!
+    // MARK: - UI Components
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+    private let contentStackView = UIStackView()
+    private let backButton = UIButton(type: .system)
 
-    // MARK: - Title Card
-    @IBOutlet weak var taskTitleLabel: UILabel!
-    @IBOutlet weak var dueDateContainerView: UIView!
-    @IBOutlet weak var dueDateLabel: UILabel!
+    // Title Card
+    private let titleCard = UIView()
+    private let taskTitleLabel = UILabel()
+    private let dueDateContainerView = UIView()
+    private let dueDateLabel = UILabel()
+    private let dueTextLabel = UILabel()
 
-    // MARK: - Assigned To Card
-    @IBOutlet weak var assignedToContainerView: UIView!
-    @IBOutlet weak var resourcesContainerView: UIView!
-    @IBOutlet weak var assigneeImageView: UIImageView!
-    @IBOutlet weak var assigneeNameLabel: UILabel!
+    // Assigned To Card
+    private let assignedToContainerView = UIView()
+    private let resourcesContainerView = UIView()
+    private let assigneeImageView = UIImageView()
+    private let assigneeNameLabel = UILabel()
+    private let assignedToTitleLabel = UILabel()
 
-    // MARK: - Assigned By (mentor)
-    @IBOutlet weak var assignedByNameLabel: UILabel!
+    // Assigned By (mentor)
+    private let assignedByContainerView = UIView()
+    private let assignedByNameLabel = UILabel()
+    private let assignedByTitleLabel = UILabel()
 
-    // MARK: - Attachment Card
-    @IBOutlet weak var attachmentContainerView: UIView!
-    @IBOutlet weak var attachmentIconButton: UIButton!
-    @IBOutlet weak var attachmentsStackView: UIStackView!
+    // Attachment Card
+    private let attachmentContainerView = UIView()
+    private let attachmentIconButton = UIButton(type: .system)
+    private let attachmentsStackView = UIStackView()
+    private let attachmentTitleLabel = UILabel()
 
-    // MARK: - Submit To
-    @IBOutlet weak var submitToButton: UIButton!
-    @IBOutlet weak var assignedByContainerView: UIView!
-    @IBOutlet weak var submitToContainerView: UIView!
+    // Submit To
+    private let submitToContainerView = UIView()
+    private let submitToButton = UIButton(type: .system)
+    private let submitToTitleLabel = UILabel()
 
-    // MARK: - Submit Button
-    @IBOutlet weak var submitButton: UIButton!
+    // Submit Button
+    private let submitButton = UIButton(type: .system)
 
-    // MARK: - Height Constraint
-    @IBOutlet weak var attachmentContainerHeightConstraint: NSLayoutConstraint!
+    // Height Constraints
+    private var attachmentContainerHeightConstraint: NSLayoutConstraint!
+    private var resourcesContainerHeightConstraint: NSLayoutConstraint!
 
-    // MARK: - Resources Section
-    @IBOutlet weak var resourcesStackView: UIStackView!
-    @IBOutlet weak var resourcesContainerHeightConstraint: NSLayoutConstraint!
+    // Resources Section
+    private let resourcesStackView = UIStackView()
+    private let resourcesTitleLabel = UILabel()
 
     // MARK: - Task Model
     var task: DashboardTask?
@@ -82,11 +91,16 @@ class TaskDetailViewController: UIViewController {
 
     /// Pending attachments the student has picked — cleared on submit
     private var pendingAttachments: [AttachmentPayload] = []
+    private let cardCornerRadius: CGFloat = 20
+    private let rowCornerRadius: CGFloat = 12
 
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
+        buildLayout()
+        applyConstraints()
         setupUI()
         setupBackButton()
         setupMentorUI()
@@ -107,18 +121,27 @@ class TaskDetailViewController: UIViewController {
         navigationController?.navigationBar.isHidden = false
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        applyTheme()
+    }
+
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyTheme()
+        }
+    }
+
     // MARK: - Back Button
 
     private func setupBackButton() {
-        let backButton = UIButton(type: .system)
         backButton.translatesAutoresizingMaskIntoConstraints = false
-        backButton.backgroundColor = UIColor(white: 1.0, alpha: 0.8)
         backButton.layer.cornerRadius = 22
-        let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
-        backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        backButton.tintColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         view.addSubview(backButton)
+        view.bringSubviewToFront(backButton)
         NSLayoutConstraint.activate([
             backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -133,53 +156,359 @@ class TaskDetailViewController: UIViewController {
 
     private func setupMentorUI() {
         assignedByNameLabel.text      = "Loading..."
-        assignedByNameLabel.textColor = .darkGray
+        assignedByNameLabel.textColor = .secondaryLabel
         assignedByNameLabel.font      = UIFont.systemFont(ofSize: 16)
 
         submitToButton.setTitle("Select Mentor", for: .normal)
-        submitToButton.setTitleColor(.darkGray, for: .normal)
+        submitToButton.setTitleColor(.secondaryLabel, for: .normal)
         submitToButton.titleLabel?.font       = UIFont.systemFont(ofSize: 16)
+    }
+
+    // MARK: - Theme
+
+    private func applyTheme() {
+        AppTheme.applyScreenBackground(to: view)
+        contentView.backgroundColor = .clear
+        scrollView.backgroundColor = .clear
+
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        let foreground = isDark ? UIColor.white : UIColor.black
+        let accent = AppTheme.buttonColor
+        let rowBackground = isDark
+            ? UIColor.white.withAlphaComponent(0.10)
+            : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+
+        let cards: [UIView?] = [
+            titleCard, assignedToContainerView, attachmentContainerView,
+            assignedByContainerView, submitToContainerView, resourcesContainerView
+        ]
+        cards.forEach {
+            guard let card = $0 else { return }
+            AppTheme.styleElevatedCard(card, cornerRadius: cardCornerRadius)
+        }
+
+        let sectionLabels = [
+            dueTextLabel,
+            assignedToTitleLabel,
+            assignedByTitleLabel,
+            resourcesTitleLabel,
+            attachmentTitleLabel,
+            submitToTitleLabel
+        ]
+        sectionLabels.forEach {
+            $0.textColor = .label
+            $0.font = .systemFont(ofSize: 16, weight: .medium)
+            $0.setContentHuggingPriority(.required, for: .horizontal)
+            $0.setContentCompressionResistancePriority(.required, for: .horizontal)
+        }
+
+        taskTitleLabel.textColor = .label
+        dueDateLabel.textColor = .secondaryLabel
+        assigneeNameLabel.textColor = .label
+        assignedByNameLabel.textColor = .secondaryLabel
+        submitToButton.setTitleColor(.label, for: .normal)
+        submitToButton.tintColor = accent
+        attachmentIconButton.tintColor = accent
+        submitButton.backgroundColor = accent
+        submitButton.setTitleColor(.white, for: .normal)
+
+        let backConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        var buttonConfig = UIButton.Configuration.plain()
+        buttonConfig.image = UIImage(systemName: "chevron.left", withConfiguration: backConfig)
+        buttonConfig.baseForegroundColor = foreground
+        buttonConfig.background.backgroundColor = .clear
+        buttonConfig.cornerStyle = .capsule
+        backButton.configuration = buttonConfig
+        AppTheme.styleNativeFloatingControl(backButton, cornerRadius: 22)
+        backButton.backgroundColor = .clear
+        backButton.tintColor = foreground
+
+        // Resource row icons: re-tint to adapt to mode
+        func reTintSubviews(in stackView: UIStackView?) {
+            stackView?.arrangedSubviews.forEach { row in
+                row.layer.cornerRadius = rowCornerRadius
+                row.clipsToBounds = true
+                row.subviews.compactMap { $0 as? UIImageView }.forEach { $0.tintColor = AppTheme.buttonColor }
+                row.subviews.compactMap { $0 as? UILabel }.forEach { $0.textColor = .label }
+                row.backgroundColor = rowBackground
+            }
+        }
+        reTintSubviews(in: resourcesStackView)
+        reTintSubviews(in: attachmentsStackView)
     }
 
     // MARK: - UI Setup
 
-    private func setupUI() {
-        view.backgroundColor = UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+    // MARK: - UI Construction
+
+    private func buildLayout() {
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.alwaysBounceVertical = true
+        view.addSubview(scrollView)
+
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(contentView)
+
+        contentStackView.translatesAutoresizingMaskIntoConstraints = false
+        contentStackView.axis = .vertical
+        contentStackView.spacing = 20
+        contentStackView.alignment = .fill
+        contentView.addSubview(contentStackView)
+
+        // Title Card
+        titleCard.translatesAutoresizingMaskIntoConstraints = false
+        taskTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        taskTitleLabel.numberOfLines = 0
+        taskTitleLabel.font = UIFont.systemFont(ofSize: 22, weight: .bold)
         
-        setupRefreshControl()
+        dueDateLabel.translatesAutoresizingMaskIntoConstraints = false
+        dueDateLabel.setContentHuggingPriority(.required, for: .horizontal)
+        
+        let dueRow = UIStackView()
+        dueRow.translatesAutoresizingMaskIntoConstraints = false
+        dueRow.axis = .horizontal
+        dueRow.spacing = 8
+        dueRow.alignment = .center
+        
+        let calIcon = UIImageView(image: UIImage(systemName: "calendar"))
+        calIcon.tintColor = AppTheme.buttonColor
+        calIcon.contentMode = .scaleAspectFit
+        calIcon.widthAnchor.constraint(equalToConstant: 20).isActive = true
+        calIcon.heightAnchor.constraint(equalToConstant: 20).isActive = true
+        
+        dueTextLabel.text = "Due Date"
+        dueRow.addArrangedSubview(calIcon)
+        dueRow.addArrangedSubview(dueTextLabel)
+        dueRow.addArrangedSubview(UIView()) // Flexible space
+        dueRow.addArrangedSubview(dueDateLabel)
+        
+        titleCard.addSubview(taskTitleLabel)
+        titleCard.addSubview(dueRow)
+        
+        NSLayoutConstraint.activate([
+            taskTitleLabel.topAnchor.constraint(equalTo: titleCard.topAnchor, constant: 20),
+            taskTitleLabel.leadingAnchor.constraint(equalTo: titleCard.leadingAnchor, constant: 16),
+            taskTitleLabel.trailingAnchor.constraint(equalTo: titleCard.trailingAnchor, constant: -16),
+            
+            dueRow.topAnchor.constraint(equalTo: taskTitleLabel.bottomAnchor, constant: 16),
+            dueRow.leadingAnchor.constraint(equalTo: titleCard.leadingAnchor, constant: 16),
+            dueRow.trailingAnchor.constraint(equalTo: titleCard.trailingAnchor, constant: -16),
+            dueRow.bottomAnchor.constraint(equalTo: titleCard.bottomAnchor, constant: -20)
+        ])
+        contentStackView.addArrangedSubview(titleCard)
 
-        let cards: [UIView?] = [
-            dueDateContainerView, assignedToContainerView, attachmentContainerView,
-            assignedByContainerView, submitToContainerView, resourcesContainerView
-        ]
-        cards.forEach {
-            $0?.backgroundColor    = .white
-            $0?.layer.cornerRadius = 20
-            $0?.layer.shadowColor   = UIColor.black.cgColor
-            $0?.layer.shadowOpacity = 0.06
-            $0?.layer.shadowOffset  = CGSize(width: 0, height: 2)
-            $0?.layer.shadowRadius  = 6
-        }
+        // Assigned To Card
+        assignedToContainerView.translatesAutoresizingMaskIntoConstraints = false
+        assignedToTitleLabel.text = "Assigned To"
+        assigneeImageView.translatesAutoresizingMaskIntoConstraints = false
+        assigneeImageView.contentMode = .scaleAspectFill
+        assigneeImageView.clipsToBounds = true
+        assigneeImageView.layer.cornerRadius = 18
+        
+        assigneeNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        assigneeNameLabel.font = .systemFont(ofSize: 16)
+        assigneeNameLabel.textAlignment = .right
+        assigneeNameLabel.lineBreakMode = .byTruncatingTail
 
-        taskTitleLabel.font = UIFont.systemFont(ofSize: 22, weight: .semibold)
-        dueDateLabel.font   = UIFont.systemFont(ofSize: 16)
-        dueDateLabel.textColor = .darkGray
+        let assigneeTrailingStack = UIStackView(arrangedSubviews: [assigneeImageView, assigneeNameLabel])
+        assigneeTrailingStack.translatesAutoresizingMaskIntoConstraints = false
+        assigneeTrailingStack.axis = .horizontal
+        assigneeTrailingStack.spacing = 12
+        assigneeTrailingStack.alignment = .center
 
-        assigneeImageView.layer.cornerRadius = 20
-        assigneeImageView.clipsToBounds      = true
-        assigneeNameLabel.font = UIFont.systemFont(ofSize: 16)
+        let assignedToRow = UIStackView(arrangedSubviews: [assignedToTitleLabel, UIView(), assigneeTrailingStack])
+        assignedToRow.translatesAutoresizingMaskIntoConstraints = false
+        assignedToRow.axis = .horizontal
+        assignedToRow.spacing = 12
+        assignedToRow.alignment = .center
+        
+        assignedToContainerView.addSubview(assignedToRow)
+        
+        NSLayoutConstraint.activate([
+            assigneeImageView.widthAnchor.constraint(equalToConstant: 36),
+            assigneeImageView.heightAnchor.constraint(equalToConstant: 36),
+            assignedToRow.topAnchor.constraint(equalTo: assignedToContainerView.topAnchor, constant: 14),
+            assignedToRow.leadingAnchor.constraint(equalTo: assignedToContainerView.leadingAnchor, constant: 16),
+            assignedToRow.trailingAnchor.constraint(equalTo: assignedToContainerView.trailingAnchor, constant: -16),
+            assignedToRow.bottomAnchor.constraint(equalTo: assignedToContainerView.bottomAnchor, constant: -14),
+            assignedToContainerView.heightAnchor.constraint(equalToConstant: 60)
+        ])
+        contentStackView.addArrangedSubview(assignedToContainerView)
 
-        attachmentsStackView.axis         = .vertical
-        attachmentsStackView.spacing      = 8
-        attachmentsStackView.alignment    = .fill
+        // Assigned By Card
+        assignedByContainerView.translatesAutoresizingMaskIntoConstraints = false
+        assignedByTitleLabel.text = "Assigned By"
+        assignedByNameLabel.translatesAutoresizingMaskIntoConstraints = false
+        assignedByNameLabel.font = .systemFont(ofSize: 16)
+        assignedByNameLabel.textAlignment = .right
+        assignedByNameLabel.lineBreakMode = .byTruncatingTail
+
+        let assignedByRow = UIStackView(arrangedSubviews: [assignedByTitleLabel, UIView(), assignedByNameLabel])
+        assignedByRow.translatesAutoresizingMaskIntoConstraints = false
+        assignedByRow.axis = .horizontal
+        assignedByRow.spacing = 12
+        assignedByRow.alignment = .center
+        
+        assignedByContainerView.addSubview(assignedByRow)
+        
+        NSLayoutConstraint.activate([
+            assignedByRow.topAnchor.constraint(equalTo: assignedByContainerView.topAnchor, constant: 14),
+            assignedByRow.leadingAnchor.constraint(equalTo: assignedByContainerView.leadingAnchor, constant: 16),
+            assignedByRow.trailingAnchor.constraint(equalTo: assignedByContainerView.trailingAnchor, constant: -16),
+            assignedByRow.bottomAnchor.constraint(equalTo: assignedByContainerView.bottomAnchor, constant: -14),
+            assignedByContainerView.heightAnchor.constraint(equalToConstant: 56)
+        ])
+        contentStackView.addArrangedSubview(assignedByContainerView)
+
+        // Resources Card
+        resourcesContainerView.translatesAutoresizingMaskIntoConstraints = false
+        resourcesTitleLabel.text = "Resources"
+        
+        resourcesStackView.translatesAutoresizingMaskIntoConstraints = false
+        resourcesStackView.axis = .vertical
+        resourcesStackView.spacing = 8
+        resourcesStackView.alignment = .fill
+        resourcesStackView.distribution = .fill
+        
+        resourcesContainerView.addSubview(resourcesTitleLabel)
+        resourcesContainerView.addSubview(resourcesStackView)
+        
+        resourcesContainerHeightConstraint = resourcesContainerView.heightAnchor.constraint(equalToConstant: 100)
+        resourcesContainerHeightConstraint.priority = .defaultHigh
+        
+        NSLayoutConstraint.activate([
+            resourcesTitleLabel.topAnchor.constraint(equalTo: resourcesContainerView.topAnchor, constant: 12),
+            resourcesTitleLabel.leadingAnchor.constraint(equalTo: resourcesContainerView.leadingAnchor, constant: 16),
+            
+            resourcesStackView.topAnchor.constraint(equalTo: resourcesTitleLabel.bottomAnchor, constant: 12),
+            resourcesStackView.leadingAnchor.constraint(equalTo: resourcesContainerView.leadingAnchor, constant: 16),
+            resourcesStackView.trailingAnchor.constraint(equalTo: resourcesContainerView.trailingAnchor, constant: -16),
+            resourcesStackView.bottomAnchor.constraint(equalTo: resourcesContainerView.bottomAnchor, constant: -12),
+            resourcesContainerHeightConstraint
+        ])
+        contentStackView.addArrangedSubview(resourcesContainerView)
+
+        // Attachment Card
+        attachmentContainerView.translatesAutoresizingMaskIntoConstraints = false
+        attachmentTitleLabel.text = "Add Attachment"
+        
+        attachmentIconButton.translatesAutoresizingMaskIntoConstraints = false
+        attachmentIconButton.setImage(UIImage(systemName: "paperclip"), for: .normal)
+        attachmentIconButton.tintColor = AppTheme.buttonColor
+        attachmentIconButton.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
+        
+        attachmentsStackView.translatesAutoresizingMaskIntoConstraints = false
+        attachmentsStackView.axis = .vertical
+        attachmentsStackView.spacing = 8
+        attachmentsStackView.alignment = .fill
         attachmentsStackView.distribution = .fill
 
-        resourcesStackView.axis         = .vertical
-        resourcesStackView.spacing      = 8
-        resourcesStackView.alignment    = .fill
-        resourcesStackView.distribution = .fill
+        let attachmentHeaderRow = UIStackView(arrangedSubviews: [attachmentTitleLabel, UIView(), attachmentIconButton])
+        attachmentHeaderRow.translatesAutoresizingMaskIntoConstraints = false
+        attachmentHeaderRow.axis = .horizontal
+        attachmentHeaderRow.spacing = 12
+        attachmentHeaderRow.alignment = .center
+        
+        attachmentContainerView.addSubview(attachmentHeaderRow)
+        attachmentContainerView.addSubview(attachmentsStackView)
+        
+        attachmentContainerHeightConstraint = attachmentContainerView.heightAnchor.constraint(equalToConstant: 92)
+        attachmentContainerHeightConstraint.priority = .defaultHigh
+        
+        NSLayoutConstraint.activate([
+            attachmentHeaderRow.topAnchor.constraint(equalTo: attachmentContainerView.topAnchor, constant: 16),
+            attachmentHeaderRow.leadingAnchor.constraint(equalTo: attachmentContainerView.leadingAnchor, constant: 16),
+            attachmentHeaderRow.trailingAnchor.constraint(equalTo: attachmentContainerView.trailingAnchor, constant: -16),
+            attachmentIconButton.widthAnchor.constraint(equalToConstant: 30),
+            attachmentIconButton.heightAnchor.constraint(equalToConstant: 30),
+            
+            attachmentsStackView.topAnchor.constraint(equalTo: attachmentHeaderRow.bottomAnchor, constant: 12),
+            attachmentsStackView.leadingAnchor.constraint(equalTo: attachmentContainerView.leadingAnchor, constant: 16),
+            attachmentsStackView.trailingAnchor.constraint(equalTo: attachmentContainerView.trailingAnchor, constant: -16),
+            attachmentsStackView.bottomAnchor.constraint(equalTo: attachmentContainerView.bottomAnchor, constant: -16),
+            attachmentContainerHeightConstraint
+        ])
+        contentStackView.addArrangedSubview(attachmentContainerView)
 
+        // Submit To Card
+        submitToContainerView.translatesAutoresizingMaskIntoConstraints = false
+        submitToTitleLabel.text = "Submit To"
+        
+        submitToButton.translatesAutoresizingMaskIntoConstraints = false
+        submitToButton.setImage(UIImage(systemName: "chevron.down"), for: .normal)
+        submitToButton.tintColor = AppTheme.buttonColor
+        submitToButton.contentHorizontalAlignment = .right
+        submitToButton.semanticContentAttribute = .forceRightToLeft
+        submitToButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+
+        let submitToRow = UIStackView(arrangedSubviews: [submitToTitleLabel, UIView(), submitToButton])
+        submitToRow.translatesAutoresizingMaskIntoConstraints = false
+        submitToRow.axis = .horizontal
+        submitToRow.spacing = 12
+        submitToRow.alignment = .center
+        
+        submitToContainerView.addSubview(submitToRow)
+        
+        NSLayoutConstraint.activate([
+            submitToRow.topAnchor.constraint(equalTo: submitToContainerView.topAnchor, constant: 14),
+            submitToRow.leadingAnchor.constraint(equalTo: submitToContainerView.leadingAnchor, constant: 16),
+            submitToRow.trailingAnchor.constraint(equalTo: submitToContainerView.trailingAnchor, constant: -16),
+            submitToRow.bottomAnchor.constraint(equalTo: submitToContainerView.bottomAnchor, constant: -14),
+            submitToContainerView.heightAnchor.constraint(equalToConstant: 56)
+        ])
+        contentStackView.addArrangedSubview(submitToContainerView)
+
+        // Submit Button
+        submitButton.translatesAutoresizingMaskIntoConstraints = false
+        submitButton.setTitle("Submit for review", for: .normal)
+        submitButton.backgroundColor = AppTheme.buttonColor
+        submitButton.setTitleColor(.white, for: .normal)
+        submitButton.layer.cornerRadius = 20
+        submitButton.addTarget(self, action: #selector(submitButtonTapped), for: .touchUpInside)
+        
+        let submitButtonContainer = UIView()
+        submitButtonContainer.backgroundColor = .clear
+        submitButtonContainer.addSubview(submitButton)
+        submitButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            submitButton.topAnchor.constraint(equalTo: submitButtonContainer.topAnchor, constant: 10),
+            submitButton.centerXAnchor.constraint(equalTo: submitButtonContainer.centerXAnchor),
+            submitButton.widthAnchor.constraint(equalTo: submitButtonContainer.widthAnchor, multiplier: 0.8),
+            submitButton.heightAnchor.constraint(equalToConstant: 50),
+            submitButton.bottomAnchor.constraint(equalTo: submitButtonContainer.bottomAnchor, constant: -20)
+        ])
+        contentStackView.addArrangedSubview(submitButtonContainer)
+    }
+
+    private func applyConstraints() {
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 56),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.frameLayoutGuide.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+
+            contentStackView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            contentStackView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            contentStackView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            contentStackView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
+        ])
+    }
+
+    private func setupUI() {
+        AppTheme.applyScreenBackground(to: view)
+        setupRefreshControl()
+        taskTitleLabel.font = UIFont.systemFont(ofSize: 22, weight: .semibold)
+        dueDateLabel.font   = UIFont.systemFont(ofSize: 16)
+        dueDateLabel.textColor = .secondaryLabel
         submitButton.titleLabel?.font   = .systemFont(ofSize: 17, weight: .semibold)
+        view.layoutIfNeeded()
+        applyTheme()
     }
     
     private func setupRefreshControl() {
@@ -321,7 +650,9 @@ class TaskDetailViewController: UIViewController {
             }
             
             // Filter only mentor attachments for the resources section
-            let mentorResources = fetchedAttachments.filter { $0.mentor_attachment == true }
+            let mentorResources = fetchedAttachments.filter { row in
+                row.mentor_attachment == true || (row.mentor_attachment == nil && row.student_id == nil)
+            }
             self.fetchedMentorAttachments = mentorResources
             
             if mentorResources.isEmpty {
@@ -334,7 +665,9 @@ class TaskDetailViewController: UIViewController {
             self.applySubmissionState(for: self.task?.status, showAlert: false)
 
             // Filter student attachments for the submission section
-            let studentAttachments = fetchedAttachments.filter { $0.mentor_attachment == false || $0.mentor_attachment == nil }
+            let studentAttachments = fetchedAttachments.filter { row in
+                row.mentor_attachment == false || (row.mentor_attachment == nil && row.student_id != nil)
+            }
             self.fetchedStudentAttachments = studentAttachments
             
             // Clear existing rows before adding
@@ -362,13 +695,21 @@ class TaskDetailViewController: UIViewController {
         let label           = UILabel()
         label.tag           = noResourcesTag
         label.text          = "No resources attached"
-        label.textColor     = .systemGray
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        let bgColor = isDark ? UIColor(white: 0.22, alpha: 1) : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+        let fgColor = isDark ? UIColor.lightGray : UIColor.systemGray
+        
+        label.backgroundColor = bgColor
+        label.layer.cornerRadius = rowCornerRadius
+        label.clipsToBounds = true
+        label.textColor = fgColor
         label.font          = UIFont.systemFont(ofSize: 15)
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         label.heightAnchor.constraint(equalToConstant: 40).isActive = true
         resourcesStackView.addArrangedSubview(label)
-        resourcesContainerHeightConstraint.constant = 90
+        resourcesContainerView.isHidden = false
+        resourcesContainerHeightConstraint.constant = 92
     }
 
     private func removeNoResourcesLabel() {
@@ -381,7 +722,8 @@ class TaskDetailViewController: UIViewController {
         resourcesStackView.layoutIfNeeded()
         let stackHeight = resourcesStackView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height
         let contentHeight = max(40, stackHeight)
-        resourcesContainerHeightConstraint.constant = 48 + contentHeight + 16
+        resourcesContainerView.isHidden = resourcesStackView.arrangedSubviews.isEmpty
+        resourcesContainerHeightConstraint.constant = 44 + 16 + 12 + contentHeight + 16
         UIView.animate(withDuration: 0.3) { self.view.layoutIfNeeded() }
     }
 
@@ -437,9 +779,12 @@ class TaskDetailViewController: UIViewController {
     
     /// Adds a display row in the Resources stack for mentor-attached items
     private func addResourceRow(filename: String) {
+        let isDark = traitCollection.userInterfaceStyle == .dark
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
-        container.backgroundColor = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+        container.backgroundColor = isDark
+            ? UIColor(white: 0.22, alpha: 1)
+            : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
         container.layer.cornerRadius = 10
         
         let isLink = filename.hasPrefix("http://") || filename.hasPrefix("https://")
@@ -457,13 +802,13 @@ class TaskDetailViewController: UIViewController {
         let icon = UIImageView(image: UIImage(systemName: iconName))
         icon.translatesAutoresizingMaskIntoConstraints = false
         icon.contentMode = .scaleAspectFit
-        icon.tintColor = .systemBlue
+        icon.tintColor = AppTheme.buttonColor
         
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.text = isLink ? (URL(string: filename)?.host ?? filename) : filename
         lbl.font = UIFont.systemFont(ofSize: 15)
-        lbl.textColor = isLink ? .systemBlue : .darkGray
+        lbl.textColor = isLink ? AppTheme.buttonColor : .label
         lbl.numberOfLines = 1
         
         container.addSubview(icon)
@@ -479,11 +824,10 @@ class TaskDetailViewController: UIViewController {
             lbl.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
         
-        // Add tap gesture to open the resource
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(resourceTapped(_:)))
         container.addGestureRecognizer(tapGesture)
         container.isUserInteractionEnabled = true
-        container.accessibilityIdentifier = filename // Store filename to access on tap
+        container.accessibilityIdentifier = filename
         
         resourcesStackView.addArrangedSubview(container)
     }
@@ -506,7 +850,7 @@ class TaskDetailViewController: UIViewController {
         body.translatesAutoresizingMaskIntoConstraints = false
         body.text = feedback
         body.font = .systemFont(ofSize: 14)
-        body.textColor = .darkGray
+        body.textColor = .label
         body.numberOfLines = 0
 
         box.addSubview(title)
@@ -543,6 +887,7 @@ class TaskDetailViewController: UIViewController {
         pendingAttachments.removeAll()
         submitButton.setTitle("Redo Submission", for: .normal)
         submitButton.backgroundColor = .systemOrange
+        submitButton.isEnabled = true
         attachmentIconButton.isEnabled = false
         attachmentIconButton.alpha = 0.5
 
@@ -554,7 +899,7 @@ class TaskDetailViewController: UIViewController {
         }
 
         if shouldAlert {
-            showAlert(title: "Submitted ✅",
+            showAlert(title: "Submitted",
                       message: "Your task has been sent to the mentor for review.")
         }
     }
@@ -562,7 +907,8 @@ class TaskDetailViewController: UIViewController {
     private func setEditableState() {
         isSubmitted = false
         submitButton.setTitle("Submit for review", for: .normal)
-        submitButton.backgroundColor = .systemBlue
+        submitButton.backgroundColor = AppTheme.buttonColor
+        submitButton.isEnabled = true
         attachmentIconButton.isEnabled = true
         attachmentIconButton.alpha = 1.0
     }
@@ -598,9 +944,12 @@ class TaskDetailViewController: UIViewController {
 
     /// Adds a display row in the stack. `canDelete` controls whether the × button shows.
     private func addAttachmentRow(filename: String, canDelete: Bool) {
+        let isDark = traitCollection.userInterfaceStyle == .dark
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
-        container.backgroundColor    = UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
+        container.backgroundColor = isDark
+            ? UIColor(white: 0.22, alpha: 1)
+            : UIColor(red: 0.95, green: 0.95, blue: 0.97, alpha: 1)
         container.layer.cornerRadius = 12
 
         let isLink   = filename.hasPrefix("http://") || filename.hasPrefix("https://")
@@ -618,13 +967,13 @@ class TaskDetailViewController: UIViewController {
         let icon = UIImageView(image: UIImage(systemName: iconName))
         icon.translatesAutoresizingMaskIntoConstraints = false
         icon.contentMode = .scaleAspectFit
-        icon.tintColor   = .systemBlue
+        icon.tintColor   = AppTheme.buttonColor
 
         let lbl = UILabel()
         lbl.translatesAutoresizingMaskIntoConstraints = false
         lbl.text          = isLink ? (URL(string: filename)?.host ?? filename) : filename
         lbl.font          = UIFont.systemFont(ofSize: 16)
-        lbl.textColor     = isLink ? .systemBlue : .darkGray
+        lbl.textColor     = isLink ? AppTheme.buttonColor : .label
         lbl.numberOfLines = 1
 
         let delBtn = UIButton(type: .system)
@@ -717,17 +1066,35 @@ class TaskDetailViewController: UIViewController {
         UIView.animate(withDuration: 0.25, animations: { container.alpha = 0 }) { _ in
             self.attachmentsStackView.removeArrangedSubview(container)
             container.removeFromSuperview()
-            if self.attachmentsStackView.arrangedSubviews.isEmpty { self.showNoResourcesLabel() }
             self.updateAttachmentContainerHeight()
         }
     }
 
     private func updateAttachmentContainerHeight() {
+        view.layoutIfNeeded()
         attachmentsStackView.layoutIfNeeded()
-        let count = attachmentsStackView.arrangedSubviews.count
-        let h: CGFloat = count == 0 ? 50 : 70 + (50 + 8) * CGFloat(count) + 20
+        let fittingWidth = max(attachmentsStackView.bounds.width, view.bounds.width - 64)
+        let targetSize = CGSize(width: fittingWidth, height: UIView.layoutFittingCompressedSize.height)
+        let stackHeight = attachmentsStackView.systemLayoutSizeFitting(
+            targetSize,
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height
+        let h: CGFloat = 16 + 30 + 12 + max(0, stackHeight) + 16
         attachmentContainerHeightConstraint.constant = h
-        UIView.animate(withDuration: 0.3) { self.view.layoutIfNeeded() }
+        UIView.animate(withDuration: 0.3) {
+            self.view.layoutIfNeeded()
+        } completion: { _ in
+            let insetTop = self.scrollView.adjustedContentInset.top
+            let insetBottom = self.scrollView.adjustedContentInset.bottom
+            let maxOffsetY = max(
+                -insetTop,
+                self.scrollView.contentSize.height - self.scrollView.bounds.height + insetBottom
+            )
+            if self.scrollView.contentOffset.y > maxOffsetY {
+                self.scrollView.setContentOffset(CGPoint(x: self.scrollView.contentOffset.x, y: maxOffsetY), animated: false)
+            }
+        }
     }
 
     // MARK: - Placeholder image
@@ -736,7 +1103,7 @@ class TaskDetailViewController: UIViewController {
         let size = CGSize(width: 40, height: 40)
         UIGraphicsBeginImageContextWithOptions(size, false, 0)
         let ctx = UIGraphicsGetCurrentContext()!
-        UIColor.systemBlue.setFill(); ctx.fillEllipse(in: CGRect(origin: .zero, size: size))
+        AppTheme.buttonColor.setFill(); ctx.fillEllipse(in: CGRect(origin: .zero, size: size))
         let initial = String(name.prefix(1)).uppercased()
         let attrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.boldSystemFont(ofSize: 18), .foregroundColor: UIColor.white
@@ -759,15 +1126,15 @@ class TaskDetailViewController: UIViewController {
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
 
         let cam = UIAlertAction(title: "Camera", style: .default) { _ in self.openCamera() }
-        cam.setValue(UIImage(systemName: "camera.fill")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal), forKey: "image")
+        cam.setValue(UIImage(systemName: "camera.fill")?.withTintColor(AppTheme.buttonColor, renderingMode: .alwaysOriginal), forKey: "image")
         sheet.addAction(cam)
 
         let gal = UIAlertAction(title: "Photo Library", style: .default) { _ in self.openPhotoLibrary() }
-        gal.setValue(UIImage(systemName: "photo.fill")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal), forKey: "image")
+        gal.setValue(UIImage(systemName: "photo.fill")?.withTintColor(AppTheme.buttonColor, renderingMode: .alwaysOriginal), forKey: "image")
         sheet.addAction(gal)
 
         let doc = UIAlertAction(title: "Documents", style: .default) { _ in self.openDocumentPicker() }
-        doc.setValue(UIImage(systemName: "doc.fill")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal), forKey: "image")
+        doc.setValue(UIImage(systemName: "doc.fill")?.withTintColor(AppTheme.buttonColor, renderingMode: .alwaysOriginal), forKey: "image")
         sheet.addAction(doc)
 
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -805,6 +1172,9 @@ class TaskDetailViewController: UIViewController {
             a.addAction(UIAlertAction(title: "Redo", style: .destructive) { _ in self.redoSubmissionInSupabase() })
             present(a, animated: true)
         } else {
+            submitButton.isEnabled = false
+            submitButton.setTitle("Submitting...", for: .normal)
+            setLoading(true, showOverlay: true)
             submitTaskToSupabase()
         }
     }
@@ -835,7 +1205,6 @@ extension TaskDetailViewController: UIImagePickerControllerDelegate, UINavigatio
         let payload = AttachmentPayload(filename: filename, fileType: "image/jpeg",
                                         base64Data: base64Str, isLink: false)
 
-        removeNoResourcesLabel()
         let idx = pendingAttachments.count
         pendingAttachments.append(payload)
 
@@ -880,7 +1249,6 @@ extension TaskDetailViewController: UIDocumentPickerDelegate {
         let payload = AttachmentPayload(filename: filename, fileType: mimeType,
                                         base64Data: base64Str, isLink: false)
 
-        removeNoResourcesLabel()
         let idx = pendingAttachments.count
         pendingAttachments.append(payload)
 
@@ -949,10 +1317,15 @@ extension TaskDetailViewController {
                 // Sync counters for mentor dashboard
                 try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamIdStr)
 
-                await MainActor.run { self.markSubmitted() }
+                await MainActor.run {
+                    self.setLoading(false, showOverlay: true)
+                    self.markSubmitted()
+                }
 
             } catch {
                 await MainActor.run {
+                    self.setLoading(false, showOverlay: true)
+                    self.setEditableState()
                     self.showAlert(title: "Submission Failed", message: error.localizedDescription)
                 }
             }
@@ -972,10 +1345,13 @@ extension TaskDetailViewController {
                 }
                 
                 await MainActor.run {
+                    self.setLoading(false, showOverlay: true)
                     if status == "for_review" { self.markSubmitted() }
                 }
             } catch {
                 await MainActor.run {
+                    self.setLoading(false, showOverlay: true)
+                    self.setEditableState()
                     self.showAlert(title: "Submission Failed", message: error.localizedDescription)
                 }
             }

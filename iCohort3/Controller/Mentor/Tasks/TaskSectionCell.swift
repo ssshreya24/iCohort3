@@ -139,7 +139,8 @@ extension TaskSectionCell:
             remarkDesc: task.remarkDesc,
             title: task.title,
             attachments: task.attachments,
-            attachmentCount: task.attachmentFilenames?.count ?? 0
+            attachmentCount: task.attachmentFilenames?.count ?? 0,
+            isEditDisabled: task.status.lowercased() == "rejected"
         )
         
         // Handle ellipsis menu for edit

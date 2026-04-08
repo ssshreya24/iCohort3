@@ -14,16 +14,14 @@ class MactivityTableViewCell: UITableViewCell {
     override func awakeFromNib() {
         super.awakeFromNib()
         setupUI()
-    }
-    
-    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
-            applyTheme()
+        
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, _) in
+                self.applyTheme()
+            }
         }
     }
-
+    
     private func setupUI() {
         // Title style
         titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)

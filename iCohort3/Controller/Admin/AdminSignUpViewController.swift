@@ -22,20 +22,46 @@ class AdminSignUpViewController: UIViewController {
     @IBOutlet weak var confirmPassView: UIView!
     @IBOutlet weak var confirmPassTextField: UITextField!
     @IBOutlet weak var registerButtonOutlet: UIButton!
+    @IBOutlet weak var backButtonOutlet: UIButton!
     
     private var isSubmitting = false
+    private var didInstallAnimatedLogo = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         
         setupUI()
         setupPlaceholders()
+        applyAuthSymbolTint()
+        styleAuthBackButton(backButtonOutlet)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        if !didInstallAnimatedLogo {
+            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(sizeMultiplier: 0.60, verticalOffset: -10)
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        refreshAnimatedAuthLogoIfNeeded()
     }
     
     // MARK: - UI Setup
     func setupUI() {
         let radius: CGFloat = 20
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1)
+                : UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        }
+        let containerBg = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.12) : .white
+        }
         
         // Apply corner radius to all views
         let views = [uniNameView, mailView, domainView, passView, confirmPassView]
@@ -43,6 +69,9 @@ class AdminSignUpViewController: UIViewController {
         for view in views {
             view?.layer.cornerRadius = radius
             view?.clipsToBounds = true
+            view?.backgroundColor = containerBg
+            view?.layer.borderWidth = 0.5
+            view?.layer.borderColor = UIColor.opaqueSeparator.cgColor
         }
         
         registerButtonOutlet.layer.cornerRadius = radius
@@ -54,17 +83,19 @@ class AdminSignUpViewController: UIViewController {
         
         mailTextField.autocapitalizationType = .none
         mailTextField.keyboardType = .emailAddress
+        [uniTextField, mailTextField, domainTextField, passTextField, confirmPassTextField].forEach { $0?.textColor = .label }
         
         domainTextField.autocapitalizationType = .none
         domainTextField.placeholder = "e.g., srmist.edu.in"
     }
     
     func setupPlaceholders() {
-        uniTextField.placeholder = "Institution Name"
-        mailTextField.placeholder = "Admin Email"
-        domainTextField.placeholder = "Email Domain (e.g., srmist.edu.in)"
-        passTextField.placeholder = "Password"
-        confirmPassTextField.placeholder = "Confirm Password"
+        let placeholderColor = UIColor.secondaryLabel
+        uniTextField.attributedPlaceholder = NSAttributedString(string: "Institution Name", attributes: [.foregroundColor: placeholderColor])
+        mailTextField.attributedPlaceholder = NSAttributedString(string: "Admin Email", attributes: [.foregroundColor: placeholderColor])
+        domainTextField.attributedPlaceholder = NSAttributedString(string: "Email Domain (e.g., srmist.edu.in)", attributes: [.foregroundColor: placeholderColor])
+        passTextField.attributedPlaceholder = NSAttributedString(string: "Password", attributes: [.foregroundColor: placeholderColor])
+        confirmPassTextField.attributedPlaceholder = NSAttributedString(string: "Confirm Password", attributes: [.foregroundColor: placeholderColor])
     }
     
     // MARK: - Validation

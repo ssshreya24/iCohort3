@@ -397,14 +397,35 @@ final class TeamViewController: UIViewController {
     // MARK: - Create Team (explicit user action)
 
     @objc private func didTapCreateTeam() {
+        // Ask for team size first
+        let sizeSheet = UIAlertController(
+            title: "Team Size",
+            message: "How many members will this team have?",
+            preferredStyle: .actionSheet
+        )
+        for size in [2, 3, 4] {
+            sizeSheet.addAction(UIAlertAction(title: "\(size) Members", style: .default) { [weak self] _ in
+                self?.createTeamWithSize(size)
+            })
+        }
+        sizeSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = sizeSheet.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.width/2, y: view.bounds.height/2, width: 1, height: 1)
+        }
+        present(sizeSheet, animated: true)
+    }
+
+    private func createTeamWithSize(_ maxMembers: Int) {
         Task {
             do {
                 let newTeam = try await SupabaseManager.shared.createTeamIfNone(
                     personIdString: myUserId,
-                    fallbackUserName: myName
+                    fallbackUserName: myName,
+                    maxMembers: maxMembers
                 )
                 currentTeam = newTeam
-                print("✅ [TeamVC] Created new team #\(newTeam.teamNumber)")
+                print("✅ [TeamVC] Created new team #\(newTeam.teamNumber) with max \(maxMembers) members")
                 await loadTeamMemberInfo(team: newTeam)
                 await loadSendAndReceivedLists()
 
@@ -421,13 +442,15 @@ final class TeamViewController: UIViewController {
         }
     }
     
-    // ✅ Load team member info with names
+    // ✅ Load team member info with names — dynamic based on maxMembers
     private func loadTeamMemberInfo(team: SupabaseManager.NewTeamRow) async {
         var infos: [MemberInfo] = []
-        
+        let maxSlots = team.maxMembers  // e.g. 2, 3, or 4
+        let isCreator = team.createdById == myUserId
+
         // Creator (always slot 0)
         let initial = String(myName.prefix(1).uppercased())
-        if team.createdById == myUserId {
+        if isCreator {
             infos.append(MemberInfo(
                 personId: myUserId,
                 name: myName,
@@ -436,9 +459,7 @@ final class TeamViewController: UIViewController {
                 slot: .currentInitial(initial.isEmpty ? "S" : initial)
             ))
         } else {
-            // Fetch creator info
             if let creatorInfo = try? await SupabaseManager.shared.fetchStudentPickerInfo(personId: team.createdById) {
-                let creatorInitial = String(creatorInfo.displayName.prefix(1).uppercased())
                 infos.append(MemberInfo(
                     personId: team.createdById,
                     name: creatorInfo.displayName,
@@ -456,91 +477,58 @@ final class TeamViewController: UIViewController {
                 ))
             }
         }
-        
+
         // Member 2
         if let member2Id = team.member2Id {
             if member2Id == myUserId {
-                let initial = String(myName.prefix(1).uppercased())
-                infos.append(MemberInfo(
-                    personId: myUserId,
-                    name: myName,
-                    regNo: myRegNo,
-                    dept: myDept,
-                    slot: .currentInitial(initial.isEmpty ? "S" : initial)
-                ))
+                let i = String(myName.prefix(1).uppercased())
+                infos.append(MemberInfo(personId: myUserId, name: myName, regNo: myRegNo, dept: myDept,
+                                        slot: .currentInitial(i.isEmpty ? "S" : i)))
+            } else if let info = try? await SupabaseManager.shared.fetchStudentPickerInfo(personId: member2Id) {
+                infos.append(MemberInfo(personId: member2Id, name: info.displayName,
+                                        regNo: info.reg_no ?? "", dept: info.department ?? "",
+                                        slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())))
             } else {
-                if let memberInfo = try? await SupabaseManager.shared.fetchStudentPickerInfo(personId: member2Id) {
-                    infos.append(MemberInfo(
-                        personId: member2Id,
-                        name: memberInfo.displayName,
-                        regNo: memberInfo.reg_no ?? "",
-                        dept: memberInfo.department ?? "",
-                        slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())
-                    ))
-                } else {
-                    infos.append(MemberInfo(
-                        personId: member2Id,
-                        name: team.member2Name ?? "Member",
-                        regNo: "",
-                        dept: "",
-                        slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())
-                    ))
-                }
+                infos.append(MemberInfo(personId: member2Id, name: team.member2Name ?? "Member",
+                                        regNo: "", dept: "",
+                                        slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())))
             }
-        } else {
-            // Add slot
-            infos.append(MemberInfo(
-                personId: "",
-                name: "",
-                regNo: "",
-                dept: "",
-                slot: team.createdById == myUserId ? .addSlot : .empty
-            ))
+        } else if maxSlots >= 2 {
+            infos.append(MemberInfo(personId: "", name: "", regNo: "", dept: "",
+                                    slot: isCreator ? .addSlot : .empty))
         }
-        
+
         // Member 3
-        if let member3Id = team.member3Id {
-            if member3Id == myUserId {
-                let initial = String(myName.prefix(1).uppercased())
-                infos.append(MemberInfo(
-                    personId: myUserId,
-                    name: myName,
-                    regNo: myRegNo,
-                    dept: myDept,
-                    slot: .currentInitial(initial.isEmpty ? "S" : initial)
-                ))
-            } else {
-                if let memberInfo = try? await SupabaseManager.shared.fetchStudentPickerInfo(personId: member3Id) {
-                    infos.append(MemberInfo(
-                        personId: member3Id,
-                        name: memberInfo.displayName,
-                        regNo: memberInfo.reg_no ?? "",
-                        dept: memberInfo.department ?? "",
-                        slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())
-                    ))
+        if maxSlots >= 3 {
+            if let member3Id = team.member3Id {
+                if member3Id == myUserId {
+                    let i = String(myName.prefix(1).uppercased())
+                    infos.append(MemberInfo(personId: myUserId, name: myName, regNo: myRegNo, dept: myDept,
+                                            slot: .currentInitial(i.isEmpty ? "S" : i)))
+                } else if let info = try? await SupabaseManager.shared.fetchStudentPickerInfo(personId: member3Id) {
+                    infos.append(MemberInfo(personId: member3Id, name: info.displayName,
+                                            regNo: info.reg_no ?? "", dept: info.department ?? "",
+                                            slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())))
                 } else {
-                    infos.append(MemberInfo(
-                        personId: member3Id,
-                        name: team.member3Name ?? "Member",
-                        regNo: "",
-                        dept: "",
-                        slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())
-                    ))
+                    infos.append(MemberInfo(personId: member3Id, name: team.member3Name ?? "Member",
+                                            regNo: "", dept: "",
+                                            slot: .filled(UIImage(systemName: "person.crop.circle.fill") ?? UIImage())))
                 }
+            } else {
+                infos.append(MemberInfo(personId: "", name: "", regNo: "", dept: "",
+                                        slot: isCreator ? .addSlot : .empty))
             }
-        } else {
-            // Add slot
-            infos.append(MemberInfo(
-                personId: "",
-                name: "",
-                regNo: "",
-                dept: "",
-                slot: team.createdById == myUserId ? .addSlot : .empty
-            ))
         }
-        
+
+        // Member 4 (only if maxSlots == 4, stored info is not in new_teams schema yet)
+        // Show an add-slot placeholder when team supports 4 members
+        if maxSlots >= 4 {
+            infos.append(MemberInfo(personId: "", name: "", regNo: "", dept: "",
+                                    slot: isCreator ? .addSlot : .empty))
+        }
+
         memberInfos = infos
-        print("✅ [TeamVC] Loaded \(infos.count) member infos")
+        print("✅ [TeamVC] Loaded \(infos.count) member infos (maxSlots=\(maxSlots))")
     }
 
     // MARK: - ✅ Send Requests = Student List | Received Requests = Invites
@@ -604,7 +592,7 @@ final class TeamViewController: UIViewController {
                 self.receivedItems = combinedReceived
                 self.availableTeams = teamsWithCreators
                 self.sentJoinRequests = sentJoins
-                self.collectionView.reloadSections(IndexSet(integer: Section.requests.rawValue))
+                self.collectionView.reloadData()
             }
         } catch {
             print("❌ [TeamVC] loadSendAndReceivedLists error:", error.localizedDescription)
@@ -620,9 +608,10 @@ final class TeamViewController: UIViewController {
             return
         }
 
-        // ✅ Max 2 pending invites
-        if sentInvites.count >= 2 {
-            showAlert(title: "Limit Reached", message: "You can invite maximum 2 students.")
+        // ✅ Max invites = maxMembers - 1 (excluding self)
+        let maxInvites = (currentTeam?.maxMembers ?? 3) - 1
+        if sentInvites.count >= maxInvites {
+            showAlert(title: "Limit Reached", message: "You can invite maximum \(maxInvites) student(s).")
             return
         }
 
@@ -963,7 +952,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
         guard let sec = Section(rawValue: section) else { return 0 }
         switch sec {
         case .summary:         return 1
-        case .members:         return 3
+        case .members:         return currentTeam?.maxMembers ?? 3
         case .requestSwitcher: return 1
         case .search:          return requestSegment == 0 ? 1 : 0
         case .requests:
@@ -1039,7 +1028,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                 self.requestSegment = index
                 self.searchQuery = "" // Reset search when switching tabs
                 UIView.performWithoutAnimation {
-                    self.collectionView.reloadSections(IndexSet([Section.search.rawValue, Section.requests.rawValue]))
+                    self.collectionView.reloadData()
                 }
             }
             return cell
@@ -1052,7 +1041,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                 guard self?.requestSegment == 0 else { return }
                 self?.searchQuery = query
                 UIView.performWithoutAnimation {
-                    self?.collectionView.reloadSections(IndexSet(integer: Section.requests.rawValue))
+                    self?.collectionView.reloadData()
                 }
             }
             return cell

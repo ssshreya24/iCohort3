@@ -40,6 +40,14 @@ class AddTaskViewController: UIViewController {
     internal var attachedImages: [UIImage] = []
     internal var attachedDocumentURLs: [URL] = []
     internal var attachedLinks: [String] = []
+
+    internal enum DraftAttachment {
+        case image(name: String, image: UIImage)
+        case document(name: String, url: URL)
+        case link(title: String, urlString: String)
+    }
+
+    internal var draftAttachments: [DraftAttachment] = []
     
     // Internal enum for UI purposes only
     internal enum AttachmentDisplayType {
@@ -57,8 +65,11 @@ class AddTaskViewController: UIViewController {
         super.viewDidLoad()
         enableKeyboardDismissOnTap()
     
-        setupColorButtons()
         setupTextFieldListener()
+        
+        titleTextField.autocapitalizationType = .sentences
+        descriptionTextField.autocapitalizationType = .sentences
+        categoryName.autocapitalizationType = .sentences
         
         titleView.layer.cornerRadius = 20
         categoryView.layer.cornerRadius = 20
@@ -67,10 +78,13 @@ class AddTaskViewController: UIViewController {
         colorOptionsView.layer.cornerRadius = 20
         
         categoryName.layer.cornerRadius = 20
+        categoryName.layer.masksToBounds = true
         
         // Initialize attachment container height
+        setupColorButtons()
         updateAttachmentContainerHeight()
         applyTheme()
+        applySelectedColor()
     }
     
     override func viewDidLayoutSubviews() {
@@ -184,7 +198,7 @@ class AddTaskViewController: UIViewController {
         categoryName.tintColor = AppTheme.accent
         categoryName.backgroundColor = traitCollection.userInterfaceStyle == .dark
             ? UIColor.white.withAlphaComponent(0.10)
-            : UIColor.systemFill
+            : UIColor.white
         categoryLabel.layer.cornerRadius = categoryLabel.bounds.height / 2
         categoryLabel.clipsToBounds = true
         addAttachmentButton.tintColor = .label
@@ -235,6 +249,57 @@ class AddTaskViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
+
+    internal func currentAnnouncementAttachments() -> [AttachmentType] {
+        draftAttachments.compactMap { attachment in
+            switch attachment {
+            case .image(_, let image):
+                return .image(image)
+            case .document(let name, let url):
+                return .pdf(name, url)
+            case .link(let title, let urlString):
+                guard let url = URL(string: urlString) else { return nil }
+                return .link(title, url)
+            }
+        }
+    }
+
+    internal func syncLegacyAttachmentStorage() {
+        attachedImages = draftAttachments.compactMap {
+            if case .image(_, let image) = $0 { return image }
+            return nil
+        }
+        attachedDocumentURLs = draftAttachments.compactMap {
+            if case .document(_, let url) = $0 { return url }
+            return nil
+        }
+        attachedLinks = draftAttachments.compactMap {
+            if case .link(_, let urlString) = $0 { return urlString }
+            return nil
+        }
+    }
+
+    internal func renderDraftAttachments() {
+        attachmentsStackView.arrangedSubviews.forEach { view in
+            attachmentsStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        for (index, attachment) in draftAttachments.enumerated() {
+            switch attachment {
+            case .image(let name, _):
+                addAttachmentLabel(name, type: .image)
+            case .document(let name, _):
+                addAttachmentLabel(name, type: .document)
+            case .link(let title, _):
+                let displayName = title.count > 40 ? String(title.prefix(37)) + "..." : title
+                addAttachmentLabel(displayName, type: .link)
+            }
+            attachmentsStackView.arrangedSubviews.last?.subviews.compactMap { $0 as? UIButton }.first?.tag = index
+        }
+
+        updateAttachmentContainerHeight()
+    }
     
     private func showAlert(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
@@ -255,11 +320,15 @@ class AddTaskViewController: UIViewController {
                 let description = descriptionTextField.text
                 let category = categoryName.text
                 let colorHex = selectedColor.toHexString()
+                let encodedDescription = AnnouncementPayloadCodec.encodedDescription(
+                    body: description,
+                    attachments: currentAnnouncementAttachments()
+                )
                 Task {
                     do {
                         try await SupabaseManager.shared.saveAnnouncementToSupabase(
                             title: title,
-                            description: description,
+                            description: encodedDescription,
                             category: category,
                             colorHex: colorHex
                         )
@@ -396,13 +465,9 @@ class AddTaskViewController: UIViewController {
             
             // Validate URL
             if let url = URL(string: urlString), UIApplication.shared.canOpenURL(url) {
-                // Store the link
-                self?.attachedLinks.append(urlString)
-                
-                // Add to UI with shortened display name if URL is too long
-                let displayName = urlString.count > 40 ? String(urlString.prefix(37)) + "..." : urlString
-                self?.addAttachmentLabel(displayName, type: .link)
-                
+                self?.draftAttachments.append(.link(title: urlString, urlString: urlString))
+                self?.syncLegacyAttachmentStorage()
+                self?.renderDraftAttachments()
                 print("Link attached: \(urlString)")
             } else {
                 self?.showAlert(title: "Invalid URL", message: "The URL you entered is not valid.")
@@ -420,6 +485,8 @@ class AddTaskViewController: UIViewController {
     // MARK: - Helper: Add attachments dynamically
     // CHANGED: Made internal so subclass can call it
     internal func addAttachmentLabel(_ name: String, type: AttachmentDisplayType = .document) {
+        let deleteIndex = attachmentsStackView.arrangedSubviews.count
+
         // Create container for each attachment
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
@@ -467,6 +534,7 @@ class AddTaskViewController: UIViewController {
         deleteButton.translatesAutoresizingMaskIntoConstraints = false
         deleteButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
         deleteButton.tintColor = .systemRed
+        deleteButton.tag = deleteIndex
         deleteButton.addTarget(self, action: #selector(deleteAttachment(_:)), for: .touchUpInside)
         
         // Add subviews
@@ -501,15 +569,11 @@ class AddTaskViewController: UIViewController {
     
     // MARK: - Delete Attachment
     @objc func deleteAttachment(_ sender: UIButton) {
-        guard let containerView = sender.superview else { return }
-        
-        // Animate removal
-        UIView.animate(withDuration: 0.3, animations: {
-            containerView.alpha = 0
-        }) { _ in
-            containerView.removeFromSuperview()
-            self.updateAttachmentContainerHeight()
-        }
+        let index = sender.tag
+        guard draftAttachments.indices.contains(index) else { return }
+        draftAttachments.remove(at: index)
+        syncLegacyAttachmentStorage()
+        renderDraftAttachments()
     }
     
     // MARK: - Update Attachment Container Height
@@ -538,6 +602,13 @@ class AddTaskViewController: UIViewController {
         // Animate the height change
         UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut) {
             self.view.layoutIfNeeded()
+            
+            // FIX: Manual content size update since AutoLayout bottom constraint is missing in XIB
+            if let scrollView = self.view.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView {
+                let bottomPadding: CGFloat = 60
+                let totalHeight = self.addAttachmentView.frame.maxY + bottomPadding
+                scrollView.contentSize = CGSize(width: scrollView.frame.width, height: max(totalHeight, scrollView.frame.height + 1))
+            }
         }
     }
 }
@@ -548,15 +619,10 @@ extension AddTaskViewController: UIImagePickerControllerDelegate, UINavigationCo
         picker.dismiss(animated: true)
         
         if let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage {
-            // Store the image
-            attachedImages.append(image)
-            
-            // Generate a name for the image
             let imageName = "Image_\(Date().timeIntervalSince1970).jpg"
-            
-            // Add to UI
-            addAttachmentLabel(imageName, type: .image)
-            
+            draftAttachments.append(.image(name: imageName, image: image))
+            syncLegacyAttachmentStorage()
+            renderDraftAttachments()
             print("Image attached: \(imageName)")
         }
     }
@@ -579,12 +645,9 @@ extension AddTaskViewController: UIDocumentPickerDelegate {
         
         defer { url.stopAccessingSecurityScopedResource() }
         
-        // Store the document URL
-        attachedDocumentURLs.append(url)
-        
-        // Add to UI
-        addAttachmentLabel(url.lastPathComponent, type: .document)
-        
+        draftAttachments.append(.document(name: url.lastPathComponent, url: url))
+        syncLegacyAttachmentStorage()
+        renderDraftAttachments()
         print("Document attached: \(url.lastPathComponent)")
     }
     

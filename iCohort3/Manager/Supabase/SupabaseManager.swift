@@ -86,6 +86,49 @@ final class SupabaseManager {
     private func cachedProfilePhotoKey(personId: String, role: String) -> String {
         "cached_profile_photo_\(role)_\(personId)"
     }
+
+    // MARK: - Backend Profile Photo Persistence
+
+    /// Saves the base64-encoded profile photo to the Supabase backend for the given role.
+    /// - Parameters:
+    ///   - base64: The base64-encoded JPEG string.
+    ///   - personId: The user's `person_id`.
+    ///   - role: Either `"student"` or `"mentor"`.
+    func saveProfilePhoto(_ base64: String, personId: String, role: String) async {
+        let table = role == "mentor" ? "mentor_profiles" : "student_profiles"
+        struct PhotoUpdate: Encodable { let profile_photo: String }
+        do {
+            _ = try await client
+                .from(table)
+                .update(PhotoUpdate(profile_photo: base64))
+                .eq("person_id", value: personId)
+                .execute()
+            print("✅ Profile photo saved to Supabase (\(role))")
+        } catch {
+            print("⚠️ Could not save profile photo to Supabase: \(error.localizedDescription)")
+            // Non-fatal: photo is still cached locally in UserDefaults
+        }
+    }
+
+    /// Fetches the base64-encoded profile photo from Supabase for the given role.
+    /// Returns `nil` if no photo is stored or the column doesn't exist yet.
+    func fetchProfilePhoto(personId: String, role: String) async -> String? {
+        let table = role == "mentor" ? "mentor_profiles" : "student_profiles"
+        struct PhotoRow: Decodable { let profile_photo: String? }
+        do {
+            let rows: [PhotoRow] = try await client
+                .from(table)
+                .select("profile_photo")
+                .eq("person_id", value: personId)
+                .limit(1)
+                .execute()
+                .value
+            return rows.first?.profile_photo
+        } catch {
+            print("⚠️ Could not fetch profile photo from Supabase: \(error.localizedDescription)")
+            return nil
+        }
+    }
 }
 
 // MARK: - Models
@@ -366,6 +409,7 @@ extension SupabaseManager {
         let problemStatement: String?
         let status: String
         let createdAt: String?
+        let maxMembers: Int
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -381,6 +425,25 @@ extension SupabaseManager {
             case problemStatement = "problem_statement"
             case status
             case createdAt = "created_at"
+            case maxMembers = "max_members"
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id                = try c.decode(UUID.self,    forKey: .id)
+            teamNumber        = try c.decode(Int.self,     forKey: .teamNumber)
+            createdById       = try c.decode(String.self,  forKey: .createdById)
+            createdByName     = try c.decode(String.self,  forKey: .createdByName)
+            member2Id         = try c.decodeIfPresent(String.self, forKey: .member2Id)
+            member2Name       = try c.decodeIfPresent(String.self, forKey: .member2Name)
+            member3Id         = try c.decodeIfPresent(String.self, forKey: .member3Id)
+            member3Name       = try c.decodeIfPresent(String.self, forKey: .member3Name)
+            mentorId          = try c.decodeIfPresent(String.self, forKey: .mentorId)
+            mentorName        = try c.decodeIfPresent(String.self, forKey: .mentorName)
+            problemStatement  = try c.decodeIfPresent(String.self, forKey: .problemStatement)
+            status            = try c.decode(String.self,  forKey: .status)
+            createdAt         = try c.decodeIfPresent(String.self, forKey: .createdAt)
+            maxMembers        = (try? c.decodeIfPresent(Int.self, forKey: .maxMembers)) ?? 3
         }
     }
 
@@ -389,12 +452,14 @@ extension SupabaseManager {
         let createdByName: String
         let problemStatement: String?
         let status: String
+        let maxMembers: Int
 
         enum CodingKeys: String, CodingKey {
             case createdById = "created_by_id"
             case createdByName = "created_by_name"
             case problemStatement = "problem_statement"
             case status
+            case maxMembers = "max_members"
         }
     }
 
@@ -440,12 +505,14 @@ extension SupabaseManager {
         }
     }
 
+    private static let newTeamsSelect = "id,team_number,created_by_id,created_by_name,member2_id,member2_name,member3_id,member3_name,mentor_id,mentor_name,problem_statement,status,created_at,max_members"
+
     func fetchActiveTeamForUser(userId: String) async throws -> NewTeamRow? {
         let filter = "created_by_id.eq.\(userId),member2_id.eq.\(userId),member3_id.eq.\(userId)"
 
         let result: [NewTeamRow] = try await self.client
             .from("new_teams")
-            .select("id,team_number,created_by_id,created_by_name,member2_id,member2_name,member3_id,member3_name,mentor_id,mentor_name,problem_statement,status,created_at")
+            .select(Self.newTeamsSelect)
             .eq("status", value: "active")
             .or(filter)
             .limit(1)
@@ -455,7 +522,7 @@ extension SupabaseManager {
         return result.first
     }
 
-    func createTeamIfNone(personIdString: String, fallbackUserName: String? = nil) async throws -> NewTeamRow {
+    func createTeamIfNone(personIdString: String, fallbackUserName: String? = nil, maxMembers: Int = 3) async throws -> NewTeamRow {
         if let existing = try await fetchActiveTeamForUser(userId: personIdString) {
             return existing
         }
@@ -471,14 +538,15 @@ extension SupabaseManager {
             createdById: personIdString,
             createdByName: createdByName,
             problemStatement: nil,
-            status: "active"
+            status: "active",
+            maxMembers: maxMembers
         )
 
         do {
             let created: [NewTeamRow] = try await self.client
                 .from("new_teams")
                 .insert(payload)
-                .select("id,team_number,created_by_id,created_by_name,member2_id,member2_name,member3_id,member3_name,mentor_id,mentor_name,problem_statement,status,created_at")
+                .select(Self.newTeamsSelect)
                 .execute()
                 .value
 
@@ -516,12 +584,85 @@ extension SupabaseManager {
 
     func leaveTeam(team: NewTeamRow, userId: String) async throws {
         print("🔄 [leaveTeam] \(userId) leaving team #\(team.teamNumber)")
-        
+
+        // ── Case 1: creator leaves → transfer leadership to next member ──
         if team.createdById == userId {
-            throw NSError(domain: "new_teams", code: -2,
-                          userInfo: [NSLocalizedDescriptionKey: "Creator cannot leave. Delete the team instead."])
+            // Determine who becomes the new leader (member2 first, else member3)
+            guard let newLeaderId = team.member2Id ?? team.member3Id,
+                  let newLeaderName = team.member2Name ?? team.member3Name else {
+                throw NSError(domain: "new_teams", code: -2,
+                              userInfo: [NSLocalizedDescriptionKey: "You are the only member. Delete the team instead."])
+            }
+
+            // After promotion: the slot that was used for the new leader is freed.
+            // member2 promoted → old member3 shifts to member2 slot.
+            // member3 promoted (member2 was nil) → no other members remain.
+            let (newMember2Id, newMember2Name, newMember3Id, newMember3Name): (String?, String?, String?, String?)
+            if team.member2Id != nil {
+                // member2 becomes creator, member3 shifts to member2
+                newMember2Id   = team.member3Id
+                newMember2Name = team.member3Name
+                newMember3Id   = nil
+                newMember3Name = nil
+            } else {
+                // member3 becomes creator, no remaining members
+                newMember2Id   = nil
+                newMember2Name = nil
+                newMember3Id   = nil
+                newMember3Name = nil
+            }
+
+            struct LeaderTransfer: Encodable {
+                let created_by_id: String
+                let created_by_name: String
+                let member2_id: String?
+                let member2_name: String?
+                let member3_id: String?
+                let member3_name: String?
+
+                enum CodingKeys: String, CodingKey {
+                    case created_by_id, created_by_name, member2_id, member2_name, member3_id, member3_name
+                }
+
+                func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    try container.encode(created_by_id, forKey: .created_by_id)
+                    try container.encode(created_by_name, forKey: .created_by_name)
+                    
+                    if let m2i = member2_id { try container.encode(m2i, forKey: .member2_id) }
+                    else { try container.encodeNil(forKey: .member2_id) }
+                    
+                    if let m2n = member2_name { try container.encode(m2n, forKey: .member2_name) }
+                    else { try container.encodeNil(forKey: .member2_name) }
+                    
+                    if let m3i = member3_id { try container.encode(m3i, forKey: .member3_id) }
+                    else { try container.encodeNil(forKey: .member3_id) }
+                    
+                    if let m3n = member3_name { try container.encode(m3n, forKey: .member3_name) }
+                    else { try container.encodeNil(forKey: .member3_name) }
+                }
+            }
+
+            let transfer = LeaderTransfer(
+                created_by_id:   newLeaderId,
+                created_by_name: newLeaderName,
+                member2_id:      newMember2Id,
+                member2_name:    newMember2Name,
+                member3_id:      newMember3Id,
+                member3_name:    newMember3Name
+            )
+
+            _ = try await self.client
+                .from("new_teams")
+                .update(transfer)
+                .eq("id", value: team.id.uuidString)
+                .execute()
+
+            print("✅ Leadership transferred to \(newLeaderName)")
+            return
         }
 
+        // ── Case 2: non-creator member leaves ──
         if team.member2Id == userId {
             let update = NewTeamUpdate(
                 member2Id: nil,
@@ -534,9 +675,6 @@ extension SupabaseManager {
                 .update(update)
                 .eq("id", value: team.id.uuidString)
                 .execute()
-
-            // ✅ FIXED: No need to clear student_profile_complete
-            // The view automatically updates when new_teams changes
             print("✅ Removed member2 from team")
             return
         }
@@ -553,8 +691,6 @@ extension SupabaseManager {
                 .update(update)
                 .eq("id", value: team.id.uuidString)
                 .execute()
-
-            // ✅ FIXED: No need to clear student_profile_complete
             print("✅ Removed member3 from team")
             return
         }
@@ -565,10 +701,19 @@ extension SupabaseManager {
 
     func addMemberToTeam(team: NewTeamRow, memberId: String, memberName: String) async throws {
         print("🔄 [addMemberToTeam] Adding \(memberName) to team #\(team.teamNumber)")
-        
+
         if team.createdById == memberId || team.member2Id == memberId || team.member3Id == memberId {
             throw NSError(domain: "new_teams", code: -4,
                           userInfo: [NSLocalizedDescriptionKey: "Already in this team"])
+        }
+
+        // Count current members and check against maxMembers
+        let currentCount = [team.createdById, team.member2Id, team.member3Id]
+            .compactMap { $0 }
+            .count  // createdById is always non-nil, so at least 1
+        if currentCount >= team.maxMembers {
+            throw NSError(domain: "new_teams", code: -5,
+                          userInfo: [NSLocalizedDescriptionKey: "Team is full (max \(team.maxMembers) members)"])
         }
 
         if team.member2Id == nil {
@@ -583,9 +728,6 @@ extension SupabaseManager {
                 .update(update)
                 .eq("id", value: team.id.uuidString)
                 .execute()
-            
-            // ✅ FIXED: No need to update student_profile_complete
-            // The view automatically shows team info when user is added to new_teams
             print("✅ Added \(memberName) as member2")
             return
         }
@@ -602,14 +744,12 @@ extension SupabaseManager {
                 .update(update)
                 .eq("id", value: team.id.uuidString)
                 .execute()
-            
-            // ✅ FIXED: No need to update student_profile_complete
             print("✅ Added \(memberName) as member3")
             return
         }
 
         throw NSError(domain: "new_teams", code: -5,
-                      userInfo: [NSLocalizedDescriptionKey: "Team is full"])
+                      userInfo: [NSLocalizedDescriptionKey: "Team is full (max \(team.maxMembers) members)"])
     }
 
     func updateTeamProblemStatement(teamId: UUID, problemStatement: String?) async throws {

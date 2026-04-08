@@ -54,11 +54,12 @@ class TaskCollectionViewCell: UICollectionViewCell {
     /// - Parameter dueDate: ISO-8601 string OR already-formatted "dd MMM yyyy" string
     func configure(title: String, desc: String, image: UIImage?, name: String, dueDate: String) {
         titleLabel.text       = title
-        descriptionLabel.text = desc
+        descriptionLabel.text = desc.isEmpty ? nil : desc
         profileImageView.image = image
         assignedLabel.text    = "Assigned To"
         nameLabel.text        = name
         dueDateLabel.text     = "Due Date: \(dueDate.prettyDate)"
+        applyVisibility(descriptionLabel)
     }
 }
 
@@ -90,11 +91,12 @@ class InProgressCollectionViewCell: UICollectionViewCell {
 
     func configure(title: String, desc: String, image: UIImage?, name: String, dueDate: String) {
         titleLabel.text        = title
-        descriptionLabel.text  = desc
+        descriptionLabel.text  = desc.isEmpty ? nil : desc
         profileImageView.image = image
         assignedLabel.text     = "Assigned To"
         nameLabel.text         = name
         dueDateLabel.text      = "Due Date: \(dueDate.prettyDate)"
+        applyVisibility(descriptionLabel)
     }
 }
 
@@ -130,11 +132,12 @@ class ForReviewCollectionViewCell: UICollectionViewCell {
 
     func configure(title: String, desc: String, image: UIImage?, name: String, dueDate: String) {
         titleLabel.text        = title
-        descriptionLabel.text  = desc
+        descriptionLabel.text  = desc.isEmpty ? nil : desc
         profileImageView.image = image
         assignedLabel.text     = "Assigned To"
         nameLabel.text         = name
         dueDateLabel.text      = "Due Date: \(dueDate.prettyDate)"
+        applyVisibility(descriptionLabel)
     }
 }
 
@@ -166,11 +169,12 @@ class PreparedCollectionViewCell: UICollectionViewCell {
 
     func configure(title: String, desc: String, image: UIImage?, name: String, dueDate: String) {
         titleLabel.text        = title
-        descriptionLabel.text  = desc
+        descriptionLabel.text  = desc.isEmpty ? nil : desc
         profileImageView.image = image
         assignedLabel.text     = "Assigned To"
         nameLabel.text         = name
         dueDateLabel.text      = "Due Date: \(dueDate.prettyDate)"
+        applyVisibility(descriptionLabel)
     }
 }
 
@@ -216,11 +220,12 @@ class ApprovedCollectionViewCell: UICollectionViewCell {
                    name: String,
                    dueDate: String) {
         titleLabel.text        = title
-        descriptionLabel.text  = desc
+        descriptionLabel.text  = desc.isEmpty ? nil : desc
         profileImageView.image = image
         assignedLabel.text     = "Assigned To"
         nameLabel.text         = name
         dueDateLabel.text      = "Due Date: \(dueDate.prettyDate)"
+        applyVisibility(descriptionLabel)
 
         let hasRemark = remark.map { !$0.isEmpty } ?? false
         remarkTitleLabel.isHidden = !hasRemark
@@ -257,11 +262,12 @@ class CompletedCollectionViewCell: UICollectionViewCell {
 
     func configure(title: String, desc: String, image: UIImage?, name: String, dueDate: String) {
         titleLabel.text        = title
-        descriptionLabel.text  = desc
+        descriptionLabel.text  = desc.isEmpty ? nil : desc
         profileImageView.image = image
         assignedLabel.text     = "Assigned To"
         nameLabel.text         = name
         dueDateLabel.text      = "Due Date: \(dueDate.prettyDate)"
+        applyVisibility(descriptionLabel)
     }
 }
 
@@ -307,11 +313,12 @@ class RejectedCollectionViewCell: UICollectionViewCell {
                    name: String,
                    dueDate: String) {
         titleLabel.text        = title
-        descriptionLabel.text  = desc
+        descriptionLabel.text  = desc.isEmpty ? nil : desc
         profileImageView.image = image
         assignedLabel.text     = "Assigned To"
         nameLabel.text         = name
         dueDateLabel.text      = "Due Date: \(dueDate.prettyDate)"
+        applyVisibility(descriptionLabel)
 
         let hasRemark = remark.map { !$0.isEmpty } ?? false
         remarkTitleLabel.isHidden = !hasRemark
@@ -334,14 +341,44 @@ private func styleProfileImage(_ iv: UIImageView) {
 private func styleLabels(assigned: UILabel, name: UILabel,
                          title: UILabel, desc: UILabel) {
     assigned.textColor = .systemGray3
-    assigned.font      = UIFont.systemFont(ofSize: 13)
+    assigned.font      = UIFont.systemFont(ofSize: 11)
 
-    name.font      = UIFont.systemFont(ofSize: 15, weight: .medium)
+    name.font      = UIFont.systemFont(ofSize: 13, weight: .medium)
     name.textColor = .label
 
-    title.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+    // Allow title to wrap on multiple lines and not bleed into the profile image
+    title.numberOfLines = 0
+    title.lineBreakMode = .byWordWrapping
+    title.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
     title.textColor = .label
 
-    desc.font      = UIFont.systemFont(ofSize: 14)
+    // Find and fix title trailing constraint so it doesn't overlap with profile image
+    fixTitleTrailingConstraint(title)
+
+    desc.numberOfLines = 0
+    desc.lineBreakMode = .byWordWrapping
+    desc.font      = UIFont.systemFont(ofSize: 13)
     desc.textColor = .secondaryLabel
+}
+
+/// Tightens the title label's trailing so it stops before the profile/name column (~100pt from card edge).
+private func fixTitleTrailingConstraint(_ titleLabel: UILabel) {
+    guard let superview = titleLabel.superview else { return }
+    // Remove any existing trailing constraint for titleLabel that extends too far
+    for constraint in superview.constraints where
+        (constraint.firstItem as? UIView === titleLabel && constraint.firstAttribute == .trailing) ||
+        (constraint.secondItem as? UIView === titleLabel && constraint.secondAttribute == .trailing) {
+        superview.removeConstraint(constraint)
+    }
+    // Pin trailing to 105pt from superview trailing (leaving room for image + name labels)
+    NSLayoutConstraint.activate([
+        titleLabel.trailingAnchor.constraint(
+            lessThanOrEqualTo: superview.trailingAnchor, constant: -108)
+    ])
+}
+
+/// Hides the description label if text is empty/nil, and shows it otherwise.
+func applyVisibility(_ desc: UILabel) {
+    let isEmpty = desc.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
+    desc.isHidden = isEmpty
 }

@@ -55,14 +55,9 @@ class MentorAnnouncementsViewController: UIViewController {
         super.viewDidLayoutSubviews()
         AppTheme.applyScreenBackground(to: view)
         tableView.superview?.backgroundColor = .clear
-    }
-    
-    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
-            applyTheme()
-        }
+        styleFloatingButton(searchButton, imageName: "magnifyingglass")
+        styleFloatingButton(addTaskButton, imageName: "plus")
+        styleSearchContainer()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -172,6 +167,7 @@ class MentorAnnouncementsViewController: UIViewController {
                         Date()
 
                     let color = row.color_hex.flatMap { UIColor.fromHex($0) }
+                    let decoded = AnnouncementPayloadCodec.decodeDescription(row.description)
                     
                     // Reuse existing UUID if available, otherwise create new one
                     let uuid = existingIDMap[row.id] ?? UUID()
@@ -179,12 +175,12 @@ class MentorAnnouncementsViewController: UIViewController {
                     return Announcement(
                         id: uuid,
                         title: row.title,
-                        body: row.description ?? "",
+                        body: decoded.body,
                         tag: row.category,
                         tagColor: color,
                         createdAt: date,
                         author: row.author ?? "Mentor",
-                        attachments: nil
+                        attachments: decoded.attachments.isEmpty ? nil : decoded.attachments
                     )
                 }
 
@@ -388,6 +384,13 @@ class MentorAnnouncementsViewController: UIViewController {
     
     private func applyTheme() {
         AppTheme.applyScreenBackground(to: view)
+        
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, _) in
+                self.applyTheme()
+            }
+        }
+        
         view.subviews.forEach { subview in
             if subview !== tableView && subview !== searchContainer && subview !== searchButton && subview !== addTaskButton {
                 subview.backgroundColor = .clear
@@ -487,7 +490,10 @@ class MentorAnnouncementsViewController: UIViewController {
                     try await SupabaseManager.shared.updateMentorAnnouncement(
                         id: dbId,
                         title: updatedAnnouncement.title,
-                        description: updatedAnnouncement.body,
+                        description: AnnouncementPayloadCodec.encodedDescription(
+                            body: updatedAnnouncement.body,
+                            attachments: updatedAnnouncement.attachments ?? []
+                        ),
                         category: updatedAnnouncement.tag,
                         colorHex: updatedAnnouncement.tagColor?.toHexString()
                     )
@@ -645,7 +651,7 @@ class EditAnnouncementViewController: AddTaskViewController {
         super.viewDidLoad()
         
         // Pre-fill the form with existing announcement data
-        if let announcement = announcementToEdit {
+            if let announcement = announcementToEdit {
             titleTextField.text = announcement.title
             descriptionTextField.text = announcement.body
             categoryName.text = announcement.tag
@@ -656,19 +662,17 @@ class EditAnnouncementViewController: AddTaskViewController {
                 for attachment in attachments {
                     switch attachment {
                     case .image(let image):
-                        attachedImages.append(image)
-                        addAttachmentLabel("Image_\(Date().timeIntervalSince1970).jpg", type: .image)
+                        draftAttachments.append(.image(name: "Image_\(Date().timeIntervalSince1970).jpg", image: image))
                         
                     case .pdf(let name, let url):
-                        attachedDocumentURLs.append(url)
-                        addAttachmentLabel(name, type: .document)
+                        draftAttachments.append(.document(name: name, url: url))
                         
                     case .link(let name, let url):
-                        attachedLinks.append(url.absoluteString)
-                        let displayName = name.count > 40 ? String(name.prefix(37)) + "..." : name
-                        addAttachmentLabel(displayName, type: .link)
+                        draftAttachments.append(.link(title: name, urlString: url.absoluteString))
                     }
                 }
+                syncLegacyAttachmentStorage()
+                renderDraftAttachments()
             }
         }
     }
@@ -702,26 +706,7 @@ class EditAnnouncementViewController: AddTaskViewController {
             return
         }
         
-        // Create attachments array
-        var updatedAttachments: [AttachmentType] = []
-        
-        // Add images
-        for image in attachedImages {
-            updatedAttachments.append(.image(image))
-        }
-        
-        // Add documents
-        for (index, url) in attachedDocumentURLs.enumerated() {
-            let name = "Document_\(index + 1).pdf"
-            updatedAttachments.append(.pdf(name, url))
-        }
-        
-        // Add links
-        for linkString in attachedLinks {
-            if let url = URL(string: linkString) {
-                updatedAttachments.append(.link(linkString, url))
-            }
-        }
+        let updatedAttachments = currentAnnouncementAttachments()
         
         // Create updated announcement with the selected color
         let updatedAnnouncement = Announcement(

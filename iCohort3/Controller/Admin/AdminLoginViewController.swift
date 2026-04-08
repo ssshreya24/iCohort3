@@ -24,18 +24,49 @@ class AdminLoginViewController: UIViewController {
     private let passwordVisibilityButton = UIButton(type: .system)
     private var didConfigureAuxiliaryControls = false
     private var didConfigurePasswordToggle = false
+    private var didInstallAnimatedLogo = false
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         
         setupUI()
+        applyAuthSymbolTint()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        if !didInstallAnimatedLogo {
+            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(
+                sizeMultiplier: 0.60,
+                verticalOffset: -10
+            )
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        refreshAnimatedAuthLogoIfNeeded()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        updateRememberMeAppearance()
     }
     
     // MARK: - UI Setup
     func setupUI() {
         let radius: CGFloat = 20
+
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1)
+                : UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        }
         
         emailView?.layer.cornerRadius = radius
         emailView?.clipsToBounds = true
@@ -43,9 +74,31 @@ class AdminLoginViewController: UIViewController {
         passwordView?.layer.cornerRadius = radius
         passwordView?.clipsToBounds = true
         
+        let containerBg = UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.white.withAlphaComponent(0.12) 
+                : UIColor.white
+        }
+        emailView?.backgroundColor = containerBg
+        passwordView?.backgroundColor = containerBg
+        emailView?.layer.borderWidth = 0.5
+        passwordView?.layer.borderWidth = 0.5
+        emailView?.layer.borderColor = UIColor.opaqueSeparator.cgColor
+        passwordView?.layer.borderColor = UIColor.opaqueSeparator.cgColor
+        
+        emailTextField.textColor = .label
+        passwordTextField.textColor = .label
+        emailTextField.attributedPlaceholder = NSAttributedString(
+            string: "Enter Admin Email ID",
+            attributes: [.foregroundColor: UIColor.secondaryLabel]
+        )
+        passwordTextField.attributedPlaceholder = NSAttributedString(
+            string: "Enter Password",
+            attributes: [.foregroundColor: UIColor.secondaryLabel]
+        )
+        
         signInButton?.layer.cornerRadius = radius
         signInButton?.clipsToBounds = true
-        
         registerButton?.layer.cornerRadius = radius
         registerButton?.clipsToBounds = true
         
@@ -59,8 +112,7 @@ class AdminLoginViewController: UIViewController {
         rememberMeButton.tintColor = .clear
         rememberMeButton.layer.shadowOpacity = 0
         rememberMeButton.imageView?.contentMode = .scaleAspectFit
-        rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
-        rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)
+        updateRememberMeAppearance()
 
         let shouldRemember = UserDefaults.standard.bool(forKey: "remember_me")
             && UserDefaults.standard.string(forKey: "remembered_user_role") == "admin"
@@ -81,6 +133,27 @@ class AdminLoginViewController: UIViewController {
         rememberMeButton.addTarget(self, action: #selector(rememberMeTapped), for: .touchUpInside)
         installAuxiliaryControlsIfNeeded()
         installPasswordVisibilityToggleIfNeeded()
+        styleAuthBackButton(findAuthBackButton())
+    }
+
+    private func findAuthBackButton() -> UIButton? {
+        view.allDescendantSubviews()
+            .compactMap { $0 as? UIButton }
+            .first { button in
+                if let currentImage = button.image(for: .normal),
+                   currentImage.renderingMode != .alwaysOriginal,
+                   button.bounds.width <= 50,
+                   button.bounds.height <= 50 {
+                    return true
+                }
+                if let configuredImage = button.configuration?.image,
+                   configuredImage.renderingMode != .alwaysOriginal,
+                   button.bounds.width <= 50,
+                   button.bounds.height <= 50 {
+                    return true
+                }
+                return false
+            }
     }
 
     private func styleStaticText() {
@@ -323,16 +396,22 @@ class AdminLoginViewController: UIViewController {
         }
     }
 
+    private func updateRememberMeAppearance() {
+        rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
+        rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)
+    }
+
     private func makeRememberMeImage(selected: Bool) -> UIImage? {
         let size = CGSize(width: 24, height: 24)
         let renderer = UIGraphicsImageRenderer(size: size)
+        let strokeColor = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
 
         return renderer.image { _ in
             let rect = CGRect(origin: .zero, size: size)
             let rounded = UIBezierPath(roundedRect: rect.insetBy(dx: 1.5, dy: 1.5), cornerRadius: 5)
 
             if selected {
-                UIColor.black.setFill()
+                strokeColor.setFill()
                 rounded.fill()
 
                 let config = UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)
@@ -342,7 +421,7 @@ class AdminLoginViewController: UIViewController {
             } else {
                 UIColor.clear.setFill()
                 rounded.fill()
-                UIColor.black.setStroke()
+                strokeColor.setStroke()
                 rounded.lineWidth = 1.6
                 rounded.stroke()
             }

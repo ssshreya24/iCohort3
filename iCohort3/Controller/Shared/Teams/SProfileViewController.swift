@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import UserNotifications
 
 class SProfileViewController: UIViewController {
 
@@ -211,7 +212,48 @@ class SProfileViewController: UIViewController {
     }
 
     @IBAction func notificationChanged(_ sender: UISwitch) {
-        UserDefaults.standard.set(sender.isOn, forKey: "profile_notifications_enabled")
+        let isOn = sender.isOn
+        
+        if isOn {
+            UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    if settings.authorizationStatus == .notDetermined {
+                        // Ask once
+                        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                            DispatchQueue.main.async {
+                                sender.setOn(granted, animated: true)
+                                UserDefaults.standard.set(granted, forKey: "profile_notifications_enabled")
+                            }
+                        }
+                    } else if settings.authorizationStatus == .denied {
+                        // Already denied
+                        sender.setOn(false, animated: true)
+                        self.showSettingsAlert()
+                    } else {
+                        // Already authorized
+                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
+                    }
+                }
+            }
+        } else {
+            UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
+        }
+    }
+
+    private func showSettingsAlert() {
+        let alert = UIAlertController(
+            title: "Notifications Disabled",
+            message: "Please enable notifications in Settings to receive alerts.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "Settings", style: .default, handler: { _ in
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        }))
+        present(alert, animated: true)
     }
 
     @IBAction func closeTapped(_ sender: Any) {
@@ -279,8 +321,23 @@ class SProfileViewController: UIViewController {
     // MARK: - Helpers
 
     private func restoreSwitchState() {
-        let on = UserDefaults.standard.bool(forKey: "profile_notifications_enabled")
-        notificationSwitch?.setOn(on, animated: false)
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let isAuthorized = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+                
+                if !isAuthorized {
+                    self.notificationSwitch?.setOn(false, animated: false)
+                    UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
+                } else {
+                    if UserDefaults.standard.object(forKey: "profile_notifications_enabled") == nil {
+                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
+                    }
+                    let on = UserDefaults.standard.bool(forKey: "profile_notifications_enabled")
+                    self.notificationSwitch?.setOn(on, animated: false)
+                }
+            }
+        }
     }
 
     private func applyThemeToHierarchy() {

@@ -2,11 +2,13 @@
 //  ReviewViewController.swift
 //  iCohort3
 //
+//  Fully programmatic — no XIB. Rebuilt to eliminate XIB override issues.
 
 import UIKit
 import SafariServices
 import Supabase
 import PostgREST
+
 // MARK: - Delegate
 protocol ReviewViewControllerDelegate: AnyObject {
     func reviewViewController(_ vc: ReviewViewController,
@@ -25,92 +27,583 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
 
     weak var delegate: ReviewViewControllerDelegate?
 
-    // MARK: - Outlets
-    @IBOutlet weak var backButton:               UIButton!
-    @IBOutlet weak var titleLabel:               UILabel!
-    @IBOutlet weak var scrollView:               UIScrollView!
-
-    @IBOutlet weak var titleCardView:            UIView!
-    @IBOutlet weak var attachmentCardView:       UIView!
-    @IBOutlet weak var attachmentFileNameButton: UIButton!
-    @IBOutlet weak var descriptionCardView:      UIView!
-    @IBOutlet weak var assignedToCardView:       UIView!
-    @IBOutlet weak var statusCardView:           UIView!
-
-    @IBOutlet weak var taskTitleLabel:           UILabel!
-    @IBOutlet weak var dueDateValueLabel:        UILabel!
-    @IBOutlet weak var remarkTextView:           UITextView!
-    @IBOutlet weak var assigneeNameLabel:        UILabel!
-    @IBOutlet weak var statusValueLabel:         UILabel!
-
-
-    @IBOutlet weak var rejectButton:             UIButton!
-    @IBOutlet weak var completeButton:           UIButton!
-
-    // MARK: - Private
+    // MARK: - Private state
     private let remarkPlaceholder    = "Add remark"
     private var firstAttachmentName: String?
     private var fetchedAttachments: [SupabaseManager.TaskAttachmentRow] = []
     private var isUpdating           = false
 
+    // MARK: - UI Elements (programmatic)
+
+    // Navigation
+    private lazy var backButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+
+    private lazy var titleLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "Review"
+        lbl.font = UIFont.systemFont(ofSize: 20, weight: .medium)
+        lbl.textAlignment = .center
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    private lazy var scrollView: UIScrollView = {
+        let sv = UIScrollView()
+        sv.translatesAutoresizingMaskIntoConstraints = false
+        sv.showsVerticalScrollIndicator = true
+        sv.alwaysBounceVertical = true
+        sv.backgroundColor = .clear
+        return sv
+    }()
+
+    private lazy var contentView: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = .clear
+        return v
+    }()
+
+    // Title Card
+    private lazy var titleCardView: UIView = makeCard()
+
+    private lazy var pencilImageView: UIImageView = {
+        let iv = UIImageView(image: UIImage(systemName: "pencil"))
+        iv.tintColor = .systemGray
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        return iv
+    }()
+
+    private lazy var taskTitleLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        lbl.numberOfLines = 0
+        lbl.lineBreakMode = .byWordWrapping
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    private lazy var titleSeparator: UIView = makeSeparator()
+
+    private lazy var calendarImageView: UIImageView = {
+        let iv = UIImageView(image: UIImage(systemName: "calendar"))
+        iv.tintColor = .systemRed
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        return iv
+    }()
+
+    private lazy var dueDateStaticLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "Due Date"
+        lbl.font = UIFont.systemFont(ofSize: 17)
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    private lazy var dueDateValueLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "—"
+        lbl.font = UIFont.systemFont(ofSize: 17)
+        lbl.textAlignment = .right
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    // Attachment Card
+    private lazy var attachmentCardView: UIView = makeCard()
+
+    private lazy var attachmentStaticLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "Attachment"
+        lbl.font = UIFont.systemFont(ofSize: 17)
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    private lazy var paperclipImageView: UIImageView = {
+        let iv = UIImageView(image: UIImage(systemName: "paperclip"))
+        iv.tintColor = .systemGray
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        return iv
+    }()
+
+    private lazy var attachmentSeparator: UIView = makeSeparator()
+
+    // Row that shows the attachment (icon + filename)
+    private lazy var attachmentRowView: UIView = {
+        let v = UIView()
+        v.backgroundColor = UIColor.systemGray6
+        v.layer.cornerRadius = 12
+        v.layer.masksToBounds = true
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+
+    private lazy var attachmentTypeIconView: UIImageView = {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFit
+        iv.tintColor = .white
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        return iv
+    }()
+
+    private lazy var attachmentIconBackground: UIView = {
+        let v = UIView()
+        v.backgroundColor = .systemBlue
+        v.layer.cornerRadius = 8
+        v.layer.masksToBounds = true
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+
+    private lazy var attachmentFileNameButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.contentHorizontalAlignment = .leading
+        btn.titleLabel?.font = UIFont.systemFont(ofSize: 15)
+        btn.titleLabel?.lineBreakMode = .byTruncatingMiddle
+        btn.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+
+    // Remark Card
+    private lazy var descriptionCardView: UIView = {
+        let v = makeCard()
+        return v
+    }()
+
+    private lazy var remarkTextView: UITextView = {
+        let tv = UITextView()
+        tv.font = UIFont.systemFont(ofSize: 16)
+        tv.backgroundColor = .clear
+        tv.layer.cornerRadius = 14
+        tv.layer.masksToBounds = true
+        tv.textContainerInset = UIEdgeInsets(top: 12, left: 10, bottom: 12, right: 10)
+        tv.translatesAutoresizingMaskIntoConstraints = false
+        return tv
+    }()
+
+    // Assigned To Card
+    private lazy var assignedToCardView: UIView = makeCard()
+
+    private lazy var assignedToStaticLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "Assigned To"
+        lbl.font = UIFont.systemFont(ofSize: 17)
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    private lazy var personImageView: UIImageView = {
+        let iv = UIImageView(image: UIImage(systemName: "person.circle.fill"))
+        iv.tintColor = .systemGray
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        return iv
+    }()
+
+    private lazy var assigneeNameLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.font = UIFont.systemFont(ofSize: 17)
+        lbl.numberOfLines = 1
+        lbl.adjustsFontSizeToFitWidth = true
+        lbl.minimumScaleFactor = 0.7
+        lbl.lineBreakMode = .byTruncatingTail
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    // Status Card
+    private lazy var statusCardView: UIView = makeCard()
+
+    private lazy var statusStaticLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "Status"
+        lbl.font = UIFont.systemFont(ofSize: 17)
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    private lazy var statusValueLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.font = UIFont.systemFont(ofSize: 17)
+        lbl.textAlignment = .right
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
+
+    // Action Buttons
+    private lazy var rejectButton: UIButton = {
+        let btn = UIButton(type: .system)
+        var cfg = UIButton.Configuration.gray()
+        cfg.title = "Reject"
+        cfg.baseForegroundColor = .systemRed
+        cfg.baseBackgroundColor = .white
+        btn.configuration = cfg
+        btn.addTarget(self, action: #selector(rejectButtonTapped), for: .touchUpInside)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+
+    private lazy var completeButton: UIButton = {
+        let btn = UIButton(type: .system)
+        var cfg = UIButton.Configuration.gray()
+        cfg.title = "Approve"
+        cfg.baseForegroundColor = .systemGreen
+        cfg.baseBackgroundColor = .white
+        btn.configuration = cfg
+        btn.addTarget(self, action: #selector(completeButtonTapped), for: .touchUpInside)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        enableKeyboardDismissOnTap()
+        AppTheme.applyScreenBackground(to: view)
+        buildLayout()
+        setupRemarkTextView()
+        setupRefreshControl()
 
-        view.backgroundColor = UIColor(red: 0xEF/255.0,
-                                       green: 0xEF/255.0,
-                                       blue:  0xF5/255.0,
-                                       alpha: 1)
-
-        // Immediate placeholders while Supabase loads
+        // Placeholder states
         taskTitleLabel.text    = taskTitle ?? "Loading…"
         assigneeNameLabel.text = "Loading…"
         dueDateValueLabel.text = "—"
-
-        // Fix assigneeNameLabel truncation
-        assigneeNameLabel.numberOfLines = 1
-        assigneeNameLabel.adjustsFontSizeToFitWidth = true
-        assigneeNameLabel.minimumScaleFactor = 0.7
-        assigneeNameLabel.lineBreakMode = .byTruncatingTail
-
-        // Show attachment card with placeholder until data loads
-        attachmentCardView.isHidden = false
         attachmentFileNameButton.setTitle("Loading…", for: .normal)
         attachmentFileNameButton.setTitleColor(.systemGray3, for: .normal)
         attachmentFileNameButton.isEnabled = false
-
-        setupCards()
-        setupRemarkTextView()
-        setupRefreshControl()
         applyStatusUI(for: "for_review")
 
-        Task { await loadFromSupabase() }
-    }
-    
-    private func setupRefreshControl() {
-        let refreshControl = UIRefreshControl()
-        refreshControl.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
-        scrollView?.refreshControl = refreshControl
-    }
-    
-    @objc private func handleRefresh() {
+        scrollView.backgroundColor = .clear
+        contentView.backgroundColor = .clear
+
         Task { await loadFromSupabase() }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        AppTheme.applyScreenBackground(to: view)
         styleBackButton()
         styleActionButtons()
+        applyThemeFontsAndColors()
+    }
+
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            AppTheme.applyScreenBackground(to: view)
+            styleBackButton()
+            styleActionButtons()
+            applyThemeFontsAndColors()
+            styleCards()
+        }
+    }
+
+    // MARK: - Layout
+
+    private func buildLayout() {
+        // Add scroll hierarchy
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+
+        // ── Navigation header ──────────────────────────────────────────────
+        contentView.addSubview(backButton)
+        contentView.addSubview(titleLabel)
+
+        // ── Title Card ─────────────────────────────────────────────────────
+        titleCardView.addSubview(pencilImageView)
+        titleCardView.addSubview(taskTitleLabel)
+        titleCardView.addSubview(titleSeparator)
+        titleCardView.addSubview(calendarImageView)
+        titleCardView.addSubview(dueDateStaticLabel)
+        titleCardView.addSubview(dueDateValueLabel)
+        contentView.addSubview(titleCardView)
+
+        // ── Attachment Card ────────────────────────────────────────────────
+        attachmentCardView.addSubview(attachmentStaticLabel)
+        attachmentCardView.addSubview(paperclipImageView)
+        attachmentCardView.addSubview(attachmentSeparator)
+        attachmentCardView.addSubview(attachmentRowView)
+        attachmentIconBackground.addSubview(attachmentTypeIconView)
+        attachmentRowView.addSubview(attachmentIconBackground)
+        attachmentRowView.addSubview(attachmentFileNameButton)
+        contentView.addSubview(attachmentCardView)
+
+        // ── Remark Card ────────────────────────────────────────────────────
+        descriptionCardView.addSubview(remarkTextView)
+        contentView.addSubview(descriptionCardView)
+
+        // ── Assigned To Card ───────────────────────────────────────────────
+        assignedToCardView.addSubview(assignedToStaticLabel)
+        assignedToCardView.addSubview(personImageView)
+        assignedToCardView.addSubview(assigneeNameLabel)
+        contentView.addSubview(assignedToCardView)
+
+        // ── Status Card ─────────────────────────────────────────────────────
+        statusCardView.addSubview(statusStaticLabel)
+        statusCardView.addSubview(statusValueLabel)
+        contentView.addSubview(statusCardView)
+
+        // ── Action Buttons ─────────────────────────────────────────────────
+        contentView.addSubview(rejectButton)
+        contentView.addSubview(completeButton)
+
+        applyConstraints()
+        styleCards()
+    }
+
+    private func applyConstraints() {
+        let margin: CGFloat = 20
+        let cardSpacing: CGFloat = 16
+
+        NSLayoutConstraint.activate([
+
+            // ScrollView — fill safe area
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            // ContentView — pin to scroll, same width as view
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+
+            // ── Back button ────────────────────────────────────────────────
+            backButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            backButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            backButton.widthAnchor.constraint(equalToConstant: 44),
+            backButton.heightAnchor.constraint(equalToConstant: 44),
+
+            // ── Title label ────────────────────────────────────────────────
+            titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+            titleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+
+            // ── Title Card ─────────────────────────────────────────────────
+            titleCardView.topAnchor.constraint(equalTo: backButton.bottomAnchor, constant: 20),
+            titleCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: margin),
+            titleCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -margin),
+
+            // pencil icon — top-aligned with label
+            pencilImageView.leadingAnchor.constraint(equalTo: titleCardView.leadingAnchor, constant: 12),
+            pencilImageView.topAnchor.constraint(equalTo: titleCardView.topAnchor, constant: 16),
+            pencilImageView.widthAnchor.constraint(equalToConstant: 22),
+            pencilImageView.heightAnchor.constraint(equalToConstant: 22),
+
+            // task title label — top-aligned with pencil, allows multi-line growth
+            taskTitleLabel.leadingAnchor.constraint(equalTo: pencilImageView.trailingAnchor, constant: 12),
+            taskTitleLabel.trailingAnchor.constraint(equalTo: titleCardView.trailingAnchor, constant: -12),
+            taskTitleLabel.topAnchor.constraint(equalTo: titleCardView.topAnchor, constant: 14),
+
+            // separator below label
+            titleSeparator.topAnchor.constraint(equalTo: taskTitleLabel.bottomAnchor, constant: 10),
+            titleSeparator.leadingAnchor.constraint(equalTo: titleCardView.leadingAnchor, constant: 12),
+            titleSeparator.trailingAnchor.constraint(equalTo: titleCardView.trailingAnchor, constant: -12),
+            titleSeparator.heightAnchor.constraint(equalToConstant: 1),
+
+            // calendar icon
+            calendarImageView.leadingAnchor.constraint(equalTo: titleCardView.leadingAnchor, constant: 12),
+            calendarImageView.topAnchor.constraint(equalTo: titleSeparator.bottomAnchor, constant: 12),
+            calendarImageView.widthAnchor.constraint(equalToConstant: 26),
+            calendarImageView.heightAnchor.constraint(equalToConstant: 26),
+            calendarImageView.bottomAnchor.constraint(equalTo: titleCardView.bottomAnchor, constant: -14),
+
+            // due date static label
+            dueDateStaticLabel.leadingAnchor.constraint(equalTo: calendarImageView.trailingAnchor, constant: 12),
+            dueDateStaticLabel.centerYAnchor.constraint(equalTo: calendarImageView.centerYAnchor),
+
+            // due date value
+            dueDateValueLabel.trailingAnchor.constraint(equalTo: titleCardView.trailingAnchor, constant: -16),
+            dueDateValueLabel.centerYAnchor.constraint(equalTo: calendarImageView.centerYAnchor),
+            dueDateValueLabel.leadingAnchor.constraint(greaterThanOrEqualTo: dueDateStaticLabel.trailingAnchor, constant: 8),
+
+            // ── Attachment Card ────────────────────────────────────────────
+            attachmentCardView.topAnchor.constraint(equalTo: titleCardView.bottomAnchor, constant: cardSpacing),
+            attachmentCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: margin),
+            attachmentCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -margin),
+
+            // "Attachment" static label
+            attachmentStaticLabel.leadingAnchor.constraint(equalTo: attachmentCardView.leadingAnchor, constant: 16),
+            attachmentStaticLabel.topAnchor.constraint(equalTo: attachmentCardView.topAnchor, constant: 14),
+
+            // paperclip icon
+            paperclipImageView.trailingAnchor.constraint(equalTo: attachmentCardView.trailingAnchor, constant: -16),
+            paperclipImageView.centerYAnchor.constraint(equalTo: attachmentStaticLabel.centerYAnchor),
+            paperclipImageView.widthAnchor.constraint(equalToConstant: 22),
+            paperclipImageView.heightAnchor.constraint(equalToConstant: 22),
+
+            // separator
+            attachmentSeparator.topAnchor.constraint(equalTo: attachmentStaticLabel.bottomAnchor, constant: 8),
+            attachmentSeparator.leadingAnchor.constraint(equalTo: attachmentCardView.leadingAnchor, constant: 16),
+            attachmentSeparator.trailingAnchor.constraint(equalTo: attachmentCardView.trailingAnchor, constant: -16),
+            attachmentSeparator.heightAnchor.constraint(equalToConstant: 1),
+
+            // attachment row (icon background + bg row)
+            attachmentRowView.topAnchor.constraint(equalTo: attachmentSeparator.bottomAnchor, constant: 10),
+            attachmentRowView.leadingAnchor.constraint(equalTo: attachmentCardView.leadingAnchor, constant: 12),
+            attachmentRowView.trailingAnchor.constraint(equalTo: attachmentCardView.trailingAnchor, constant: -12),
+            attachmentRowView.bottomAnchor.constraint(equalTo: attachmentCardView.bottomAnchor, constant: -12),
+            attachmentRowView.heightAnchor.constraint(equalToConstant: 44),
+
+            // icon background box
+            attachmentIconBackground.leadingAnchor.constraint(equalTo: attachmentRowView.leadingAnchor, constant: 10),
+            attachmentIconBackground.centerYAnchor.constraint(equalTo: attachmentRowView.centerYAnchor),
+            attachmentIconBackground.widthAnchor.constraint(equalToConstant: 32),
+            attachmentIconBackground.heightAnchor.constraint(equalToConstant: 32),
+
+            // icon inside background
+            attachmentTypeIconView.centerXAnchor.constraint(equalTo: attachmentIconBackground.centerXAnchor),
+            attachmentTypeIconView.centerYAnchor.constraint(equalTo: attachmentIconBackground.centerYAnchor),
+            attachmentTypeIconView.widthAnchor.constraint(equalToConstant: 18),
+            attachmentTypeIconView.heightAnchor.constraint(equalToConstant: 18),
+
+            // filename button
+            attachmentFileNameButton.leadingAnchor.constraint(equalTo: attachmentIconBackground.trailingAnchor, constant: 10),
+            attachmentFileNameButton.trailingAnchor.constraint(equalTo: attachmentRowView.trailingAnchor, constant: -10),
+            attachmentFileNameButton.centerYAnchor.constraint(equalTo: attachmentRowView.centerYAnchor),
+
+            // ── Remark Card ────────────────────────────────────────────────
+            descriptionCardView.topAnchor.constraint(equalTo: attachmentCardView.bottomAnchor, constant: cardSpacing),
+            descriptionCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: margin),
+            descriptionCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -margin),
+
+            remarkTextView.topAnchor.constraint(equalTo: descriptionCardView.topAnchor, constant: 8),
+            remarkTextView.leadingAnchor.constraint(equalTo: descriptionCardView.leadingAnchor, constant: 8),
+            remarkTextView.trailingAnchor.constraint(equalTo: descriptionCardView.trailingAnchor, constant: -8),
+            remarkTextView.bottomAnchor.constraint(equalTo: descriptionCardView.bottomAnchor, constant: -8),
+            remarkTextView.heightAnchor.constraint(equalToConstant: 100),
+
+            // ── Assigned To Card ───────────────────────────────────────────
+            assignedToCardView.topAnchor.constraint(equalTo: descriptionCardView.bottomAnchor, constant: cardSpacing),
+            assignedToCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: margin),
+            assignedToCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -margin),
+            assignedToCardView.heightAnchor.constraint(equalToConstant: 50),
+
+            assignedToStaticLabel.leadingAnchor.constraint(equalTo: assignedToCardView.leadingAnchor, constant: 16),
+            assignedToStaticLabel.centerYAnchor.constraint(equalTo: assignedToCardView.centerYAnchor),
+
+            personImageView.widthAnchor.constraint(equalToConstant: 28),
+            personImageView.heightAnchor.constraint(equalToConstant: 28),
+            personImageView.centerYAnchor.constraint(equalTo: assignedToCardView.centerYAnchor),
+            personImageView.trailingAnchor.constraint(equalTo: assigneeNameLabel.leadingAnchor, constant: -8),
+
+            assigneeNameLabel.trailingAnchor.constraint(equalTo: assignedToCardView.trailingAnchor, constant: -16),
+            assigneeNameLabel.centerYAnchor.constraint(equalTo: assignedToCardView.centerYAnchor),
+            assigneeNameLabel.leadingAnchor.constraint(greaterThanOrEqualTo: assignedToStaticLabel.trailingAnchor, constant: 8),
+
+            // ── Status Card ────────────────────────────────────────────────
+            statusCardView.topAnchor.constraint(equalTo: assignedToCardView.bottomAnchor, constant: cardSpacing),
+            statusCardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: margin),
+            statusCardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -margin),
+            statusCardView.heightAnchor.constraint(equalToConstant: 50),
+
+            statusStaticLabel.leadingAnchor.constraint(equalTo: statusCardView.leadingAnchor, constant: 16),
+            statusStaticLabel.centerYAnchor.constraint(equalTo: statusCardView.centerYAnchor),
+
+            statusValueLabel.trailingAnchor.constraint(equalTo: statusCardView.trailingAnchor, constant: -16),
+            statusValueLabel.centerYAnchor.constraint(equalTo: statusCardView.centerYAnchor),
+
+            // ── Action Buttons ─────────────────────────────────────────────
+            rejectButton.topAnchor.constraint(equalTo: statusCardView.bottomAnchor, constant: 36),
+            rejectButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 48),
+            rejectButton.widthAnchor.constraint(equalToConstant: 110),
+            rejectButton.heightAnchor.constraint(equalToConstant: 44),
+
+            completeButton.topAnchor.constraint(equalTo: statusCardView.bottomAnchor, constant: 36),
+            completeButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -48),
+            completeButton.widthAnchor.constraint(equalToConstant: 110),
+            completeButton.heightAnchor.constraint(equalToConstant: 44),
+
+            completeButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40),
+        ])
+    }
+
+    // MARK: - Card & Style Helpers
+
+    private func makeCard() -> UIView {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }
+
+    private func makeSeparator() -> UIView {
+        let v = UIView()
+        v.backgroundColor = UIColor.systemGray4
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }
+
+    private func styleCards() {
+        [titleCardView, attachmentCardView, descriptionCardView,
+         assignedToCardView, statusCardView].forEach {
+            AppTheme.styleElevatedCard($0, cornerRadius: 20)
+        }
+    }
+
+    private func styleBackButton() {
+        let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        var cfg = UIButton.Configuration.plain()
+        cfg.image = UIImage(systemName: "chevron.left")
+        cfg.baseForegroundColor = foreground
+        cfg.background.backgroundColor = .clear
+        cfg.cornerStyle = .capsule
+        backButton.configuration = cfg
+        AppTheme.styleNativeFloatingControl(backButton, cornerRadius: backButton.bounds.height / 2)
+        backButton.backgroundColor = .clear
+        backButton.tintColor = foreground
+    }
+
+    private func styleActionButtons() {
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        [rejectButton, completeButton].forEach {
+            $0.layer.cornerRadius  = $0.bounds.height / 2
+            $0.layer.masksToBounds = true
+            $0.backgroundColor = isDark ? UIColor.white.withAlphaComponent(0.12) : .white
+            AppTheme.styleNativeFloatingControl($0, cornerRadius: $0.bounds.height / 2)
+        }
+        rejectButton.setTitleColor(.systemRed,    for: .normal)
+        completeButton.setTitleColor(.systemGreen, for: .normal)
+    }
+
+    private func applyThemeFontsAndColors() {
+        taskTitleLabel.textColor     = .label
+        titleLabel.textColor         = .label
+        dueDateValueLabel.textColor  = .label
+        assigneeNameLabel.textColor  = .label
+        remarkTextView.textColor = remarkTextView.text == remarkPlaceholder ? .systemGray3 : .label
+    }
+
+    private func setupRemarkTextView() {
+        remarkTextView.delegate   = self
+        remarkTextView.text       = remarkPlaceholder
+        remarkTextView.textColor  = .systemGray3
+        remarkTextView.font       = UIFont.systemFont(ofSize: 16)
+    }
+
+    private func setupRefreshControl() {
+        let rc = UIRefreshControl()
+        rc.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+        scrollView.refreshControl = rc
     }
 
     // MARK: - Supabase Load
 
     private func loadFromSupabase() async {
         guard !taskId.isEmpty else { return }
-        
+
         do {
-            // ── 1. Task row ───────────────────────────────────────────────────
             struct TaskRow: Decodable {
                 let title:              String?
                 let assigned_date:      String?
@@ -126,41 +619,28 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                 .execute()
                 .value
 
-            guard let row = rows.first else { 
-                await MainActor.run { 
-                    self.scrollView?.refreshControl?.endRefreshing()
-                }
-                return 
+            guard let row = rows.first else {
+                await MainActor.run { scrollView.refreshControl?.endRefreshing() }
+                return
             }
 
-            // ── 2. Assignee name ──────────────────────────────────────────────
             var assignee = "Team"
             if !teamId.isEmpty {
                 assignee = (try? await SupabaseManager.shared
                     .resolveAssigneeNameFromNewTeams(taskId: taskId, teamId: teamId)) ?? "Team"
             }
 
-            // ── 3. Attachments ────────────────────────────────────────────────
-            let allAttachments = (try? await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId)) ?? []
-            let studentAttachments = allAttachments.filter { $0.mentor_attachment == false || $0.mentor_attachment == nil }
-            let firstName   = studentAttachments.first?.filename
+            let allAttachments      = (try? await SupabaseManager.shared.fetchTaskAttachments(taskId: taskId)) ?? []
+            let studentAttachments  = allAttachments.filter { $0.mentor_attachment == false || $0.mentor_attachment == nil }
+            let firstName           = studentAttachments.first?.filename
+            let dueDateStr          = formatISO(row.assigned_date)
 
-            // ── 4. Format date ────────────────────────────────────────────────
-            let dueDateStr = formatISO(row.assigned_date)
-
-            // ── 5. Main thread UI ─────────────────────────────────────────────
             await MainActor.run {
-                // Title + date
                 taskTitleLabel.text    = row.title ?? taskTitle ?? "—"
                 dueDateValueLabel.text = dueDateStr
-
-                // Assignee — never truncate awkwardly
                 assigneeNameLabel.text = assignee
-
-                // Status badge
                 applyStatusUI(for: row.status ?? "for_review")
 
-                // Remark — show placeholder text if no existing remark
                 let existingRemark = row.remark_description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if existingRemark.isEmpty {
                     remarkTextView.text      = remarkPlaceholder
@@ -170,34 +650,53 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                     remarkTextView.textColor = .label
                 }
 
-                // Attachment card — ALWAYS visible, show content or "No attachment"
-                self.fetchedAttachments      = studentAttachments
-                firstAttachmentName          = firstName
-                attachmentCardView.isHidden  = false
+                self.fetchedAttachments = studentAttachments
+                firstAttachmentName     = firstName
 
                 if let name = firstName {
                     let isLink  = name.hasPrefix("http://") || name.hasPrefix("https://")
                     let display = isLink ? (URL(string: name)?.host ?? name) : name
                     attachmentFileNameButton.setTitle(display, for: .normal)
-                    attachmentFileNameButton.setTitleColor(.systemBlue, for: .normal)
+                    attachmentFileNameButton.setTitleColor(.label, for: .normal)
+                    attachmentFileNameButton.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
                     attachmentFileNameButton.isEnabled = true
+                    // Set icon based on file type
+                    let ext = (name as NSString).pathExtension.lowercased()
+                    let iconName: String
+                    if isLink {
+                        iconName = "link"
+                        attachmentIconBackground.backgroundColor = .systemBlue
+                    } else if ["jpg","jpeg","png","heic","gif"].contains(ext) {
+                        iconName = "photo.fill"
+                        attachmentIconBackground.backgroundColor = .systemBlue
+                    } else if ext == "pdf" {
+                        iconName = "doc.fill"
+                        attachmentIconBackground.backgroundColor = .systemRed
+                    } else {
+                        iconName = "doc.fill"
+                        attachmentIconBackground.backgroundColor = .systemGray
+                    }
+                    attachmentTypeIconView.image = UIImage(systemName: iconName)
+                    attachmentRowView.isHidden = false
                 } else {
                     attachmentFileNameButton.setTitle("No attachment", for: .normal)
                     attachmentFileNameButton.setTitleColor(.systemGray3, for: .normal)
                     attachmentFileNameButton.isEnabled = false
+                    attachmentTypeIconView.image = UIImage(systemName: "paperclip")
+                    attachmentIconBackground.backgroundColor = .systemGray3
+                    attachmentRowView.isHidden = false
                 }
-                
-                self.scrollView?.refreshControl?.endRefreshing()
+
+                scrollView.refreshControl?.endRefreshing()
             }
 
         } catch {
             print("❌ ReviewViewController.loadFromSupabase:", error)
             await MainActor.run {
-                // Even on error keep the attachment card visible with error state
                 attachmentFileNameButton.setTitle("Could not load", for: .normal)
                 attachmentFileNameButton.setTitleColor(.systemGray3, for: .normal)
                 attachmentFileNameButton.isEnabled = false
-                self.scrollView?.refreshControl?.endRefreshing()
+                scrollView.refreshControl?.endRefreshing()
             }
         }
     }
@@ -246,54 +745,19 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
         return raw
     }
 
-    // MARK: - UI Setup
+    // MARK: - Actions
 
-    private func setupCards() {
-        [titleCardView, attachmentCardView, descriptionCardView,
-         assignedToCardView, statusCardView]
-            .compactMap { $0 }
-            .forEach {
-                $0.layer.cornerRadius  = 20
-                $0.layer.masksToBounds = true
-                $0.backgroundColor     = .white
-            }
-    }
-
-    private func styleBackButton() {
-        backButton.layer.cornerRadius  = backButton.bounds.height / 2
-        backButton.layer.masksToBounds = true
-        backButton.backgroundColor     = .white
-    }
-
-    private func styleActionButtons() {
-        [rejectButton, completeButton].compactMap { $0 }.forEach {
-            $0.layer.cornerRadius  = $0.bounds.height / 2
-            $0.layer.masksToBounds = true
-            $0.backgroundColor     = .white
-        }
-        rejectButton?.setTitleColor(.systemRed,    for: .normal)
-        completeButton?.setTitleColor(.systemGreen, for: .normal)
-    }
-
-    private func setupRemarkTextView() {
-        remarkTextView.delegate        = self
-        remarkTextView.text            = remarkPlaceholder
-        remarkTextView.textColor       = .systemGray3
-        remarkTextView.backgroundColor = .clear
-        // Ensure placeholder is visible on first render
-        remarkTextView.font            = UIFont.systemFont(ofSize: 16)
-    }
-
-    // MARK: - IBActions
-
-    @IBAction func backButtonTapped(_ sender: UIButton) {
+    @objc private func backButtonTapped() {
         dismiss(animated: true)
     }
 
-    @IBAction func attachmentButtonTapped(_ sender: UIButton) {
+    @objc private func handleRefresh() {
+        Task { await loadFromSupabase() }
+    }
+
+    @objc private func attachmentButtonTapped() {
         guard let name = firstAttachmentName else { return }
-        
-        // 1. Handle Link
+
         let isLink = name.hasPrefix("http://") || name.hasPrefix("https://")
         if isLink, let url = URL(string: name) {
             let safari = SFSafariViewController(url: url)
@@ -301,26 +765,23 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
             present(safari, animated: true)
             return
         }
-        
-        // 2. Decode Base64 Image
+
         if let attachmentRow = fetchedAttachments.first(where: { $0.filename == name }),
            let base64 = attachmentRow.file_data,
            let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters),
            let image = UIImage(data: data) {
-            
             let viewer = AttachmentViewerViewController(attachments: [image], attachmentFilenames: [name])
-            viewer.modalPresentationStyle = UIModalPresentationStyle.fullScreen
+            viewer.modalPresentationStyle = .fullScreen
             present(viewer, animated: true)
             return
         }
-        
-        // 3. Fallback for files with no base64 content
+
         let a = UIAlertController(title: "Attachment", message: name, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
         present(a, animated: true)
     }
 
-    @IBAction func rejectButtonTapped(_ sender: UIButton) {
+    @objc private func rejectButtonTapped() {
         guard !isUpdating else { return }
         let a = UIAlertController(title: "Reject Task",
                                   message: "Are you sure you want to reject this task?",
@@ -332,7 +793,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
         present(a, animated: true)
     }
 
-    @IBAction func completeButtonTapped(_ sender: UIButton) {
+    @objc private func completeButtonTapped() {
         guard !isUpdating else { return }
         let a = UIAlertController(title: "Approve Task",
                                   message: "Mark this task as approved?",
@@ -379,8 +840,7 @@ class ReviewViewController: UIViewController, UITextViewDelegate {
                     .update(payload)
                     .eq("id", value: taskId)
                     .execute()
-                
-                // Sync counters for mentor dashboard
+
                 if !teamId.isEmpty {
                     try? await SupabaseManager.shared.recalculateAndSyncTeamTaskCounters(teamId: teamId)
                 }

@@ -21,6 +21,7 @@ class TaskCardCellNew: UICollectionViewCell {
     var onDeleteTapped: ((TaskCardCellNew) -> Void)?
     
     private var currentAttachments: [UIImage] = []
+    private var isEditDisabled: Bool = false
     
     // MARK: - Stored constraints
     private var remarkTitleTopConstraint: NSLayoutConstraint?
@@ -60,19 +61,16 @@ class TaskCardCellNew: UICollectionViewCell {
         // Setup ellipsis button menu
         setupEllipsisButton()
         
-        // Setup attachment button
         attachmentButton.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
         applyTheme()
-    }
-    
-    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
-            applyTheme()
+        
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, _) in
+                self.applyTheme()
+            }
         }
     }
-
+    
     override func prepareForReuse() {
         super.prepareForReuse()
 
@@ -160,26 +158,35 @@ class TaskCardCellNew: UICollectionViewCell {
     
     @available(iOS 14.0, *)
     func createMenu() -> UIMenu {
-        let editAction = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { [weak self] _ in
-            guard let self = self else { return }
-            self.onEllipsisMenu?(self)
+        var actions: [UIMenuElement] = []
+        
+        if !isEditDisabled {
+            let editAction = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { [weak self] _ in
+                guard let self = self else { return }
+                self.onEllipsisMenu?(self)
+            }
+            actions.append(editAction)
         }
         
         let deleteAction = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
             guard let self = self else { return }
             self.onDeleteTapped?(self)
         }
+        actions.append(deleteAction)
         
-        return UIMenu(title: "", children: [editAction, deleteAction])
+        return UIMenu(title: "", children: actions)
     }
     
     @objc func ellipsisButtonTapped() {
         // Fallback for iOS < 14
         let alert = UIAlertController(title: "Task Options", message: nil, preferredStyle: .actionSheet)
         
-        let editAction = UIAlertAction(title: "Edit", style: .default) { [weak self] _ in
-            guard let self = self else { return }
-            self.onEllipsisMenu?(self)
+        if !isEditDisabled {
+            let editAction = UIAlertAction(title: "Edit", style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                self.onEllipsisMenu?(self)
+            }
+            alert.addAction(editAction)
         }
         
         let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
@@ -189,7 +196,6 @@ class TaskCardCellNew: UICollectionViewCell {
         
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
         
-        alert.addAction(editAction)
         alert.addAction(deleteAction)
         alert.addAction(cancelAction)
         
@@ -208,8 +214,12 @@ class TaskCardCellNew: UICollectionViewCell {
         remarkDesc: String?,
         title: String? = nil,
         attachments: [UIImage]? = nil,
-        attachmentCount: Int = 0
+        attachmentCount: Int = 0,
+        isEditDisabled: Bool = false
     ) {
+
+        self.isEditDisabled = isEditDisabled
+        setupEllipsisButton()
 
         profileImage.image = profile
         profileImage.contentMode = .scaleAspectFill

@@ -46,6 +46,7 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
     override func viewDidLoad() {
         super.viewDidLoad()
         enableKeyboardDismissOnTap()
+        setupAvatarPreviewTap()
         setupInitialState()
         applyRoundedCorners()
         setupLoadingIndicator()
@@ -131,7 +132,7 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
         uploadButton?.isHidden = true
         uploadButton?.alpha = 1.0
-        uploadButton?.isUserInteractionEnabled = true
+        uploadButton?.isUserInteractionEnabled = false  // Don't intercept avatar tap when hidden
         if let uploadButton = uploadButton {
             view.bringSubviewToFront(uploadButton)
         }
@@ -162,6 +163,17 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         AppTheme.styleNativeFloatingControl(uploadButton, cornerRadius: max(18, uploadButton.bounds.height / 2))
     }
 
+    private func setupAvatarPreviewTap() {
+        avatarImageView?.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(showAvatarPreview))
+        avatarImageView?.addGestureRecognizer(tap)
+    }
+
+    @objc private func showAvatarPreview() {
+        guard let image = avatarImageView?.image else { return }
+        present(ProfileImagePreviewViewController(image: image), animated: true)
+    }
+
     private func refreshTheme() {
         AppTheme.applyScreenBackground(to: view)
         view.tintColor = AppTheme.accent
@@ -183,7 +195,8 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         }
 
         if let editButton = editButton {
-            styleFloatingButton(editButton, title: isEditingProfile ? "Save" : "Edit", foregroundColor: .black)
+            let editForeground = isDarkMode ? UIColor.white : UIColor.black
+            styleFloatingButton(editButton, title: isEditingProfile ? "Save" : "Edit", foregroundColor: editForeground)
         }
 
         configureAvatarEditButton()
@@ -307,17 +320,37 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
     }
 
     private func loadCachedAvatar() {
-        guard let personId = resolvedPersonId,
-              let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "student"),
-              let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) else {
+        guard let personId = resolvedPersonId else {
             configureAvatarPlaceholder()
             return
         }
-
         currentPersonId = personId
-        avatarImageView?.image = image
-        avatarImageView?.tintColor = nil
-        avatarImageView?.contentMode = .scaleAspectFill
+
+        // Fast path: use locally cached photo
+        if let cached = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "student"),
+           let image = SupabaseManager.shared.base64ToImage(base64String: cached) {
+            avatarImageView?.image = image
+            avatarImageView?.tintColor = nil
+            avatarImageView?.contentMode = .scaleAspectFill
+            return
+        }
+
+        // Slow path: fetch from Supabase backend (runs in background)
+        Task { [weak self] in
+            guard let self else { return }
+            if let base64 = await SupabaseManager.shared.fetchProfilePhoto(personId: personId, role: "student"),
+               let image = SupabaseManager.shared.base64ToImage(base64String: base64) {
+                // Cache locally for next time
+                SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "student")
+                await MainActor.run {
+                    self.avatarImageView?.image = image
+                    self.avatarImageView?.tintColor = nil
+                    self.avatarImageView?.contentMode = .scaleAspectFill
+                }
+            } else {
+                await MainActor.run { self.configureAvatarPlaceholder() }
+            }
+        }
     }
     
     // MARK: - Load Data from Supabase
@@ -487,7 +520,10 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
             if let personId = resolvedPersonId,
                let base64 = SupabaseManager.shared.imageToBase64(image: square) {
                 currentPersonId = personId
+                // 1. Cache locally for instant display next launch
                 SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "student")
+                // 2. Persist to Supabase so it survives reinstalls
+                Task { await SupabaseManager.shared.saveProfilePhoto(base64, personId: personId, role: "student") }
                 NotificationCenter.default.post(name: NSNotification.Name("ProfileAvatarUpdated"), object: nil)
             }
         }
@@ -504,7 +540,8 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         isEditingProfile.toggle()
         uploadButton?.isHidden = !isEditingProfile
         uploadButton?.alpha = 1.0
-        uploadButton?.isUserInteractionEnabled = true
+        // Only enable interaction when visible, so it never blocks the avatar tap gesture
+        uploadButton?.isUserInteractionEnabled = isEditingProfile
         if let uploadButton = uploadButton {
             view.bringSubviewToFront(uploadButton)
         }
@@ -580,12 +617,9 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
                 
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()
-                    
-                    // Reload to get updated greeting
-                    Task {
-                        await self.loadProfileData(personId: personId)
-                    }
                 }
+                // Reload to get updated greeting
+                self.loadProfileData(personId: personId)
             } catch let error as NSError {
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()

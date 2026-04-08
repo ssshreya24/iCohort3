@@ -20,6 +20,7 @@
                 <outlet property="passTextField" destination="TdI-ak-meF" id="atZ-9e-dG3"/>
                 <outlet property="passView" destination="dSB-4q-Qop" id="Ul5-j7-ADZ"/>
                 <outlet property="registerButtonOutlet" destination="wK9-GS-lup" id="ksk-VE-Tkk"/>
+                <outlet property="backButtonOutlet" destination="IbL-Q4-f80" id="bck-bt-otl"/>
                 <outlet property="uniNameView" destination="1JP-pE-rda" id="4C8-ER-BuM"/>
                 <outlet property="uniTextField" destination="GCs-fh-W5Y" id="vQv-4w-2hY"/>
                 <outlet property="view" destination="i5M-Pr-FkT" id="sfx-zR-JGt"/>

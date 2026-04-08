@@ -85,7 +85,6 @@
                             <constraint firstItem="fPT-ok-JwD" firstAttribute="leading" secondItem="GFL-EV-d28" secondAttribute="trailing" constant="8" id="CCL-6P-UMd"/>
                             <constraint firstItem="yxf-Ay-Sgd" firstAttribute="leading" secondItem="Bw4-dw-qll" secondAttribute="trailing" constant="2" id="DOg-2J-WCE"/>
                             <constraint firstItem="GFL-EV-d28" firstAttribute="leading" secondItem="BNe-6d-lf9" secondAttribute="leading" constant="12" id="GBX-Dw-1Dc"/>
-                            <constraint firstAttribute="height" constant="200" id="OZ0-39-YtP"/>
                             <constraint firstItem="LO5-ne-ivv" firstAttribute="leading" secondItem="BNe-6d-lf9" secondAttribute="leading" constant="16" id="Pbf-13-5yL"/>
                             <constraint firstItem="Lie-Lm-UxA" firstAttribute="leading" secondItem="Bw4-dw-qll" secondAttribute="trailing" constant="2" id="Pwp-ux-X8A"/>
                             <constraint firstAttribute="trailing" secondItem="yxf-Ay-Sgd" secondAttribute="trailing" constant="10" id="SQx-rw-s4S"/>
@@ -97,10 +96,9 @@
                             <constraint firstItem="Bw4-dw-qll" firstAttribute="top" secondItem="BNe-6d-lf9" secondAttribute="top" constant="10" id="ZfY-C2-8ja"/>
                             <constraint firstAttribute="trailing" secondItem="aSg-HE-9uS" secondAttribute="trailing" constant="16" id="b9z-76-QrW"/>
                             <constraint firstItem="9hh-Gb-Ikf" firstAttribute="leading" secondItem="BNe-6d-lf9" secondAttribute="leading" constant="16" id="bmD-Dc-cdX"/>
-                            <constraint firstAttribute="width" constant="400" id="coX-pb-pES"/>
-                            <constraint firstItem="LO5-ne-ivv" firstAttribute="top" secondItem="9hh-Gb-Ikf" secondAttribute="bottom" constant="30" id="dft-JB-zKC"/>
+                            <constraint firstItem="LO5-ne-ivv" firstAttribute="top" secondItem="9hh-Gb-Ikf" secondAttribute="bottom" constant="20" id="dft-JB-zKC"/>
                             <constraint firstItem="GFL-EV-d28" firstAttribute="top" secondItem="BNe-6d-lf9" secondAttribute="top" constant="12" id="gNZ-9Y-qgH"/>
-                            <constraint firstItem="9hh-Gb-Ikf" firstAttribute="top" secondItem="GFL-EV-d28" secondAttribute="bottom" constant="30" id="gfY-mO-xF8"/>
+                            <constraint firstItem="9hh-Gb-Ikf" firstAttribute="top" secondItem="GFL-EV-d28" secondAttribute="bottom" constant="20" id="gfY-mO-xF8"/>
                             <constraint firstItem="yxf-Ay-Sgd" firstAttribute="top" secondItem="BNe-6d-lf9" secondAttribute="top" constant="10" id="unJ-e6-u23"/>
                         </constraints>
                     </view>

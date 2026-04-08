@@ -13,15 +13,16 @@ class MForgetPasswordViewController: UIViewController {
     @IBOutlet weak var confirmPasswordTextField: UITextField!
     @IBOutlet weak var newPasswordTextField: UITextField!
     @IBOutlet weak var backButton: UIButton!
+    private var didInstallAnimatedLogo = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         setupUI()
         setupPlaceholders()
-        confirmButton.backgroundColor = UIColor(red: 0x77/255, green: 0x9C/255, blue: 0xB3/255, alpha: 1)
         confirmButton.setTitleColor(.white, for: .normal)
-        backButton.tintColor = .white
+        applyAuthSymbolTint()
         backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
     }
 
@@ -30,23 +31,51 @@ class MForgetPasswordViewController: UIViewController {
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        if !didInstallAnimatedLogo {
+            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(sizeMultiplier: 0.72, verticalOffset: -8)
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        refreshAnimatedAuthLogoIfNeeded()
+    }
+
     private func setupPlaceholders() {
-        newPasswordTextField.placeholder = "Enter the new password"
-        confirmPasswordTextField.placeholder = "Confirm the new password"
-        newPasswordTextField.textColor = .black
-        confirmPasswordTextField.textColor = .black
+        let placeholderColor = UIColor.secondaryLabel
+        newPasswordTextField.attributedPlaceholder = NSAttributedString(string: "Enter the new password", attributes: [.foregroundColor: placeholderColor])
+        confirmPasswordTextField.attributedPlaceholder = NSAttributedString(string: "Confirm the new password", attributes: [.foregroundColor: placeholderColor])
+        newPasswordTextField.textColor = .label
+        confirmPasswordTextField.textColor = .label
         newPasswordTextField.isSecureTextEntry = true
         confirmPasswordTextField.isSecureTextEntry = true
     }
 
     private func setupUI() {
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1)
+                : UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        }
+        let containerBg = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.12) : .white
+        }
         passwordContainer.layer.cornerRadius = 20
         passwordContainer.layer.masksToBounds = true
-        passwordContainer.backgroundColor = .white
+        passwordContainer.backgroundColor = containerBg
+        passwordContainer.layer.borderWidth = 0.5
+        passwordContainer.layer.borderColor = UIColor.opaqueSeparator.cgColor
         confirmPassword.layer.cornerRadius = 20
         confirmPassword.layer.masksToBounds = true
+        confirmPassword.backgroundColor = containerBg
+        confirmPassword.layer.borderWidth = 0.5
+        confirmPassword.layer.borderColor = UIColor.opaqueSeparator.cgColor
         confirmButton.layer.cornerRadius = 20
         confirmButton.layer.masksToBounds = true
+        backButton.tintColor = UIColor { trait in trait.userInterfaceStyle == .dark ? .white : .black }
     }
 
     @IBAction func confirmButtonTapped(_ sender: UIButton) {

@@ -244,7 +244,6 @@ final class JoinTeamsViewController: UIViewController {
     /// ✅ Send a join request to another team
     private func sendJoinRequest(to teamInfo: (team: SupabaseManager.NewTeamRow, creator: SupabaseManager.StudentPickerRow)) async {
         let team = teamInfo.team
-        let creator = teamInfo.creator
         
         print("📨 [JoinTeamsVC] Sending join request to Team #\(team.teamNumber)")
 
@@ -459,7 +458,6 @@ extension JoinTeamsViewController: UICollectionViewDataSource, UICollectionViewD
         } else {
             // ✅ RECEIVED REQUESTS TAB - Show incoming join requests
             let request = incomingRequests[indexPath.item]
-            let subtitle = "From: \(request.from_department ?? "Student")"
             
             cell.configureForReceived(
                 name: request.from_name,

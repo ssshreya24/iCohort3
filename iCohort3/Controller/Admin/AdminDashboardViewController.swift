@@ -32,11 +32,7 @@ class AdminDashboardViewController: UIViewController {
     private let pendingRequestsLabel = UILabel()
     private let segmentedControl = UISegmentedControl(items: ["Students", "Mentors"])
     private let requestsStackView = UIStackView()
-    
-    private let refreshControl = UIRefreshControl()
     private var loadingIndicator: UIActivityIndicatorView?
-    
-    // MARK: - Data
     private var instituteName: String = ""
     private var instituteDomain: String = ""
     private var adminEmail: String = ""
@@ -69,15 +65,6 @@ class AdminDashboardViewController: UIViewController {
         AdminUIStyle.updateScreenBackgroundLayout(for: view)
     }
     
-    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
-            applyTheme()
-            updateUI()
-        }
-    }
-    
     // MARK: - Setup
     private func setupUI() {
         AdminUIStyle.styleScreenBackground(view)
@@ -107,7 +94,7 @@ class AdminDashboardViewController: UIViewController {
         headerContainerView.addSubview(institutionLabel)
         
         logoutButton.translatesAutoresizingMaskIntoConstraints = false
-        AdminUIStyle.styleCompactActionButton(logoutButton, systemImage: "rectangle.portrait.and.arrow.right")
+        AdminUIStyle.styleDestructiveCompactButton(logoutButton, systemImage: "rectangle.portrait.and.arrow.right")
         logoutButton.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
         headerContainerView.addSubview(logoutButton)
         
@@ -169,9 +156,6 @@ class AdminDashboardViewController: UIViewController {
         requestsStackView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(requestsStackView)
         
-        refreshControl.addTarget(self, action: #selector(refreshData), for: .valueChanged)
-        scrollView.refreshControl = refreshControl
-        
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -194,8 +178,8 @@ class AdminDashboardViewController: UIViewController {
             
             logoutButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             logoutButton.trailingAnchor.constraint(equalTo: headerContainerView.trailingAnchor),
-            logoutButton.widthAnchor.constraint(equalToConstant: 44),
-            logoutButton.heightAnchor.constraint(equalToConstant: 44),
+            logoutButton.widthAnchor.constraint(equalToConstant: 36),
+            logoutButton.heightAnchor.constraint(equalToConstant: 36),
             
             institutionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
             institutionLabel.leadingAnchor.constraint(equalTo: headerContainerView.leadingAnchor),
@@ -806,12 +790,7 @@ class AdminDashboardViewController: UIViewController {
         let approvalVC = AdminApprovalViewController()
         navigationController?.pushViewController(approvalVC, animated: true)
     }
-    
-    @objc private func refreshData() {
-        loadAllData()
-        refreshControl.endRefreshing()
-    }
-    
+
     // MARK: - Student Actions
     @objc private func approveStudentButtonTapped(_ sender: UIButton) {
         let student = pendingStudents[sender.tag]
@@ -1034,13 +1013,13 @@ class AdminDashboardViewController: UIViewController {
         view.isUserInteractionEnabled = true
     }
     
-    private func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-            completion?()
-        })
-        present(alert, animated: true)
-    }
+private func showAlert(title: String, message: String, completion: (() -> Void)? = nil) {
+    let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+    alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+        completion?()
+    })
+    present(alert, animated: true)
+}
 }
 
 // MARK: - Statistic Card View

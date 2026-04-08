@@ -44,7 +44,7 @@ final class OngoingCollectionViewCell: UICollectionViewCell {
 
         // Title label
         titleLabel.font = .systemFont(ofSize: 14, weight: .medium)
-        titleLabel.textColor = UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0)
+        titleLabel.textColor = .label
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 2
 

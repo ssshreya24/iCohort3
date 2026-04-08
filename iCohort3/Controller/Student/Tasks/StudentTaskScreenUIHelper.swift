@@ -40,4 +40,20 @@ enum StudentTaskScreenUIHelper {
         button.tintColor = AppTheme.accent
         return button
     }
+
+    /// Returns an iPad-aware card size for student task collection views.
+    /// - Uses 2 columns with 20pt gutters on regular-width (iPad) screens.
+    /// - Falls back to full-width minus 40pt on compact (iPhone) screens.
+    static func cardSize(in collectionView: UICollectionView,
+                         traitCollection: UITraitCollection,
+                         height: CGFloat) -> CGSize {
+        if traitCollection.horizontalSizeClass == .regular {
+            // iPad — 2-column grid
+            let totalPadding: CGFloat = 20 + 20 + 16  // leading + trailing + gutter
+            let cardWidth = (collectionView.frame.width - totalPadding) / 2
+            return CGSize(width: min(cardWidth, 480), height: height)
+        } else {
+            return CGSize(width: collectionView.frame.width - 40, height: height)
+        }
+    }
 }

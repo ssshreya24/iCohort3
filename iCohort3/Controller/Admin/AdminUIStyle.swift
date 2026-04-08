@@ -36,6 +36,17 @@ enum AdminUIStyle {
         AppTheme.styleFloatingControl(button, cornerRadius: 18)
     }
 
+    static func styleDestructiveCompactButton(_ button: UIButton, systemImage: String) {
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: systemImage)
+        config.baseForegroundColor = .systemRed
+        config.contentInsets = NSDirectionalEdgeInsets(top: 7, leading: 7, bottom: 7, trailing: 7)
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
+        button.configuration = config
+        AppTheme.styleFloatingControl(button, cornerRadius: 16)
+        button.tintColor = .systemRed
+    }
+
     static func styleSearchBar(_ searchBar: UISearchBar) {
         searchBar.searchBarStyle = .minimal
         searchBar.searchTextField.backgroundColor = AppTheme.floatingBackground

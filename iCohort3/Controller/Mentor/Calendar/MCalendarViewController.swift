@@ -51,6 +51,8 @@ class MCalendarViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         AppTheme.applyScreenBackground(to: view)
+        styleFloatingButton(editButton, mode: .text(isEditingMode ? "Done" : "Edit"))
+        styleFloatingButton(addActivityButton, mode: .symbol("plus"))
     }
     
     @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
@@ -230,6 +232,7 @@ extension MCalendarViewController {
         calendarView.layer.borderWidth = 1
         calendarView.layer.borderColor = AppTheme.borderColor.resolvedColor(with: traitCollection).cgColor
         calendarView.tintColor = AppTheme.accent
+        calendarView.tintAdjustmentMode = .normal
         styleFloatingButton(editButton, mode: .text(isEditingMode ? "Done" : "Edit"))
         styleFloatingButton(addActivityButton, mode: .symbol("plus"))
         chevronButton?.tintColor = .label
@@ -257,6 +260,8 @@ extension MCalendarViewController {
         tableView.backgroundColor = .clear
         tableView.showsVerticalScrollIndicator = false
         tableView.allowsSelection = false
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 82
         emptyStateLabel.textColor = .secondaryLabel
 
         let nib = UINib(nibName: "MactivityTableViewCell", bundle: nil)
@@ -280,11 +285,13 @@ extension MCalendarViewController {
     
     private func styleFloatingButton(_ button: UIButton?, mode: FloatingButtonMode) {
         guard let button else { return }
+        
         let foreground = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
         var config = UIButton.Configuration.plain()
-        config.background.backgroundColor = .clear
         config.baseForegroundColor = foreground
+        config.background.backgroundColor = .clear
         config.cornerStyle = .capsule
+        
         switch mode {
         case .symbol(let name):
             config.image = UIImage(systemName: name)
@@ -295,6 +302,7 @@ extension MCalendarViewController {
                 attributes: AttributeContainer([.foregroundColor: foreground])
             )
         }
+        
         button.configuration = config
         AppTheme.styleNativeFloatingControl(button, cornerRadius: button.bounds.height / 2)
         button.backgroundColor = .clear
@@ -438,7 +446,7 @@ extension MCalendarViewController: UITableViewDataSource, UITableViewDelegate {
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 70
+        return UITableView.automaticDimension
     }
     
     // MARK: - Editing Support

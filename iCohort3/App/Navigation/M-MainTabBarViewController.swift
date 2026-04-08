@@ -44,12 +44,11 @@ class MentorMainTabBarViewController: UITabBarController {
     
     private func setupTabBar() {
         AppTheme.configureTabBarAppearance(tabBar)
-    }
-
-    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
-        AppTheme.configureTabBarAppearance(tabBar)
+        
+        if #available(iOS 17.0, *) {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, previousTraitCollection: UITraitCollection) in
+                AppTheme.configureTabBarAppearance(self.tabBar)
+            }
+        }
     }
 }

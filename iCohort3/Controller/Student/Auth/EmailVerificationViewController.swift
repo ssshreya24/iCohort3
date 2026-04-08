@@ -15,6 +15,7 @@ class EmailVerificationViewController: UIViewController {
     // UI Elements
     private let backButton = UIButton(type: .system)
     private let logoImageView = UIImageView()
+    private let animatedLogoView = AnimatedAuthLogoView()
     private let titleLabel = UILabel()
     private let emailContainer = UIView()
     private let emailIcon = UIImageView()
@@ -44,49 +45,67 @@ class EmailVerificationViewController: UIViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        animatedLogoView.refreshAnimationState()
+    }
     
     private func setupUI() {
-        // Background color
-        view.backgroundColor = UIColor(red: 0xEF/255, green: 0xEF/255, blue: 0xF5/255, alpha: 1)
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1)
+                : UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        }
         
         // Back Button
         let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
         let backImage = UIImage(systemName: "chevron.left", withConfiguration: config)
         backButton.setImage(backImage, for: .normal)
-        backButton.tintColor = traitCollection.userInterfaceStyle == .dark ? .white : .black
-        backButton.backgroundColor = .white
+        backButton.tintColor = UIColor { trait in trait.userInterfaceStyle == .dark ? .white : .black }
+        backButton.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.14) : .white
+        }
         backButton.layer.cornerRadius = 22
         backButton.layer.masksToBounds = true
         backButton.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
         view.addSubview(backButton)
         
-        // Logo ImageView
+        logoImageView.isHidden = true
         logoImageView.image = UIImage(named: "logo")
         logoImageView.contentMode = .scaleAspectFit
         view.addSubview(logoImageView)
+        view.addSubview(animatedLogoView)
         
         // Title Label
         titleLabel.text = "Forgot Password?"
         titleLabel.font = UIFont.boldSystemFont(ofSize: 26)
-        titleLabel.textColor = .black
+        titleLabel.textColor = .label
         titleLabel.textAlignment = .center
         view.addSubview(titleLabel)
 
         // Email Container
-        emailContainer.backgroundColor = .white
+        emailContainer.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.12) : .white
+        }
         emailContainer.layer.cornerRadius = 20
         emailContainer.layer.masksToBounds = true
+        emailContainer.layer.borderWidth = 0.5
+        emailContainer.layer.borderColor = UIColor.opaqueSeparator.cgColor
         view.addSubview(emailContainer)
         
         // Email Icon
         emailIcon.image = UIImage(systemName: "envelope")
-        emailIcon.tintColor = UIColor(white: 0.33, alpha: 1)
+        emailIcon.tintColor = UIColor { trait in trait.userInterfaceStyle == .dark ? .white : UIColor(white: 0.33, alpha: 1) }
         emailIcon.contentMode = .scaleAspectFit
         emailContainer.addSubview(emailIcon)
         
         // Email TextField
-        emailTextField.placeholder = role == .admin ? "Enter your registered admin email" : "Enter your registered email"
-        emailTextField.textColor = .black
+        emailTextField.attributedPlaceholder = NSAttributedString(
+            string: role == .admin ? "Enter your registered admin email" : "Enter your registered email",
+            attributes: [.foregroundColor: UIColor.secondaryLabel]
+        )
+        emailTextField.textColor = .label
         emailTextField.font = UIFont.systemFont(ofSize: 16)
         emailTextField.keyboardType = .emailAddress
         emailTextField.autocapitalizationType = .none
@@ -97,7 +116,7 @@ class EmailVerificationViewController: UIViewController {
         sendOTPButton.setTitle("Send OTP", for: .normal)
         sendOTPButton.setTitleColor(.white, for: .normal)
         sendOTPButton.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
-        sendOTPButton.backgroundColor = UIColor(red: 0x77/255, green: 0x9C/255, blue: 0xB3/255, alpha: 1)
+        sendOTPButton.backgroundColor = UIColor(named: "Button Color")
         sendOTPButton.layer.cornerRadius = 20
         sendOTPButton.layer.masksToBounds = true
         sendOTPButton.addTarget(self, action: #selector(sendOTPTapped), for: .touchUpInside)
@@ -114,6 +133,7 @@ class EmailVerificationViewController: UIViewController {
     private func setupConstraints() {
         backButton.translatesAutoresizingMaskIntoConstraints = false
         logoImageView.translatesAutoresizingMaskIntoConstraints = false
+        animatedLogoView.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         emailContainer.translatesAutoresizingMaskIntoConstraints = false
         emailIcon.translatesAutoresizingMaskIntoConstraints = false
@@ -130,8 +150,12 @@ class EmailVerificationViewController: UIViewController {
             // Logo
             logoImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             logoImageView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 91),
-            logoImageView.widthAnchor.constraint(equalToConstant: 200),
-            logoImageView.heightAnchor.constraint(equalToConstant: 150),
+            logoImageView.widthAnchor.constraint(equalToConstant: 160),
+            logoImageView.heightAnchor.constraint(equalToConstant: 160),
+            animatedLogoView.centerXAnchor.constraint(equalTo: logoImageView.centerXAnchor),
+            animatedLogoView.centerYAnchor.constraint(equalTo: logoImageView.centerYAnchor, constant: -8),
+            animatedLogoView.widthAnchor.constraint(equalToConstant: 160),
+            animatedLogoView.heightAnchor.constraint(equalToConstant: 160),
             
             // Title
             titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),

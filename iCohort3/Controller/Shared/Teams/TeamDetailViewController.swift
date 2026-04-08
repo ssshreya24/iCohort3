@@ -626,19 +626,32 @@ final class TeamDetailViewController: UIViewController {
             actions.append(editAction)
         }
 
-        let destructiveAction = UIAction(
-            title: viewModel.isCreator ? "Delete Team" : "Leave Team",
-            image: UIImage(systemName: viewModel.isCreator ? "trash" : "rectangle.portrait.and.arrow.right"),
+        // "Leave Team" is always available — for creators it transfers leadership
+        let leaveAction = UIAction(
+            title: "Leave Team",
+            image: UIImage(systemName: "rectangle.portrait.and.arrow.right"),
             attributes: .destructive
         ) { [weak self] _ in
-            guard let self else { return }
-            self.viewModel.isCreator ? self.presentDeleteTeamAlert() : self.presentLeaveTeamAlert()
+            self?.presentLeaveTeamAlert()
         }
-        actions.append(destructiveAction)
+        actions.append(leaveAction)
+
+        // Creators also get the nuclear "Delete Team" option
+        if viewModel.isCreator {
+            let deleteAction = UIAction(
+                title: "Delete Team",
+                image: UIImage(systemName: "trash"),
+                attributes: .destructive
+            ) { [weak self] _ in
+                self?.presentDeleteTeamAlert()
+            }
+            actions.append(deleteAction)
+        }
 
         teamOptionsButton.showsMenuAsPrimaryAction = true
         teamOptionsButton.menu = UIMenu(title: "Team Actions", children: actions)
     }
+
 
     private func presentDeleteTeamAlert() {
         let alert = UIAlertController(title: "Delete Team?", message: "This will permanently delete the team.", preferredStyle: .alert)
@@ -663,7 +676,11 @@ final class TeamDetailViewController: UIViewController {
     }
 
     private func presentLeaveTeamAlert() {
-        let alert = UIAlertController(title: "Leave Team?", message: "You will be removed from this team.", preferredStyle: .alert)
+        let isLeader = viewModel.isCreator
+        let message  = isLeader
+            ? "As team leader, leaving will transfer leadership to the next member."
+            : "You will be removed from this team."
+        let alert = UIAlertController(title: "Leave Team?", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Leave", style: .destructive) { _ in
             Task {

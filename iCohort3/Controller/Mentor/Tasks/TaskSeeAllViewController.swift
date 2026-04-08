@@ -36,6 +36,8 @@ class TaskSeeAllViewController: UIViewController {
     private let backButton    = UIButton()
     private let titleLabel    = UILabel()
     private let collectionView: UICollectionView
+    private var attachmentLoadingOverlay: UIView?
+    private var attachmentLoadingIndicator: UIActivityIndicatorView?
 
     // MARK: - Init
 
@@ -156,7 +158,7 @@ class TaskSeeAllViewController: UIViewController {
     private func presentEditTask(at index: Int) {
         let task = tasks[index]
 
-        let vc                 = NewTaskViewController(nibName: "NewTaskViewController", bundle: nil)
+        let vc                 = NewTaskViewController()
         vc.delegate            = self
         vc.teamMemberImages    = teamMemberImages
         vc.teamMemberNames     = teamMemberNames
@@ -202,6 +204,65 @@ class TaskSeeAllViewController: UIViewController {
         present(vc, animated: true)
     }
 
+    @MainActor
+    private func showAttachmentLoader() {
+        guard attachmentLoadingOverlay == nil else { return }
+
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.18)
+
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        blur.layer.cornerRadius = 16
+        blur.clipsToBounds = true
+
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.color = AppTheme.buttonColor
+        indicator.startAnimating()
+
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Opening attachment..."
+        label.font = .systemFont(ofSize: 15, weight: .medium)
+        label.textColor = .label
+
+        view.addSubview(overlay)
+        overlay.addSubview(blur)
+        blur.contentView.addSubview(indicator)
+        blur.contentView.addSubview(label)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            blur.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            blur.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+            blur.widthAnchor.constraint(equalToConstant: 190),
+            blur.heightAnchor.constraint(equalToConstant: 118),
+
+            indicator.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
+            indicator.topAnchor.constraint(equalTo: blur.contentView.topAnchor, constant: 24),
+
+            label.centerXAnchor.constraint(equalTo: blur.contentView.centerXAnchor),
+            label.topAnchor.constraint(equalTo: indicator.bottomAnchor, constant: 12)
+        ])
+
+        attachmentLoadingOverlay = overlay
+        attachmentLoadingIndicator = indicator
+    }
+
+    @MainActor
+    private func hideAttachmentLoader() {
+        attachmentLoadingIndicator?.stopAnimating()
+        attachmentLoadingIndicator = nil
+        attachmentLoadingOverlay?.removeFromSuperview()
+        attachmentLoadingOverlay = nil
+    }
+
     private func loadAttachments(for task: TaskModel) async -> ([UIImage], [String]) {
         guard let taskId = task.id else { return ([], task.attachmentFilenames ?? []) }
         do {
@@ -231,7 +292,7 @@ class TaskSeeAllViewController: UIViewController {
 
     private func presentReviewViewController(for task: TaskModel) {
         guard let taskId = task.id else { return }
-        let vc         = ReviewViewController(nibName: "ReviewViewController", bundle: nil)
+        let vc         = ReviewViewController()
         vc.taskId      = taskId
         vc.teamId      = teamId
         vc.taskTitle   = task.title
@@ -429,7 +490,8 @@ extension TaskSeeAllViewController: UICollectionViewDelegate,
             remarkDesc:  task.remarkDesc,
             title:       task.title,
             attachments: task.attachments,
-            attachmentCount: task.attachmentFilenames?.count ?? 0
+            attachmentCount: task.attachmentFilenames?.count ?? 0,
+            isEditDisabled: task.status.lowercased() == "rejected"
         )
 
         cell.onEllipsisMenu = { [weak self] _ in
@@ -444,9 +506,24 @@ extension TaskSeeAllViewController: UICollectionViewDelegate,
         cell.onAttachmentTapped = { [weak self] in
             guard let self else { return }
             Task {
-                let loaded = await self.loadAttachments(for: task)
-                guard !loaded.0.isEmpty || !loaded.1.isEmpty else { return }
+                await MainActor.run { self.showAttachmentLoader() }
+
+                let loaded: ([UIImage], [String])
+                if let cached = task.attachments, !cached.isEmpty {
+                    loaded = (cached, task.attachmentFilenames ?? [])
+                } else {
+                    loaded = await self.loadAttachments(for: task)
+                    await MainActor.run {
+                        if let idx = self.tasks.firstIndex(where: { $0.id == task.id }) {
+                            self.tasks[idx].attachments = loaded.0
+                            self.tasks[idx].attachmentFilenames = loaded.1
+                        }
+                    }
+                }
+
                 await MainActor.run {
+                    self.hideAttachmentLoader()
+                    guard !loaded.0.isEmpty || !loaded.1.isEmpty else { return }
                     self.presentAttachmentViewer(attachments: loaded.0, filenames: loaded.1)
                 }
             }

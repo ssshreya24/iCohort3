@@ -21,29 +21,58 @@ class LoginViewController: UIViewController {
     
     private var backdropView: UIView?
     private var loadingIndicator: UIActivityIndicatorView?
+    private var didInstallAnimatedLogo = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         setupUI()
+        applyAuthSymbolTint()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        refreshAnimatedAuthLogoIfNeeded()
+    }
+
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        updateRememberMeAppearance()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+
+        if !didInstallAnimatedLogo {
+            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded()
+        }
+    }
     
     func setupUI() {
+        view.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1)
+                : UIColor(red: 0.94, green: 0.94, blue: 0.96, alpha: 1)
+        }
+
         passwordTextField.isSecureTextEntry = true
         passwordVisibilityToggle.setImage(UIImage(systemName: "eye.slash.fill"), for: .normal)
+        passwordVisibilityToggle.tintColor = .label
         rememberMeButton.configuration = nil
         rememberMeButton.backgroundColor = .clear
         rememberMeButton.tintColor = .clear
         rememberMeButton.layer.shadowOpacity = 0
         rememberMeButton.layer.masksToBounds = false
         rememberMeButton.imageView?.contentMode = .scaleAspectFit
-        rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
-        rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)
+        updateRememberMeAppearance()
         let shouldRemember = UserDefaults.standard.bool(forKey: "remember_me")
             && UserDefaults.standard.string(forKey: "remembered_user_role") == "student"
         rememberMeButton.isSelected = shouldRemember
@@ -60,6 +89,31 @@ class LoginViewController: UIViewController {
         containerView.layer.masksToBounds = true
         containerView2.layer.cornerRadius = 23
         containerView2.layer.masksToBounds = true
+        
+        let containerBg = UIColor { traitCollection in
+            return traitCollection.userInterfaceStyle == .dark 
+                ? UIColor.white.withAlphaComponent(0.12) 
+                : UIColor.white
+        }
+        containerView.backgroundColor = containerBg
+        containerView2.backgroundColor = containerBg
+        containerView.layer.borderWidth = 0.5
+        containerView2.layer.borderWidth = 0.5
+        containerView.layer.borderColor = UIColor.opaqueSeparator.cgColor
+        containerView2.layer.borderColor = UIColor.opaqueSeparator.cgColor
+        
+        emailTextField.textColor = .label
+        passwordTextField.textColor = .label
+        emailTextField.attributedPlaceholder = NSAttributedString(
+            string: "Enter SRM Mail ID",
+            attributes: [.foregroundColor: UIColor.secondaryLabel]
+        )
+        passwordTextField.attributedPlaceholder = NSAttributedString(
+            string: "Enter Password",
+            attributes: [.foregroundColor: UIColor.secondaryLabel]
+        )
+
+        styleAuthBackButton(backButton)
     }
     
     @IBAction func forgotPasswordTapped(_ sender: UIButton) {
@@ -276,16 +330,22 @@ class LoginViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    private func updateRememberMeAppearance() {
+        rememberMeButton.setImage(makeRememberMeImage(selected: false), for: .normal)
+        rememberMeButton.setImage(makeRememberMeImage(selected: true), for: .selected)
+    }
+
     private func makeRememberMeImage(selected: Bool) -> UIImage? {
         let size = CGSize(width: 24, height: 24)
         let renderer = UIGraphicsImageRenderer(size: size)
+        let strokeColor = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
 
         return renderer.image { _ in
             let rect = CGRect(origin: .zero, size: size)
             let rounded = UIBezierPath(roundedRect: rect.insetBy(dx: 1.5, dy: 1.5), cornerRadius: 5)
 
             if selected {
-                UIColor.black.setFill()
+                strokeColor.setFill()
                 rounded.fill()
 
                 let config = UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)
@@ -295,7 +355,7 @@ class LoginViewController: UIViewController {
             } else {
                 UIColor.clear.setFill()
                 rounded.fill()
-                UIColor.black.setStroke()
+                strokeColor.setStroke()
                 rounded.lineWidth = 1.6
                 rounded.stroke()
             }

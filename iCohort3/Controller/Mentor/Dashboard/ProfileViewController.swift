@@ -8,6 +8,7 @@
 import UIKit
 import SafariServices
 import Supabase
+import UserNotifications
 
 protocol ProfileViewControllerDelegate: AnyObject {
     func profileViewController(_ controller: ProfileViewController,
@@ -79,6 +80,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         super.viewDidLoad()
         enableKeyboardDismissOnTap()
         setupUI()
+        setupAvatarPreviewTap()
         setupInitialState()
         setupLoadingIndicator()
         avatarEditButton.isHidden = true
@@ -87,6 +89,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         
         // ✅ NEW: Get mentor person_id from UserDefaults
         getCurrentUserPersonId()
+        restoreSwitchState()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -179,6 +182,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     private func updateUIWithProfile(_ profile: SupabaseManager.MentorProfile?, greeting: String) {
         greetingLabel?.text = greeting
 
+        // Fast path: use locally cached photo
         if let personId = currentPersonId,
            let cachedAvatar = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "mentor"),
            let image = SupabaseManager.shared.base64ToImage(base64String: cachedAvatar) {
@@ -186,6 +190,21 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             avatarImageView.tintColor = nil
             avatarImageView.contentMode = .scaleAspectFill
             isShowingPlaceholderAvatar = false
+        } else if let personId = currentPersonId {
+            // Slow path: fetch from Supabase backend
+            Task { [weak self] in
+                guard let self else { return }
+                if let base64 = await SupabaseManager.shared.fetchProfilePhoto(personId: personId, role: "mentor"),
+                   let image = SupabaseManager.shared.base64ToImage(base64String: base64) {
+                    SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "mentor")
+                    await MainActor.run {
+                        self.avatarImageView.image = image
+                        self.avatarImageView.tintColor = nil
+                        self.avatarImageView.contentMode = .scaleAspectFill
+                        self.isShowingPlaceholderAvatar = false
+                    }
+                }
+            }
         }
         
         guard let profile = profile else {
@@ -267,11 +286,19 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             tf.text = ""
             tf.borderStyle = .none
             tf.backgroundColor = .clear
+            tf.background = nil
+            tf.disabledBackground = nil
         }
         
         greetingLabel?.text = "Hi Mentor"
         greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
         personalMailSwitch?.isOn = false
+    }
+
+    private func setupAvatarPreviewTap() {
+        avatarImageView.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(showAvatarPreview))
+        avatarImageView.addGestureRecognizer(tap)
     }
     
     private func refreshTheme() {
@@ -385,6 +412,8 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             case let textField as UITextField:
                 textField.borderStyle = .none
                 textField.backgroundColor = .clear
+                textField.background = nil
+                textField.disabledBackground = nil
                 textField.textColor = textField.isEnabled ? .label : (textField.text == "Not Set" ? .secondaryLabel : .label)
                 textField.tintColor = AppTheme.accent
                 if let placeholder = textField.placeholder {
@@ -463,6 +492,11 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
         present(sheet, animated: true)
     }
+
+    @objc private func showAvatarPreview() {
+        guard let image = avatarImageView.image else { return }
+        present(ProfileImagePreviewViewController(image: image), animated: true)
+    }
     
     private func presentImagePicker(source: UIImagePickerController.SourceType) {
         guard UIImagePickerController.isSourceTypeAvailable(source) else { return }
@@ -484,7 +518,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             isShowingPlaceholderAvatar = false
             if let personId = currentPersonId,
                let base64 = SupabaseManager.shared.imageToBase64(image: square) {
+                // 1. Cache locally for instant display next launch
                 SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "mentor")
+                // 2. Persist to Supabase so it survives reinstalls
+                Task { await SupabaseManager.shared.saveProfilePhoto(base64, personId: personId, role: "mentor") }
             }
             delegate?.profileViewController(self, didUpdateAvatar: square)
         }
@@ -536,7 +573,48 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     }
 
     @IBAction func personalMailSwitchChanged(_ sender: UISwitch) {
-        // Can be used later for privacy settings
+        let isOn = sender.isOn
+        
+        if isOn {
+            UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    if settings.authorizationStatus == .notDetermined {
+                        // Ask once
+                        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                            DispatchQueue.main.async {
+                                sender.setOn(granted, animated: true)
+                                UserDefaults.standard.set(granted, forKey: "profile_notifications_enabled")
+                            }
+                        }
+                    } else if settings.authorizationStatus == .denied {
+                        // Already denied
+                        sender.setOn(false, animated: true)
+                        self.showSettingsAlert()
+                    } else {
+                        // Already authorized
+                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
+                    }
+                }
+            }
+        } else {
+            UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
+        }
+    }
+    
+    private func showSettingsAlert() {
+        let alert = UIAlertController(
+            title: "Notifications Disabled",
+            message: "Please enable notifications in Settings to receive alerts.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "Settings", style: .default, handler: { _ in
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        }))
+        present(alert, animated: true)
     }
 
     @IBAction func editButtonTapped(_ sender: UIButton) {
@@ -677,6 +755,26 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     }
     
     // MARK: - Helper Methods
+    
+    private func restoreSwitchState() {
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                let isAuthorized = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+                
+                if !isAuthorized {
+                    self.personalMailSwitch?.setOn(false, animated: false)
+                    UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
+                } else {
+                    if UserDefaults.standard.object(forKey: "profile_notifications_enabled") == nil {
+                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
+                    }
+                    let on = UserDefaults.standard.bool(forKey: "profile_notifications_enabled")
+                    self.personalMailSwitch?.setOn(on, animated: false)
+                }
+            }
+        }
+    }
     
     private func showError(_ message: String) {
         let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
