@@ -26,6 +26,10 @@ class SignUpViewController: UIViewController {
     private var availableInstitutes: [SupabaseManager.Institute] = []
     private var loadingIndicator: UIActivityIndicatorView?
     private var didInstallAnimatedLogo = false
+    private let privacyConsentContainer = UIStackView()
+    private let privacyCheckboxButton = UIButton(type: .system)
+    private let privacyPolicyButton = UIButton(type: .system)
+    private var hasAcceptedPrivacyPolicy = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -35,6 +39,7 @@ class SignUpViewController: UIViewController {
         roundViews()
         setupPlaceholders()
         setupCollegePicker()
+        setupPrivacyConsentUI()
         loadInstitutes()
         applyAuthSymbolTint()
     }
@@ -50,6 +55,13 @@ class SignUpViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         refreshAnimatedAuthLogoIfNeeded()
+    }
+
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        stylePrivacyConsentUI()
     }
     
     func setupPlaceholders() {
@@ -96,6 +108,56 @@ class SignUpViewController: UIViewController {
         signUpButton.layer.shadowOffset = CGSize(width: 0, height: 4)
         signUpButton.layer.shadowRadius = 8
         signUpButton.layer.masksToBounds = false
+    }
+
+    private func setupPrivacyConsentUI() {
+        guard privacyConsentContainer.superview == nil else { return }
+        guard let hostView = signUpButton.superview else { return }
+
+        privacyConsentContainer.axis = .horizontal
+        privacyConsentContainer.alignment = .center
+        privacyConsentContainer.spacing = 10
+        privacyConsentContainer.translatesAutoresizingMaskIntoConstraints = false
+
+        privacyCheckboxButton.translatesAutoresizingMaskIntoConstraints = false
+        privacyCheckboxButton.addTarget(self, action: #selector(togglePrivacyConsent), for: .touchUpInside)
+
+        privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
+        privacyPolicyButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        privacyPolicyButton.titleLabel?.numberOfLines = 2
+        privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
+
+        privacyConsentContainer.addArrangedSubview(privacyCheckboxButton)
+        privacyConsentContainer.addArrangedSubview(privacyPolicyButton)
+        hostView.addSubview(privacyConsentContainer)
+
+        NSLayoutConstraint.activate([
+            privacyCheckboxButton.widthAnchor.constraint(equalToConstant: 24),
+            privacyCheckboxButton.heightAnchor.constraint(equalToConstant: 24),
+            privacyConsentContainer.leadingAnchor.constraint(equalTo: signUpButton.leadingAnchor),
+            privacyConsentContainer.trailingAnchor.constraint(lessThanOrEqualTo: signUpButton.trailingAnchor),
+            privacyConsentContainer.bottomAnchor.constraint(equalTo: signUpButton.topAnchor, constant: -14)
+        ])
+
+        stylePrivacyConsentUI()
+    }
+
+    private func stylePrivacyConsentUI() {
+        PrivacyPolicySupport.styleConsentCheckbox(privacyCheckboxButton, isChecked: hasAcceptedPrivacyPolicy, traitCollection: traitCollection)
+        PrivacyPolicySupport.stylePolicyButton(
+            privacyPolicyButton,
+            title: "I agree to the Privacy & Policy",
+            traitCollection: traitCollection
+        )
+    }
+
+    @objc private func togglePrivacyConsent() {
+        hasAcceptedPrivacyPolicy.toggle()
+        stylePrivacyConsentUI()
+    }
+
+    @objc private func openPrivacyPolicy() {
+        PrivacyPolicySupport.present(from: self)
     }
     
     private func setupBackButton() {
@@ -198,6 +260,11 @@ class SignUpViewController: UIViewController {
     
     @IBAction func signUpTapped(_ sender: UIButton) {
         view.endEditing(true)
+
+        guard hasAcceptedPrivacyPolicy else {
+            showAlert(title: "Privacy & Policy", message: "Please accept the Privacy & Policy to continue.")
+            return
+        }
         
         // Validate all fields
         guard let institute = selectedInstitute else {

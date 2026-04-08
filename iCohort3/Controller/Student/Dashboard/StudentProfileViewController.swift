@@ -2,14 +2,13 @@
 //  StudentProfileViewController.swift
 //  iCohort3
 //
-//  ✅ CLEANED: Removed Team 9 auto-assignment and dummy data
-//
 
 import UIKit
+import SafariServices
 import Supabase
+import UserNotifications
 
-class StudentProfileViewController: UIViewController, UIImagePickerControllerDelegate,
-                                    UINavigationControllerDelegate {
+final class StudentProfileViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
     @IBOutlet weak var logOut: UIButton?
     @IBOutlet weak var backButton: UIButton?
@@ -29,29 +28,39 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
     @IBOutlet weak var profileCardView: UIView?
     @IBOutlet weak var academicCardView: UIView?
     @IBOutlet weak var personalCardView: UIView?
-    
     @IBOutlet weak var loadingIndicator: UIActivityIndicatorView?
+
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+    private let titleLabel = UILabel()
+    private let mainStack = UIStackView()
+    private let academicHeadingLabel = UILabel()
+    private let personalHeadingLabel = UILabel()
+    private let featuresHeadingLabel = UILabel()
+    private let privacyPolicyButton = UIButton(type: .system)
+    private var featuresCardView: UIView?
+    private var notificationsSwitch: UISwitch?
+
+    private var rowTitleLabels: [UILabel] = []
+    private var rowSeparators: [UIView] = []
+    private var allFields: [UITextField] = []
 
     private var isEditingProfile = false
     private var currentPersonId: String?
     private var currentProfile: SupabaseManager.StudentProfile?
-    private var headingLabels: [UILabel] = []
-    private var fieldTitleLabels: [UILabel] = []
 
     private var resolvedPersonId: String? {
         currentPersonId ?? UserDefaults.standard.string(forKey: "current_person_id")
     }
 
-    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        rebuildScreen()
         enableKeyboardDismissOnTap()
         setupAvatarPreviewTap()
         setupInitialState()
-        applyRoundedCorners()
-        setupLoadingIndicator()
-        configureAvatarEditButton()
         configureAvatarPlaceholder()
+        configureAvatarEditButton()
         getCurrentUserPersonId()
         loadCachedAvatar()
     }
@@ -67,92 +76,356 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         AppTheme.applyScreenBackground(to: view)
-        applyRoundedCorners()
-        styleOuterHierarchy(in: view)
-        styleCardContentHierarchy()
-        if let avatarImageView = avatarImageView {
-            avatarImageView.layer.cornerRadius = avatarImageView.bounds.width / 2
-            avatarImageView.layer.masksToBounds = true
-        }
-        if let uploadButton = uploadButton {
-            uploadButton.layer.cornerRadius = uploadButton.bounds.height / 2
-            uploadButton.layer.masksToBounds = true
-        }
+        avatarImageView?.layer.cornerRadius = (avatarImageView?.bounds.width ?? 0) / 2
+        uploadButton?.layer.cornerRadius = (uploadButton?.bounds.height ?? 0) / 2
+        loadingIndicator?.layer.cornerRadius = (loadingIndicator?.bounds.width ?? 0) / 2
         if avatarImageView?.image == nil {
             configureAvatarPlaceholder()
         }
     }
-    
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        refreshTheme()
+        restoreSwitchState()
         loadCachedAvatar()
         if let personId = currentPersonId {
             loadProfileData(personId: personId)
         }
     }
 
-    // MARK: - Setup
-    
-    private func setupLoadingIndicator() {
-        loadingIndicator?.hidesWhenStopped = true
-        loadingIndicator?.style = .large
-    }
-    
-    private func getCurrentUserPersonId() {
-        if let storedPersonId = resolvedPersonId {
-            currentPersonId = storedPersonId
-        } else {
-            // Show error - user needs to login
-            showError("Please login to view your profile")
-        }
+    private func rebuildScreen() {
+        view.subviews.forEach { $0.removeFromSuperview() }
+
+        rowTitleLabels.removeAll()
+        rowSeparators.removeAll()
+        allFields.removeAll()
+
+        let backButton = UIButton(type: .system)
+        let editButton = UIButton(type: .system)
+        let avatarImageView = UIImageView()
+        let uploadButton = UIButton(type: .system)
+        let loadingIndicator = UIActivityIndicatorView(style: .large)
+
+        let firstNameField = makeValueField()
+        let lastNameField = makeValueField()
+        let departmentField = makeValueField()
+        let srmMailField = makeValueField()
+        let regNoField = makeValueField()
+        let personalMailField = makeValueField()
+        let contactNumberField = makeValueField()
+
+        let profileCardView = makeCard()
+        let academicCardView = makeCard()
+        let personalCardView = makeCard()
+        let featuresCardView = makeCard()
+        let notificationsSwitch = UISwitch()
+
+        self.backButton = backButton
+        self.editButton = editButton
+        self.greetingLabel = titleLabel
+        self.avatarImageView = avatarImageView
+        self.uploadButton = uploadButton
+        self.loadingIndicator = loadingIndicator
+
+        self.firstNameField = firstNameField
+        self.lastNameField = lastNameField
+        self.departmentField = departmentField
+        self.srmMailField = srmMailField
+        self.regNoField = regNoField
+        self.personalMailField = personalMailField
+        self.contactNumberField = contactNumberField
+
+        self.profileCardView = profileCardView
+        self.academicCardView = academicCardView
+        self.personalCardView = personalCardView
+        self.featuresCardView = featuresCardView
+        self.notificationsSwitch = notificationsSwitch
+        self.logOut = nil
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.alwaysBounceVertical = true
+
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = "Profile"
+        titleLabel.font = .systemFont(ofSize: 20, weight: .semibold)
+        titleLabel.textAlignment = .center
+
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        backButton.addTarget(self, action: #selector(backButtonTapped(_:)), for: .touchUpInside)
+
+        editButton.translatesAutoresizingMaskIntoConstraints = false
+        editButton.addTarget(self, action: #selector(editButtonTapped(_:)), for: .touchUpInside)
+
+        avatarImageView.translatesAutoresizingMaskIntoConstraints = false
+        avatarImageView.contentMode = .scaleAspectFill
+        avatarImageView.clipsToBounds = true
+        avatarImageView.isUserInteractionEnabled = true
+
+        uploadButton.translatesAutoresizingMaskIntoConstraints = false
+        uploadButton.addTarget(self, action: #selector(uploadButtonTapped(_:)), for: .touchUpInside)
+
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        loadingIndicator.hidesWhenStopped = true
+
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
+        mainStack.axis = .vertical
+        mainStack.alignment = .fill
+        mainStack.distribution = .fill
+        mainStack.spacing = 16
+
+        academicHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        academicHeadingLabel.text = "Academic Information"
+        academicHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+
+        personalHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        personalHeadingLabel.text = "Personal Details"
+        personalHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+
+        featuresHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        featuresHeadingLabel.text = "Features"
+        featuresHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+
+        privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
+        privacyPolicyButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
+
+        notificationsSwitch.translatesAutoresizingMaskIntoConstraints = false
+        notificationsSwitch.addTarget(self, action: #selector(notificationChanged(_:)), for: .valueChanged)
+
+        allFields = [
+            firstNameField, lastNameField, departmentField, srmMailField,
+            regNoField, personalMailField, contactNumberField
+        ]
+
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        contentView.addSubview(backButton)
+        contentView.addSubview(editButton)
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(avatarImageView)
+        contentView.addSubview(uploadButton)
+        contentView.addSubview(loadingIndicator)
+        contentView.addSubview(mainStack)
+
+        let profileRows = [
+            makeRow(title: "First Name", field: firstNameField, showsSeparator: true),
+            makeRow(title: "Last Name", field: lastNameField, showsSeparator: false)
+        ]
+        let academicRows = [
+            makeRow(title: "Department", field: departmentField, showsSeparator: true),
+            makeRow(title: "SRM Mail", field: srmMailField, showsSeparator: true),
+            makeRow(title: "Registration Number", field: regNoField, showsSeparator: false)
+        ]
+        let personalRows = [
+            makeRow(title: "Personal Mail", field: personalMailField, showsSeparator: true),
+            makeRow(title: "Contact Number", field: contactNumberField, showsSeparator: false)
+        ]
+        let featuresRows = [
+            makeSwitchRow(title: "Notifications", control: notificationsSwitch)
+        ]
+
+        populateCard(profileCardView, rows: profileRows)
+        populateCard(academicCardView, rows: academicRows)
+        populateCard(personalCardView, rows: personalRows)
+        populateCard(featuresCardView, rows: featuresRows)
+
+        mainStack.addArrangedSubview(profileCardView)
+        mainStack.addArrangedSubview(academicHeadingLabel)
+        mainStack.addArrangedSubview(academicCardView)
+        mainStack.addArrangedSubview(personalHeadingLabel)
+        mainStack.addArrangedSubview(personalCardView)
+        mainStack.addArrangedSubview(featuresHeadingLabel)
+        mainStack.addArrangedSubview(featuresCardView)
+        mainStack.addArrangedSubview(privacyPolicyButton)
+
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+
+            backButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            backButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            backButton.widthAnchor.constraint(equalToConstant: 44),
+            backButton.heightAnchor.constraint(equalToConstant: 44),
+
+            editButton.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+            editButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            editButton.widthAnchor.constraint(equalToConstant: 64),
+            editButton.heightAnchor.constraint(equalToConstant: 44),
+
+            titleLabel.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: backButton.centerYAnchor),
+
+            avatarImageView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
+            avatarImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            avatarImageView.widthAnchor.constraint(equalToConstant: 96),
+            avatarImageView.heightAnchor.constraint(equalToConstant: 96),
+
+            uploadButton.widthAnchor.constraint(equalToConstant: 38),
+            uploadButton.heightAnchor.constraint(equalToConstant: 38),
+            uploadButton.centerXAnchor.constraint(equalTo: avatarImageView.centerXAnchor),
+            uploadButton.bottomAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: -4),
+
+            loadingIndicator.centerXAnchor.constraint(equalTo: avatarImageView.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: avatarImageView.centerYAnchor),
+
+            mainStack.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 24),
+            mainStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            mainStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            mainStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
+        ])
+
+        mainStack.setCustomSpacing(12, after: academicHeadingLabel)
+        mainStack.setCustomSpacing(16, after: academicCardView)
+        mainStack.setCustomSpacing(12, after: personalHeadingLabel)
+        mainStack.setCustomSpacing(12, after: featuresHeadingLabel)
+
+        refreshTheme()
     }
 
-    private func applyRoundedCorners() {
-        let cardViews = [profileCardView, academicCardView, personalCardView]
-        for view in cardViews.compactMap({ $0 }) {
-            AppTheme.styleElevatedCard(view, cornerRadius: 18)
-        }
+    private func makeCard() -> UIView {
+        let card = UIView()
+        card.translatesAutoresizingMaskIntoConstraints = false
+        return card
     }
 
-    private var allTextFields: [UITextField?] {
-        [firstNameField, lastNameField, departmentField, srmMailField,
-         regNoField, personalMailField, contactNumberField]
+    private func populateCard(_ card: UIView, rows: [UIView]) {
+        let stack = UIStackView(arrangedSubviews: rows)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.alignment = .fill
+        stack.distribution = .fill
+        stack.spacing = 0
+        card.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: card.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor)
+        ])
+    }
+
+    private func makeRow(title: String, field: UITextField, showsSeparator: Bool) -> UIView {
+        let row = UIView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        titleLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+        let separator = UIView()
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        separator.isHidden = !showsSeparator
+
+        rowTitleLabels.append(titleLabel)
+        rowSeparators.append(separator)
+
+        row.addSubview(titleLabel)
+        row.addSubview(field)
+        row.addSubview(separator)
+
+        NSLayoutConstraint.activate([
+            row.heightAnchor.constraint(equalToConstant: 50),
+
+            titleLabel.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 16),
+            titleLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+
+            field.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 12),
+            field.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -16),
+            field.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+
+            separator.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 16),
+            separator.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -16),
+            separator.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+            separator.heightAnchor.constraint(equalToConstant: 1)
+        ])
+
+        return row
+    }
+
+    private func makeSwitchRow(title: String, control: UISwitch) -> UIView {
+        let row = UIView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        titleLabel.setContentHuggingPriority(.required, for: .horizontal)
+        rowTitleLabels.append(titleLabel)
+
+        row.addSubview(titleLabel)
+        row.addSubview(control)
+
+        NSLayoutConstraint.activate([
+            row.heightAnchor.constraint(equalToConstant: 50),
+            titleLabel.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 16),
+            titleLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            control.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -16),
+            control.centerYAnchor.constraint(equalTo: row.centerYAnchor)
+        ])
+
+        return row
+    }
+
+    private func makeValueField() -> UITextField {
+        let field = UITextField()
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.textAlignment = .right
+        field.font = .systemFont(ofSize: 17, weight: .regular)
+        field.borderStyle = .none
+        field.backgroundColor = .clear
+        field.adjustsFontSizeToFitWidth = true
+        field.minimumFontSize = 13
+        field.clearButtonMode = .never
+        field.placeholder = "Not Set"
+        return field
+    }
+
+    private var editableFields: [UITextField] {
+        allFields
     }
 
     private func setupInitialState() {
-        logOut?.removeFromSuperview()
-        for tf in allTextFields.compactMap({ $0 }) {
-            tf.isEnabled = false
-            tf.placeholder = "Not Set"
-            tf.textColor = .systemGray
-            tf.text = ""
+        editableFields.forEach {
+            $0.isEnabled = false
+            $0.text = ""
+            $0.placeholder = "Not Set"
         }
-        
-        greetingLabel?.text = "Hi Student"
-        greetingLabel?.font = .systemFont(ofSize: 24, weight: .bold)
         uploadButton?.isHidden = true
-        uploadButton?.alpha = 1.0
-        uploadButton?.isUserInteractionEnabled = false  // Don't intercept avatar tap when hidden
-        if let uploadButton = uploadButton {
-            view.bringSubviewToFront(uploadButton)
-        }
-        discoverStaticLabels()
+        uploadButton?.isUserInteractionEnabled = false
+        loadingIndicator?.hidesWhenStopped = true
+        loadingIndicator?.stopAnimating()
+        titleLabel.text = "Profile"
         refreshTheme()
     }
 
     private func configureAvatarPlaceholder() {
-        guard let avatarImageView = avatarImageView else { return }
+        guard let avatarImageView else { return }
         let name = UserDefaults.standard.string(forKey: "current_user_name") ?? "Student"
         let initial = String(name.first ?? "S")
         avatarImageView.image = UIImage.generateAvatar(initials: initial)
         avatarImageView.tintColor = nil
         avatarImageView.contentMode = .scaleAspectFill
-        avatarImageView.clipsToBounds = true
         avatarImageView.backgroundColor = .clear
     }
 
     private func configureAvatarEditButton() {
-        guard let uploadButton = uploadButton else { return }
+        guard let uploadButton else { return }
         var config = UIButton.Configuration.plain()
         config.title = nil
         config.image = UIImage(systemName: "camera.fill")
@@ -160,11 +433,12 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         config.background.backgroundColor = .clear
         config.cornerStyle = .capsule
         uploadButton.configuration = config
-        AppTheme.styleNativeFloatingControl(uploadButton, cornerRadius: max(18, uploadButton.bounds.height / 2))
+        AppTheme.styleNativeFloatingControl(uploadButton, cornerRadius: 19)
     }
 
     private func setupAvatarPreviewTap() {
         avatarImageView?.isUserInteractionEnabled = true
+        avatarImageView?.gestureRecognizers?.forEach { avatarImageView?.removeGestureRecognizer($0) }
         let tap = UITapGestureRecognizer(target: self, action: #selector(showAvatarPreview))
         avatarImageView?.addGestureRecognizer(tap)
     }
@@ -177,53 +451,64 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
     private func refreshTheme() {
         AppTheme.applyScreenBackground(to: view)
         view.tintColor = AppTheme.accent
-        let isDarkMode = traitCollection.userInterfaceStyle == .dark
-        let headingColor: UIColor = isDarkMode ? .white : .black
-        let bodyColor: UIColor = isDarkMode ? .white : .black
-        let secondaryColor: UIColor = isDarkMode ? UIColor.white.withAlphaComponent(0.88) : UIColor.black.withAlphaComponent(0.78)
 
-        headingLabels.forEach { $0.textColor = headingColor }
-        fieldTitleLabels.forEach { $0.textColor = bodyColor }
+        titleLabel.textColor = .label
+        academicHeadingLabel.textColor = .label
+        personalHeadingLabel.textColor = .label
+        featuresHeadingLabel.textColor = .label
 
-        if let backButton = backButton {
-            let foreground = isDarkMode ? UIColor.white : UIColor.black
-            styleFloatingButton(backButton, title: nil, foregroundColor: foreground)
+        if let backButton {
+            styleFloatingButton(backButton, title: nil, foregroundColor: traitCollection.userInterfaceStyle == .dark ? .white : .black)
         }
-
-        if let logOut = logOut, logOut.superview != nil {
-            styleFloatingButton(logOut, title: "Sign Out", foregroundColor: .systemPink, cornerRadius: 18)
-        }
-
-        if let editButton = editButton {
-            let editForeground = isDarkMode ? UIColor.white : UIColor.black
-            styleFloatingButton(editButton, title: isEditingProfile ? "Save" : "Edit", foregroundColor: editForeground)
+        if let editButton {
+            styleFloatingButton(editButton, title: isEditingProfile ? "Save" : "Edit", foregroundColor: traitCollection.userInterfaceStyle == .dark ? .white : .black)
         }
 
         configureAvatarEditButton()
-        styleOuterHierarchy(in: view)
-        styleCardContentHierarchy()
-        styleTextFields(isEditing: isEditingProfile, primaryTextColor: bodyColor, secondaryTextColor: secondaryColor)
-    }
+        stylePrivacyPolicyButton()
 
-    private func styleTextFields(isEditing: Bool, primaryTextColor: UIColor, secondaryTextColor: UIColor) {
-        for textField in allTextFields.compactMap({ $0 }) {
-            textField.backgroundColor = .clear
-            textField.textColor = (textField.text?.isEmpty == false) ? primaryTextColor : secondaryTextColor
-            textField.attributedPlaceholder = NSAttributedString(
-                string: textField.placeholder ?? "",
-                attributes: [.foregroundColor: secondaryTextColor]
-            )
-            textField.layer.cornerRadius = 0
-            textField.layer.masksToBounds = true
-            textField.borderStyle = .none
+        [profileCardView, academicCardView, personalCardView].compactMap { $0 }.forEach {
+            AppTheme.styleElevatedCard($0, cornerRadius: 18)
         }
+        if let featuresCardView {
+            AppTheme.styleElevatedCard(featuresCardView, cornerRadius: 18)
+        }
+
+        rowTitleLabels.forEach {
+            $0.textColor = .label
+            $0.backgroundColor = .clear
+        }
+        rowSeparators.forEach {
+            $0.backgroundColor = UIColor.separator.withAlphaComponent(traitCollection.userInterfaceStyle == .dark ? 0.42 : 0.20)
+        }
+
+        let filledColor = traitCollection.userInterfaceStyle == .dark ? UIColor.white : UIColor.black
+        let emptyColor = traitCollection.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.78) : UIColor.black.withAlphaComponent(0.62)
+        editableFields.forEach { field in
+            field.textColor = (field.text?.isEmpty == false) ? filledColor : emptyColor
+            field.attributedPlaceholder = NSAttributedString(
+                string: field.placeholder ?? "",
+                attributes: [.foregroundColor: emptyColor]
+            )
+            field.tintColor = AppTheme.accent
+        }
+        styleNotificationSwitch()
     }
 
-    private func styleFloatingButton(_ button: UIButton,
-                                     title: String?,
-                                     foregroundColor: UIColor,
-                                     cornerRadius: CGFloat = 22) {
-        let image = button.configuration?.image
+    private func stylePrivacyPolicyButton() {
+        AppTheme.styleCard(privacyPolicyButton, cornerRadius: 18)
+        PrivacyPolicySupport.stylePolicyButton(
+            privacyPolicyButton,
+            title: "Privacy & Policy",
+            traitCollection: traitCollection,
+            showsIcon: false,
+            horizontalInset: 18
+        )
+    }
+
+    private func styleFloatingButton(_ button: UIButton, title: String?, foregroundColor: UIColor, cornerRadius: CGFloat = 22) {
+        let existingImage = button.configuration?.image
+        let image = existingImage ?? (title == nil ? UIImage(systemName: "chevron.left") : nil)
         var config = UIButton.Configuration.plain()
         config.image = image
         config.baseForegroundColor = foregroundColor
@@ -237,86 +522,90 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
             )
         }
         button.configuration = config
-
         AppTheme.styleNativeFloatingControl(button, cornerRadius: cornerRadius)
         button.backgroundColor = .clear
         button.tintColor = foregroundColor
         button.setTitleColor(foregroundColor, for: .normal)
     }
 
-    private func styleCardContentHierarchy() {
-        [profileCardView, academicCardView, personalCardView].compactMap { $0 }.forEach { card in
-            AppTheme.styleElevatedCard(card, cornerRadius: 18)
-            clearNestedBackgrounds(in: card)
-        }
+    private func styleNotificationSwitch() {
+        guard let notificationsSwitch else { return }
+        let offTrackColor: UIColor = traitCollection.userInterfaceStyle == .dark
+            ? UIColor.white.withAlphaComponent(0.18)
+            : UIColor(red: 0.21, green: 0.33, blue: 0.49, alpha: 0.24)
+
+        notificationsSwitch.onTintColor = AppTheme.accent
+        notificationsSwitch.tintColor = offTrackColor
+        notificationsSwitch.backgroundColor = offTrackColor
+        notificationsSwitch.thumbTintColor = .white
+        notificationsSwitch.layer.cornerRadius = notificationsSwitch.bounds.height / 2
+        notificationsSwitch.layer.masksToBounds = true
     }
 
-    private func clearNestedBackgrounds(in root: UIView) {
-        for subview in root.subviews {
-            if shouldStyleAsSeparator(subview) {
-                subview.backgroundColor = UIColor.separator.withAlphaComponent(
-                    traitCollection.userInterfaceStyle == .dark ? 0.42 : 0.20
-                )
-                continue
+    private func restoreSwitchState() {
+        guard let notificationsSwitch else { return }
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                let isAuthorized = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+                if !isAuthorized {
+                    notificationsSwitch.setOn(false, animated: false)
+                    UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
+                } else {
+                    if UserDefaults.standard.object(forKey: "profile_notifications_enabled") == nil {
+                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
+                    }
+                    notificationsSwitch.setOn(UserDefaults.standard.bool(forKey: "profile_notifications_enabled"), animated: false)
+                }
             }
+        }
+    }
 
-            switch subview {
-            case is UILabel, is UIStackView:
-                subview.backgroundColor = .clear
-            case is UITextField:
-                break
-            default:
-                subview.backgroundColor = .clear
+    @objc private func notificationChanged(_ sender: UISwitch) {
+        if sender.isOn {
+            UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    if settings.authorizationStatus == .notDetermined {
+                        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                            DispatchQueue.main.async {
+                                sender.setOn(granted, animated: true)
+                                UserDefaults.standard.set(granted, forKey: "profile_notifications_enabled")
+                            }
+                        }
+                    } else if settings.authorizationStatus == .denied {
+                        sender.setOn(false, animated: true)
+                        self.showSettingsAlert()
+                    } else {
+                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
+                    }
+                }
             }
-
-            clearNestedBackgrounds(in: subview)
+        } else {
+            UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
         }
     }
 
-    private func styleOuterHierarchy(in root: UIView) {
-        for subview in root.subviews {
-            switch subview {
-            case profileCardView, academicCardView, personalCardView,
-                 backButton, editButton, uploadButton, avatarImageView:
-                break
-            case is UILabel, is UIStackView, is UIScrollView, is UIImageView:
-                subview.backgroundColor = .clear
-            case is UITextField:
-                break
-            default:
-                subview.backgroundColor = .clear
+    private func showSettingsAlert() {
+        let alert = UIAlertController(
+            title: "Notifications Disabled",
+            message: "Please enable notifications in Settings to receive alerts.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
             }
-
-            styleOuterHierarchy(in: subview)
-        }
+        })
+        present(alert, animated: true)
     }
 
-    private func shouldStyleAsSeparator(_ view: UIView) -> Bool {
-        let heightConstraint = view.constraints
-            .filter { $0.firstAttribute == .height }
-            .map(\.constant)
-            .min() ?? .greatestFiniteMagnitude
-        let measuredHeight = view.bounds.height > 0 ? view.bounds.height : heightConstraint
-        return measuredHeight <= 1.5
-    }
-
-    private func discoverStaticLabels() {
-        let labels = collectLabels(in: view)
-        headingLabels = labels.filter { $0.font.pointSize >= 20 }
-        fieldTitleLabels = labels.filter { label in
-            label.font.pointSize < 20 && !headingLabels.contains(label)
+    private func getCurrentUserPersonId() {
+        if let storedPersonId = resolvedPersonId {
+            currentPersonId = storedPersonId
+        } else {
+            showError("Please login to view your profile")
         }
-    }
-
-    private func collectLabels(in root: UIView) -> [UILabel] {
-        var labels: [UILabel] = []
-        for subview in root.subviews {
-            if let label = subview as? UILabel {
-                labels.append(label)
-            }
-            labels.append(contentsOf: collectLabels(in: subview))
-        }
-        return labels
     }
 
     private func loadCachedAvatar() {
@@ -326,7 +615,6 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         }
         currentPersonId = personId
 
-        // Fast path: use locally cached photo
         if let cached = SupabaseManager.shared.cachedProfilePhotoBase64(personId: personId, role: "student"),
            let image = SupabaseManager.shared.base64ToImage(base64String: cached) {
             avatarImageView?.image = image
@@ -335,12 +623,10 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
             return
         }
 
-        // Slow path: fetch from Supabase backend (runs in background)
         Task { [weak self] in
             guard let self else { return }
             if let base64 = await SupabaseManager.shared.fetchProfilePhoto(personId: personId, role: "student"),
                let image = SupabaseManager.shared.base64ToImage(base64String: base64) {
-                // Cache locally for next time
                 SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "student")
                 await MainActor.run {
                     self.avatarImageView?.image = image
@@ -348,37 +634,31 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
                     self.avatarImageView?.contentMode = .scaleAspectFill
                 }
             } else {
-                await MainActor.run { self.configureAvatarPlaceholder() }
+                await MainActor.run {
+                    self.configureAvatarPlaceholder()
+                }
             }
         }
     }
-    
-    // MARK: - Load Data from Supabase
-    
+
     private func loadProfileData(personId: String) {
         loadingIndicator?.startAnimating()
-        
+
         Task {
             do {
-                // Fetch greeting
-                let greeting = try await SupabaseManager.shared.getStudentGreeting(personId: personId)
-                
-                // Fetch profile
+                let _ = try await SupabaseManager.shared.getStudentGreeting(personId: personId)
                 let profile = try await SupabaseManager.shared.fetchBasicStudentProfile(personId: personId)
-                
+
                 await MainActor.run {
                     self.currentProfile = profile
-                    self.updateUIWithProfile(profile, greeting: greeting)
+                    self.updateUIWithProfile(profile)
                     self.loadingIndicator?.stopAnimating()
                 }
             } catch {
                 await MainActor.run {
-                    print("Error loading profile: \(error)")
                     self.loadingIndicator?.stopAnimating()
-                    
-                    // If no profile exists, show empty state
                     if error.localizedDescription.contains("not found") {
-                        self.greetingLabel?.text = "Hi Student"
+                        self.updateUIWithProfile(nil)
                     } else {
                         self.showError("Failed to load profile")
                     }
@@ -386,21 +666,19 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
             }
         }
     }
-    
-    private func updateUIWithProfile(_ profile: SupabaseManager.StudentProfile?, greeting: String) {
-        greetingLabel?.text = greeting
+
+    private func updateUIWithProfile(_ profile: SupabaseManager.StudentProfile?) {
         loadCachedAvatar()
-        
-        guard let profile = profile else {
-            // New user - show empty fields
-            for tf in allTextFields.compactMap({ $0 }) {
-                tf.text = ""
-                tf.textColor = .systemGray
+
+        guard let profile else {
+            editableFields.forEach {
+                $0.text = ""
+                $0.textColor = .systemGray
             }
+            refreshTheme()
             return
         }
-        
-        // Populate fields
+
         firstNameField?.text = profile.first_name ?? ""
         lastNameField?.text = profile.last_name ?? ""
         departmentField?.text = profile.department ?? ""
@@ -408,75 +686,59 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         regNoField?.text = profile.reg_no ?? ""
         personalMailField?.text = profile.personal_mail ?? ""
         contactNumberField?.text = profile.contact_number ?? ""
-        
-        // Update text colors based on content
-        for tf in allTextFields.compactMap({ $0 }) {
-            if tf.text?.isEmpty == true {
-                tf.textColor = .systemGray
-            } else {
-                tf.textColor = .label
-            }
-        }
-        let isDarkMode = traitCollection.userInterfaceStyle == .dark
-        let primaryTextColor: UIColor = isDarkMode ? .white : .black
-        let secondaryTextColor: UIColor = isDarkMode ? UIColor.white.withAlphaComponent(0.88) : UIColor.black.withAlphaComponent(0.78)
-        styleTextFields(isEditing: isEditingProfile, primaryTextColor: primaryTextColor, secondaryTextColor: secondaryTextColor)
+
+        refreshTheme()
     }
 
-    // MARK: - Actions
-    
     @IBAction func backButtonTapped(_ sender: UIButton) {
         if let nav = navigationController {
             nav.popViewController(animated: true)
         } else {
-            dismiss(animated: true, completion: nil)
+            dismiss(animated: true)
         }
     }
-    
+
     @IBAction func logOutButtonTapped(_ sender: Any) {
-        // Clear stored person_id
         UserDefaults.standard.removeObject(forKey: "current_person_id")
         UserDefaults.standard.removeObject(forKey: "current_user_name")
         UserDefaults.standard.removeObject(forKey: "current_user_email")
         UserDefaults.standard.removeObject(forKey: "current_user_role")
         UserDefaults.standard.set(false, forKey: "is_logged_in")
-        
+
         DispatchQueue.main.async {
             guard let windowScene = UIApplication.shared.connectedScenes
                     .compactMap({ $0 as? UIWindowScene })
                     .first(where: { $0.activationState == .foregroundActive }),
                   let window = windowScene.windows.first(where: { $0.isKeyWindow }) else {
-                print("⚠️ No key window found")
                 return
             }
-            
+
             let sb = UIStoryboard(name: "Main", bundle: nil)
             guard let loginVC = sb.instantiateViewController(withIdentifier: "SLoginVC") as? LoginViewController else {
-                print("⚠️ Couldn't instantiate SLoginVC")
                 return
             }
-            
+
             let loginNav = UINavigationController(rootViewController: loginVC)
             loginNav.navigationBar.isTranslucent = false
-            
+
             let transition = CATransition()
             transition.duration = 0.35
             transition.type = .push
             transition.subtype = .fromBottom
             transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            
+
             window.layer.add(transition, forKey: kCATransition)
             window.rootViewController = loginNav
             window.makeKeyAndVisible()
         }
     }
 
+    @objc private func openPrivacyPolicy() {
+        PrivacyPolicySupport.present(from: self)
+    }
+
     @IBAction func uploadButtonTapped(_ sender: UIButton) {
-        let sheet = UIAlertController(
-            title: "Change Profile Picture",
-            message: nil,
-            preferredStyle: .actionSheet
-        )
+        let sheet = UIAlertController(title: "Change Profile Picture", message: nil, preferredStyle: .actionSheet)
 
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
             sheet.addAction(UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
@@ -487,7 +749,6 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         sheet.addAction(UIAlertAction(title: "Upload from Photos", style: .default) { [weak self] _ in
             self?.presentImagePicker(source: .photoLibrary)
         })
-
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         if let popover = sheet.popoverPresentationController {
@@ -508,8 +769,7 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         present(picker, animated: true)
     }
 
-    func imagePickerController(_ picker: UIImagePickerController,
-                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         let image = info[.editedImage] as? UIImage ?? info[.originalImage] as? UIImage
         if let image {
             let square = image.centerSquare()
@@ -520,10 +780,10 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
             if let personId = resolvedPersonId,
                let base64 = SupabaseManager.shared.imageToBase64(image: square) {
                 currentPersonId = personId
-                // 1. Cache locally for instant display next launch
                 SupabaseManager.shared.cacheProfilePhotoBase64(base64, personId: personId, role: "student")
-                // 2. Persist to Supabase so it survives reinstalls
-                Task { await SupabaseManager.shared.saveProfilePhoto(base64, personId: personId, role: "student") }
+                Task {
+                    await SupabaseManager.shared.saveProfilePhoto(base64, personId: personId, role: "student")
+                }
                 NotificationCenter.default.post(name: NSNotification.Name("ProfileAvatarUpdated"), object: nil)
             }
         }
@@ -533,49 +793,33 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         dismiss(animated: true)
     }
-    
-    // MARK: - Edit/Save
-    
+
     @IBAction func editButtonTapped(_ sender: UIButton) {
         isEditingProfile.toggle()
         uploadButton?.isHidden = !isEditingProfile
-        uploadButton?.alpha = 1.0
-        // Only enable interaction when visible, so it never blocks the avatar tap gesture
         uploadButton?.isUserInteractionEnabled = isEditingProfile
-        if let uploadButton = uploadButton {
-            view.bringSubviewToFront(uploadButton)
-        }
 
         if isEditingProfile {
-            for tf in allTextFields.compactMap({ $0 }) {
-                tf.isEnabled = true
-                tf.textColor = .label
-                if tf.text?.isEmpty == true { tf.text = "" }
+            editableFields.forEach {
+                $0.isEnabled = true
+                if $0.text?.isEmpty == true { $0.text = "" }
             }
             refreshTheme()
             firstNameField?.becomeFirstResponder()
         } else {
             view.endEditing(true)
-            saveProfileToSupabase()
-
-            for tf in allTextFields.compactMap({ $0 }) {
-                tf.isEnabled = false
-            }
+            editableFields.forEach { $0.isEnabled = false }
             refreshTheme()
+            saveProfileToSupabase()
         }
     }
 
-    // MARK: - Save to Supabase
-    
     private func saveProfileToSupabase() {
         guard let personId = currentPersonId else {
             showError("User not found. Please log in again.")
             return
         }
-        
-        print("🔄 Starting profile save for person_id: \(personId)")
-        
-        // Get field values
+
         let firstName = firstNameField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let lastName = lastNameField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let department = departmentField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -583,26 +827,22 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
         let regNo = regNoField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let personalMail = personalMailField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let contactNumber = contactNumberField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Validate required fields
-        guard let firstName = firstName, !firstName.isEmpty else {
+
+        guard let firstName, !firstName.isEmpty else {
             showError("First name is required")
             return
         }
-        
-        guard let lastName = lastName, !lastName.isEmpty else {
+
+        guard let lastName, !lastName.isEmpty else {
             showError("Last name is required")
             return
         }
-        
+
         loadingIndicator?.startAnimating()
-        
+
         Task {
             do {
-                print("🔄 Calling upsertStudentProfile...")
-                
-                // ✅ CLEANED: Just save profile, no Team 9 assignment
-                let profileId = try await SupabaseManager.shared.upsertStudentProfile(
+                _ = try await SupabaseManager.shared.upsertStudentProfile(
                     personId: personId,
                     firstName: firstName,
                     lastName: lastName,
@@ -612,62 +852,29 @@ class StudentProfileViewController: UIViewController, UIImagePickerControllerDel
                     personalMail: personalMail?.isEmpty == true ? nil : personalMail,
                     contactNumber: contactNumber?.isEmpty == true ? nil : contactNumber
                 )
-                
-                print("✅ Profile saved with ID: \(profileId)")
-                
+
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()
                 }
-                // Reload to get updated greeting
                 self.loadProfileData(personId: personId)
-            } catch let error as NSError {
-                await MainActor.run {
-                    self.loadingIndicator?.stopAnimating()
-                    print("❌ Error saving profile: \(error)")
-                    
-                    let errorMessage = error.localizedDescription
-                    self.showError("Failed to save profile: \(errorMessage)")
-                }
             } catch {
                 await MainActor.run {
                     self.loadingIndicator?.stopAnimating()
-                    print("❌ Unknown error saving profile: \(error)")
                     self.showError("Failed to save profile: \(error.localizedDescription)")
                 }
             }
         }
     }
-    
-    // MARK: - Helper Methods
-    
+
     private func showError(_ message: String) async {
         await MainActor.run {
-            let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            present(alert, animated: true)
+            self.showError(message)
         }
     }
-    
+
     private func showError(_ message: String) {
         let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
-    }
-    
-}
-
-extension UIStackView {
-    func applyRoundedBackground(_ color: UIColor = .systemBackground) {
-        if let oldBg = subviews.first(where: { $0.tag == 999 }) {
-            oldBg.removeFromSuperview()
-        }
-
-        let backgroundLayer = UIView(frame: bounds)
-        backgroundLayer.backgroundColor = color
-        backgroundLayer.layer.cornerRadius = 16
-        backgroundLayer.layer.masksToBounds = true
-        backgroundLayer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        backgroundLayer.tag = 999
-        insertSubview(backgroundLayer, at: 0)
     }
 }

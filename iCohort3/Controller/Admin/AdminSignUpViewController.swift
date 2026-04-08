@@ -26,6 +26,10 @@ class AdminSignUpViewController: UIViewController {
     
     private var isSubmitting = false
     private var didInstallAnimatedLogo = false
+    private let privacyConsentContainer = UIStackView()
+    private let privacyCheckboxButton = UIButton(type: .system)
+    private let privacyPolicyButton = UIButton(type: .system)
+    private var hasAcceptedPrivacyPolicy = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -34,6 +38,7 @@ class AdminSignUpViewController: UIViewController {
         
         setupUI()
         setupPlaceholders()
+        setupPrivacyConsentUI()
         applyAuthSymbolTint()
         styleAuthBackButton(backButtonOutlet)
     }
@@ -49,6 +54,13 @@ class AdminSignUpViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         refreshAnimatedAuthLogoIfNeeded()
+    }
+
+    @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+        stylePrivacyConsentUI()
     }
     
     // MARK: - UI Setup
@@ -96,6 +108,56 @@ class AdminSignUpViewController: UIViewController {
         domainTextField.attributedPlaceholder = NSAttributedString(string: "Email Domain (e.g., srmist.edu.in)", attributes: [.foregroundColor: placeholderColor])
         passTextField.attributedPlaceholder = NSAttributedString(string: "Password", attributes: [.foregroundColor: placeholderColor])
         confirmPassTextField.attributedPlaceholder = NSAttributedString(string: "Confirm Password", attributes: [.foregroundColor: placeholderColor])
+    }
+
+    private func setupPrivacyConsentUI() {
+        guard privacyConsentContainer.superview == nil else { return }
+        guard let hostView = registerButtonOutlet.superview else { return }
+
+        privacyConsentContainer.axis = .horizontal
+        privacyConsentContainer.alignment = .center
+        privacyConsentContainer.spacing = 10
+        privacyConsentContainer.translatesAutoresizingMaskIntoConstraints = false
+
+        privacyCheckboxButton.translatesAutoresizingMaskIntoConstraints = false
+        privacyCheckboxButton.addTarget(self, action: #selector(togglePrivacyConsent), for: .touchUpInside)
+
+        privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
+        privacyPolicyButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        privacyPolicyButton.titleLabel?.numberOfLines = 2
+        privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
+
+        privacyConsentContainer.addArrangedSubview(privacyCheckboxButton)
+        privacyConsentContainer.addArrangedSubview(privacyPolicyButton)
+        hostView.addSubview(privacyConsentContainer)
+
+        NSLayoutConstraint.activate([
+            privacyCheckboxButton.widthAnchor.constraint(equalToConstant: 24),
+            privacyCheckboxButton.heightAnchor.constraint(equalToConstant: 24),
+            privacyConsentContainer.leadingAnchor.constraint(equalTo: registerButtonOutlet.leadingAnchor),
+            privacyConsentContainer.trailingAnchor.constraint(lessThanOrEqualTo: registerButtonOutlet.trailingAnchor),
+            privacyConsentContainer.bottomAnchor.constraint(equalTo: registerButtonOutlet.topAnchor, constant: -14)
+        ])
+
+        stylePrivacyConsentUI()
+    }
+
+    private func stylePrivacyConsentUI() {
+        PrivacyPolicySupport.styleConsentCheckbox(privacyCheckboxButton, isChecked: hasAcceptedPrivacyPolicy, traitCollection: traitCollection)
+        PrivacyPolicySupport.stylePolicyButton(
+            privacyPolicyButton,
+            title: "I agree to the Privacy & Policy",
+            traitCollection: traitCollection
+        )
+    }
+
+    @objc private func togglePrivacyConsent() {
+        hasAcceptedPrivacyPolicy.toggle()
+        stylePrivacyConsentUI()
+    }
+
+    @objc private func openPrivacyPolicy() {
+        PrivacyPolicySupport.present(from: self)
     }
     
     // MARK: - Validation
@@ -197,6 +259,11 @@ class AdminSignUpViewController: UIViewController {
     
     @IBAction func registerButton(_ sender: Any) {
         view.endEditing(true)
+
+        guard hasAcceptedPrivacyPolicy else {
+            showAlert(title: "Privacy & Policy", message: "Please accept the Privacy & Policy to continue.")
+            return
+        }
         
         guard !isSubmitting else { return }
         

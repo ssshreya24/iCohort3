@@ -61,6 +61,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     private var currentPersonId: String?
     private var currentProfile: SupabaseManager.MentorProfile?
     private var isShowingPlaceholderAvatar = true
+    private let privacyPolicyButton = UIButton(type: .system)
 
     // MARK: - Convenience
     private var allTextFields: [UITextField?] {
@@ -80,6 +81,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         super.viewDidLoad()
         enableKeyboardDismissOnTap()
         setupUI()
+        setupPrivacyPolicyButton()
         setupAvatarPreviewTap()
         setupInitialState()
         setupLoadingIndicator()
@@ -266,6 +268,34 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         refreshTheme()
     }
 
+    private func setupPrivacyPolicyButton() {
+        guard privacyPolicyButton.superview == nil,
+              let container = signOutButton.superview else { return }
+
+        if let legacyTopConstraint = container.constraints.first(where: { constraint in
+            (constraint.firstItem as? UIButton) === signOutButton &&
+            (constraint.secondItem as? UIView) === featuresCardView &&
+            constraint.firstAttribute == .top &&
+            constraint.secondAttribute == .bottom
+        }) {
+            legacyTopConstraint.isActive = false
+        }
+
+        privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
+        privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
+        container.addSubview(privacyPolicyButton)
+
+        NSLayoutConstraint.activate([
+            privacyPolicyButton.leadingAnchor.constraint(equalTo: signOutButton.leadingAnchor),
+            privacyPolicyButton.trailingAnchor.constraint(equalTo: signOutButton.trailingAnchor),
+            privacyPolicyButton.topAnchor.constraint(equalTo: featuresCardView.bottomAnchor, constant: 16),
+            privacyPolicyButton.heightAnchor.constraint(equalToConstant: 50),
+            signOutButton.topAnchor.constraint(equalTo: privacyPolicyButton.bottomAnchor, constant: 16)
+        ])
+
+        stylePrivacyPolicyButton()
+    }
+
     private func applyCardStyle(to card: UIView?) {
         guard let card = card else { return }
         AppTheme.styleElevatedCard(card, cornerRadius: 20)
@@ -315,6 +345,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         styleEditButton()
         styleAvatarEditButton()
         styleSignOutButton()
+        stylePrivacyPolicyButton()
         styleNotificationSwitch()
         loadingIndicator?.color = AppTheme.accent
         greetingLabel?.textColor = .label
@@ -379,6 +410,17 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         signOutButton.backgroundColor = .clear
         signOutButton.tintColor = .systemRed
         signOutButton.setTitleColor(.systemRed, for: .normal)
+    }
+
+    private func stylePrivacyPolicyButton() {
+        AppTheme.styleCard(privacyPolicyButton, cornerRadius: 18)
+        PrivacyPolicySupport.stylePolicyButton(
+            privacyPolicyButton,
+            title: "Privacy & Policy",
+            traitCollection: traitCollection,
+            showsIcon: false,
+            horizontalInset: 18
+        )
     }
     
     private func styleNotificationSwitch() {
@@ -570,6 +612,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             window.rootViewController = loginNav
             window.makeKeyAndVisible()
         }
+    }
+
+    @objc private func openPrivacyPolicy() {
+        PrivacyPolicySupport.present(from: self)
     }
 
     @IBAction func personalMailSwitchChanged(_ sender: UISwitch) {

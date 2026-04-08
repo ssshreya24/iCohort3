@@ -1,4 +1,5 @@
 import UIKit
+import SafariServices
 
 enum AppTheme {
     private static let gradientLayerName = "AppThemeGradientLayer"
@@ -736,5 +737,53 @@ extension UIViewController {
 private extension UIView {
     func recursiveSubviews() -> [UIView] {
         subviews + subviews.flatMap { $0.recursiveSubviews() }
+    }
+}
+
+enum PrivacyPolicySupport {
+    static let url = URL(string: "https://icohort.netlify.app/")!
+
+    static func present(from viewController: UIViewController) {
+        let safari = SFSafariViewController(url: url)
+        safari.preferredControlTintColor = AppTheme.buttonColor
+        if #available(iOS 15.0, *) {
+            safari.preferredBarTintColor = .systemBackground
+        }
+        viewController.present(safari, animated: true)
+    }
+
+    static func stylePolicyButton(_ button: UIButton,
+                                  title: String,
+                                  traitCollection: UITraitCollection,
+                                  showsIcon: Bool = false,
+                                  horizontalInset: CGFloat = 20) {
+        var config = UIButton.Configuration.plain()
+        config.title = title
+        config.image = showsIcon ? UIImage(systemName: "lock.shield") : nil
+        config.imagePadding = showsIcon ? 10 : 0
+        config.baseForegroundColor = .label
+        config.background.backgroundColor = .clear
+        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: horizontalInset, bottom: 0, trailing: horizontalInset)
+        config.titleAlignment = .leading
+        button.configuration = config
+        button.contentHorizontalAlignment = .leading
+        button.tintColor = .label
+        button.setTitleColor(.label, for: .normal)
+    }
+
+    static func styleConsentCheckbox(_ button: UIButton, isChecked: Bool, traitCollection: UITraitCollection) {
+        var config = UIButton.Configuration.plain()
+        config.contentInsets = .zero
+        config.baseForegroundColor = isChecked ? .white : .clear
+        config.image = isChecked ? UIImage(systemName: "checkmark") : nil
+        button.configuration = config
+        button.backgroundColor = isChecked ? AppTheme.buttonColor : .clear
+        button.layer.cornerRadius = 6
+        button.layer.borderWidth = 2
+        let borderColor: UIColor = isChecked
+            ? AppTheme.buttonColor
+            : (traitCollection.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.72) : UIColor.black.withAlphaComponent(0.35))
+        button.layer.borderColor = borderColor.cgColor
+        button.tintColor = .white
     }
 }

@@ -479,7 +479,7 @@
                                 <constraint firstItem="OBw-Qn-sHZ" firstAttribute="centerX" secondItem="R1R-xE-Brr" secondAttribute="centerX" id="6Ea-qK-vZO"/>
                                 <constraint firstAttribute="bottom" secondItem="HGH-YR-hk5" secondAttribute="bottom" constant="20" id="7hF-Uu-RFR"/>
                                 <constraint firstItem="HGH-YR-hk5" firstAttribute="leading" secondItem="f10-UA-hd8" secondAttribute="leading" id="7l2-70-uav"/>
-                                <constraint firstItem="NJG-iY-h1D" firstAttribute="top" secondItem="WAm-0F-3D2" secondAttribute="bottom" constant="20" id="9Eo-Vp-f1L"/>
+                                <constraint firstItem="NJG-iY-h1D" firstAttribute="top" secondItem="WAm-0F-3D2" secondAttribute="bottom" constant="12" id="9Eo-Vp-f1L"/>
                                 <constraint firstItem="WAm-0F-3D2" firstAttribute="leading" secondItem="f10-UA-hd8" secondAttribute="leading" id="Acp-kk-AYb"/>
                                 <constraint firstItem="6pR-gA-Wf7" firstAttribute="trailing" secondItem="f10-UA-hd8" secondAttribute="trailing" id="Ba3-ED-SPz"/>
                                 <constraint firstItem="uAl-Kc-cPf" firstAttribute="centerY" secondItem="Mfy-Rd-3ai" secondAttribute="centerY" id="Dkt-cB-50n"/>
@@ -503,7 +503,7 @@
                                 <constraint firstItem="BNp-OA-8Tz" firstAttribute="trailing" secondItem="f10-UA-hd8" secondAttribute="trailing" id="kxH-Km-NjP"/>
                                 <constraint firstItem="WAm-0F-3D2" firstAttribute="top" secondItem="c6c-cE-gwi" secondAttribute="bottom" constant="20" id="r7X-9g-S0L"/>
                                 <constraint firstItem="bpL-r6-nnU" firstAttribute="leading" secondItem="f10-UA-hd8" secondAttribute="leading" id="rWC-YH-UkS"/>
-                                <constraint firstItem="c6c-cE-gwi" firstAttribute="top" secondItem="bpL-r6-nnU" secondAttribute="bottom" constant="20" id="rfu-ki-EVk"/>
+                                <constraint firstItem="c6c-cE-gwi" firstAttribute="top" secondItem="bpL-r6-nnU" secondAttribute="bottom" constant="12" id="rfu-ki-EVk"/>
                                 <constraint firstItem="NJG-iY-h1D" firstAttribute="trailing" secondItem="f10-UA-hd8" secondAttribute="trailing" id="y89-HK-baf"/>
                             </constraints>
                         </view>
