@@ -19,6 +19,8 @@ class AnnouncementCell: UITableViewCell {
     
     private var attachments: [AttachmentType] = []
     private let darkCardColor = UIColor(red: 0.27, green: 0.30, blue: 0.37, alpha: 0.98)
+    private var tagHeightConstraint: NSLayoutConstraint?
+    private var attachmentHeightConstraint: NSLayoutConstraint?
     
     var customTagColor: UIColor?
     
@@ -43,6 +45,21 @@ class AnnouncementCell: UITableViewCell {
         attachmentButton.addTarget(self, action: #selector(attachmentButtonTapped), for: .touchUpInside)
         setupAttachmentButton()
         applyTheme()
+    }
+
+    override func updateConstraints() {
+        super.updateConstraints()
+
+        if tagHeightConstraint == nil {
+            tagHeightConstraint = tagLabel.constraints.first(where: {
+                $0.firstAttribute == .height && $0.constant == 26
+            })
+        }
+        if attachmentHeightConstraint == nil {
+            attachmentHeightConstraint = attachmentButton.constraints.first(where: {
+                $0.firstAttribute == .height
+            })
+        }
     }
     
     @available(iOS, deprecated: 17.0, message: "Use registerForTraitChanges")
@@ -110,6 +127,7 @@ class AnnouncementCell: UITableViewCell {
         
         // Handle attachments
         configureAttachments(for: a)
+        updateCollapsedState()
     }
     
     private func configureAttachments(for announcement: Announcement) {
@@ -124,6 +142,11 @@ class AnnouncementCell: UITableViewCell {
             let title = count == 1 ? "1 attachment" : "\(count) attachments"
             attachmentButton.setTitle(title, for: .normal)
         }
+    }
+
+    private func updateCollapsedState() {
+        tagHeightConstraint?.constant = tagLabel.isHidden ? 0 : 26
+        attachmentHeightConstraint?.constant = attachmentButton.isHidden ? 0 : 22
     }
     
     @objc private func attachmentButtonTapped() {

@@ -22,6 +22,8 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
     
     private var attachments: [AttachmentType] = []
     private let darkCardColor = UIColor(red: 0.27, green: 0.30, blue: 0.37, alpha: 0.98)
+    private var tagHeightConstraint: NSLayoutConstraint?
+    private var attachmentHeightConstraint: NSLayoutConstraint?
     
     override func awakeFromNib() {
         super.awakeFromNib()
@@ -50,6 +52,21 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
             }
         }
     }
+
+    override func updateConstraints() {
+        super.updateConstraints()
+
+        if tagHeightConstraint == nil {
+            tagHeightConstraint = tagLabel.constraints.first(where: {
+                $0.firstAttribute == .height && $0.constant == 26
+            })
+        }
+        if attachmentHeightConstraint == nil {
+            attachmentHeightConstraint = attacthmentButton.constraints.first(where: {
+                $0.firstAttribute == .height
+            })
+        }
+    }
     
     private func setupAttachmentButton() {
         attacthmentButton.setTitleColor(.systemBlue, for: .normal)
@@ -67,7 +84,9 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
 
     func configure(with a: Announcement) {
         titleLabel.text = a.title
-        bodyLabel.text = a.body
+        let visibleBody = a.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        bodyLabel.text = visibleBody
+        bodyLabel.isHidden = visibleBody.isEmpty
         
         if let t = a.tag {
             tagLabel.isHidden = false
@@ -91,6 +110,7 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
         
         // Handle attachments
         configureAttachments(for: a)
+        updateCollapsedState()
     }
     
     private func configureAttachments(for announcement: Announcement) {
@@ -104,6 +124,11 @@ class MentorAnnouncementTableViewCell: UITableViewCell {
             let title = count == 1 ? "1 attachment" : "\(count) attachments"
             attacthmentButton.setTitle(title, for: .normal)
         }
+    }
+
+    private func updateCollapsedState() {
+        tagHeightConstraint?.constant = tagLabel.isHidden ? 0 : 26
+        attachmentHeightConstraint?.constant = attacthmentButton.isHidden ? 0 : 20
     }
     
     @objc private func attachmentButtonTapped() {

@@ -312,13 +312,25 @@ class AddTaskViewController: UIViewController {
     }
 
     @IBAction func doneButtonTapped(_ sender: Any) {
-        guard let title = titleTextField.text, !title.isEmpty else {
-                    showAlert(title: "Missing Title", message: "Please enter a title.")
-                    return
-                }
+        let title = titleTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let description = descriptionTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let category = categoryName.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-                let description = descriptionTextField.text
-                let category = categoryName.text
+        guard !title.isEmpty else {
+            showAlert(title: "Missing Title", message: "Please enter a title.")
+            return
+        }
+
+        guard !description.isEmpty else {
+            showAlert(title: "Missing Description", message: "Please enter a description.")
+            return
+        }
+
+        guard !category.isEmpty else {
+            showAlert(title: "Missing Category", message: "Please enter a category name.")
+            return
+        }
+
                 let colorHex = selectedColor.toHexString()
                 let encodedDescription = AnnouncementPayloadCodec.encodedDescription(
                     body: description,
@@ -330,7 +342,8 @@ class AddTaskViewController: UIViewController {
                             title: title,
                             description: encodedDescription,
                             category: category,
-                            colorHex: colorHex
+                            colorHex: colorHex,
+                            author: UserDefaults.standard.string(forKey: "current_user_name")?.trimmingCharacters(in: .whitespacesAndNewlines)
                         )
 
                         await MainActor.run {

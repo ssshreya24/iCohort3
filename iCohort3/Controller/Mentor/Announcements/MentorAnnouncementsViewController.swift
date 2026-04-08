@@ -179,7 +179,7 @@ class MentorAnnouncementsViewController: UIViewController {
                         tag: row.category,
                         tagColor: color,
                         createdAt: date,
-                        author: row.author ?? "Mentor",
+                        author: self.normalizedAuthorName(row.author),
                         attachments: decoded.attachments.isEmpty ? nil : decoded.attachments
                     )
                 }
@@ -495,7 +495,8 @@ class MentorAnnouncementsViewController: UIViewController {
                             attachments: updatedAnnouncement.attachments ?? []
                         ),
                         category: updatedAnnouncement.tag,
-                        colorHex: updatedAnnouncement.tagColor?.toHexString()
+                        colorHex: updatedAnnouncement.tagColor?.toHexString(),
+                        author: self.normalizedAuthorName(UserDefaults.standard.string(forKey: "current_user_name"))
                     )
                     
                     // Update local data
@@ -531,6 +532,19 @@ class MentorAnnouncementsViewController: UIViewController {
         }
 
         present(vc, animated: true)
+    }
+
+    private func normalizedAuthorName(_ rawValue: String?) -> String {
+        let trimmed = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmed.isEmpty || trimmed.uppercased() == "PROGRAM MENTOR" {
+            let currentUserName = UserDefaults.standard.string(forKey: "current_user_name")?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let currentUserName, !currentUserName.isEmpty {
+                return currentUserName
+            }
+            return "Mentor"
+        }
+        return trimmed
     }
     
     private func deleteAnnouncement(at index: Int) {

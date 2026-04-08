@@ -62,6 +62,9 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     private var currentProfile: SupabaseManager.MentorProfile?
     private var isShowingPlaceholderAvatar = true
     private let privacyPolicyButton = UIButton(type: .system)
+    private let privacyHeadingLabel = UILabel()
+    private let supportButton = UIButton(type: .system)
+    private let supportHeadingLabel = UILabel()
 
     // MARK: - Convenience
     private var allTextFields: [UITextField?] {
@@ -81,7 +84,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         super.viewDidLoad()
         enableKeyboardDismissOnTap()
         setupUI()
-        setupPrivacyPolicyButton()
+        setupProfileActionSections()
         setupAvatarPreviewTap()
         setupInitialState()
         setupLoadingIndicator()
@@ -268,8 +271,9 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         refreshTheme()
     }
 
-    private func setupPrivacyPolicyButton() {
+    private func setupProfileActionSections() {
         guard privacyPolicyButton.superview == nil,
+              supportButton.superview == nil,
               let container = signOutButton.superview else { return }
 
         if let legacyTopConstraint = container.constraints.first(where: { constraint in
@@ -281,19 +285,45 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             legacyTopConstraint.isActive = false
         }
 
+        privacyHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        privacyHeadingLabel.text = "Legal"
+        privacyHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+
         privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
         privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
+
+        supportHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        supportHeadingLabel.text = "Support"
+        supportHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+
+        supportButton.translatesAutoresizingMaskIntoConstraints = false
+        supportButton.addTarget(self, action: #selector(openSupportHelp), for: .touchUpInside)
+
+        container.addSubview(privacyHeadingLabel)
         container.addSubview(privacyPolicyButton)
+        container.addSubview(supportHeadingLabel)
+        container.addSubview(supportButton)
 
         NSLayoutConstraint.activate([
+            privacyHeadingLabel.leadingAnchor.constraint(equalTo: featuresCardView.leadingAnchor),
+            privacyHeadingLabel.trailingAnchor.constraint(equalTo: featuresCardView.trailingAnchor),
+            privacyHeadingLabel.topAnchor.constraint(equalTo: featuresCardView.bottomAnchor, constant: 18),
             privacyPolicyButton.leadingAnchor.constraint(equalTo: signOutButton.leadingAnchor),
             privacyPolicyButton.trailingAnchor.constraint(equalTo: signOutButton.trailingAnchor),
-            privacyPolicyButton.topAnchor.constraint(equalTo: featuresCardView.bottomAnchor, constant: 16),
+            privacyPolicyButton.topAnchor.constraint(equalTo: privacyHeadingLabel.bottomAnchor, constant: 8),
             privacyPolicyButton.heightAnchor.constraint(equalToConstant: 50),
-            signOutButton.topAnchor.constraint(equalTo: privacyPolicyButton.bottomAnchor, constant: 16)
+            supportHeadingLabel.leadingAnchor.constraint(equalTo: privacyHeadingLabel.leadingAnchor),
+            supportHeadingLabel.trailingAnchor.constraint(equalTo: privacyHeadingLabel.trailingAnchor),
+            supportHeadingLabel.topAnchor.constraint(equalTo: privacyPolicyButton.bottomAnchor, constant: 18),
+            supportButton.leadingAnchor.constraint(equalTo: privacyPolicyButton.leadingAnchor),
+            supportButton.trailingAnchor.constraint(equalTo: privacyPolicyButton.trailingAnchor),
+            supportButton.topAnchor.constraint(equalTo: supportHeadingLabel.bottomAnchor, constant: 8),
+            supportButton.heightAnchor.constraint(equalToConstant: 50),
+            signOutButton.topAnchor.constraint(equalTo: supportButton.bottomAnchor, constant: 18)
         ])
 
         stylePrivacyPolicyButton()
+        styleSupportButton()
     }
 
     private func applyCardStyle(to card: UIView?) {
@@ -345,7 +375,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         styleEditButton()
         styleAvatarEditButton()
         styleSignOutButton()
+        privacyHeadingLabel.textColor = .label
+        supportHeadingLabel.textColor = .label
         stylePrivacyPolicyButton()
+        styleSupportButton()
         styleNotificationSwitch()
         loadingIndicator?.color = AppTheme.accent
         greetingLabel?.textColor = .label
@@ -414,13 +447,34 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
     private func stylePrivacyPolicyButton() {
         AppTheme.styleCard(privacyPolicyButton, cornerRadius: 18)
-        PrivacyPolicySupport.stylePolicyButton(
-            privacyPolicyButton,
-            title: "Privacy & Policy",
-            traitCollection: traitCollection,
-            showsIcon: false,
-            horizontalInset: 18
-        )
+        var config = UIButton.Configuration.plain()
+        config.title = "Privacy & Policy"
+        config.image = UIImage(systemName: "chevron.right")
+        config.imagePlacement = .trailing
+        config.imagePadding = 10
+        config.baseForegroundColor = .label
+        config.background.backgroundColor = .clear
+        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18)
+        config.titleAlignment = .leading
+        privacyPolicyButton.configuration = config
+        privacyPolicyButton.contentHorizontalAlignment = .fill
+        privacyPolicyButton.tintColor = .secondaryLabel
+    }
+
+    private func styleSupportButton() {
+        AppTheme.styleCard(supportButton, cornerRadius: 18)
+        var config = UIButton.Configuration.plain()
+        config.title = "Support & Help"
+        config.image = UIImage(systemName: "chevron.right")
+        config.imagePlacement = .trailing
+        config.imagePadding = 10
+        config.baseForegroundColor = .label
+        config.background.backgroundColor = .clear
+        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18)
+        config.titleAlignment = .leading
+        supportButton.configuration = config
+        supportButton.contentHorizontalAlignment = .fill
+        supportButton.tintColor = .secondaryLabel
     }
     
     private func styleNotificationSwitch() {
@@ -616,6 +670,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
     @objc private func openPrivacyPolicy() {
         PrivacyPolicySupport.present(from: self)
+    }
+
+    @objc private func openSupportHelp() {
+        presentAsProfileSheet(SupportHelpViewController())
     }
 
     @IBAction func personalMailSwitchChanged(_ sender: UISwitch) {

@@ -26,28 +26,32 @@ class AdminSignUpViewController: UIViewController {
     
     private var isSubmitting = false
     private var didInstallAnimatedLogo = false
-    private let privacyConsentContainer = UIStackView()
-    private let privacyCheckboxButton = UIButton(type: .system)
-    private let privacyPolicyButton = UIButton(type: .system)
-    private var hasAcceptedPrivacyPolicy = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        modalPresentationStyle = .fullScreen
+        navigationController?.modalPresentationStyle = .fullScreen
+        constrainLogoPlaceholderIfNeeded()
         hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         
         setupUI()
         setupPlaceholders()
-        setupPrivacyConsentUI()
         applyAuthSymbolTint()
         styleAuthBackButton(backButtonOutlet)
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        navigationController?.modalPresentationStyle = .fullScreen
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
         if !didInstallAnimatedLogo {
-            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(sizeMultiplier: 0.60, verticalOffset: -10)
+            didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(sizeMultiplier: 0.72, verticalOffset: -8)
         }
     }
 
@@ -60,7 +64,6 @@ class AdminSignUpViewController: UIViewController {
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
-        stylePrivacyConsentUI()
     }
     
     // MARK: - UI Setup
@@ -110,54 +113,65 @@ class AdminSignUpViewController: UIViewController {
         confirmPassTextField.attributedPlaceholder = NSAttributedString(string: "Confirm Password", attributes: [.foregroundColor: placeholderColor])
     }
 
-    private func setupPrivacyConsentUI() {
-        guard privacyConsentContainer.superview == nil else { return }
-        guard let hostView = registerButtonOutlet.superview else { return }
+    private func constrainLogoPlaceholderIfNeeded() {
+        guard let imageView = findLogoPlaceholderImageView() else { return }
 
-        privacyConsentContainer.axis = .horizontal
-        privacyConsentContainer.alignment = .center
-        privacyConsentContainer.spacing = 10
-        privacyConsentContainer.translatesAutoresizingMaskIntoConstraints = false
+        if let superview = imageView.superview {
+            superview.constraints
+                .filter { constraint in
+                    let firstView = constraint.firstItem as? UIView
+                    let secondView = constraint.secondItem as? UIView
+                    let involvesImageView = firstView == imageView || secondView == imageView
+                    let affectsHorizontalSize = [
+                        constraint.firstAttribute,
+                        constraint.secondAttribute
+                    ].contains { attribute in
+                        attribute == .leading || attribute == .trailing
+                    }
+                    return involvesImageView && affectsHorizontalSize
+                }
+                .forEach { $0.isActive = false }
+        }
 
-        privacyCheckboxButton.translatesAutoresizingMaskIntoConstraints = false
-        privacyCheckboxButton.addTarget(self, action: #selector(togglePrivacyConsent), for: .touchUpInside)
+        let hasWidthConstraint = imageView.constraints.contains {
+            $0.firstAttribute == .width && $0.relation == .equal
+        }
+        let hasHeightConstraint = imageView.constraints.contains {
+            $0.firstAttribute == .height && $0.relation == .equal
+        }
 
-        privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
-        privacyPolicyButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
-        privacyPolicyButton.titleLabel?.numberOfLines = 2
-        privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
-
-        privacyConsentContainer.addArrangedSubview(privacyCheckboxButton)
-        privacyConsentContainer.addArrangedSubview(privacyPolicyButton)
-        hostView.addSubview(privacyConsentContainer)
-
-        NSLayoutConstraint.activate([
-            privacyCheckboxButton.widthAnchor.constraint(equalToConstant: 24),
-            privacyCheckboxButton.heightAnchor.constraint(equalToConstant: 24),
-            privacyConsentContainer.leadingAnchor.constraint(equalTo: registerButtonOutlet.leadingAnchor),
-            privacyConsentContainer.trailingAnchor.constraint(lessThanOrEqualTo: registerButtonOutlet.trailingAnchor),
-            privacyConsentContainer.bottomAnchor.constraint(equalTo: registerButtonOutlet.topAnchor, constant: -14)
-        ])
-
-        stylePrivacyConsentUI()
+        if !hasWidthConstraint {
+            imageView.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        }
+        if !hasHeightConstraint {
+            imageView.heightAnchor.constraint(equalToConstant: 120).isActive = true
+        }
+        if let superview = imageView.superview,
+           !superview.constraints.contains(where: {
+               ($0.firstItem as? UIView == imageView || $0.secondItem as? UIView == imageView) &&
+               ($0.firstAttribute == .centerX || $0.secondAttribute == .centerX)
+           }) {
+            imageView.centerXAnchor.constraint(equalTo: superview.centerXAnchor).isActive = true
+        }
     }
 
-    private func stylePrivacyConsentUI() {
-        PrivacyPolicySupport.styleConsentCheckbox(privacyCheckboxButton, isChecked: hasAcceptedPrivacyPolicy, traitCollection: traitCollection)
-        PrivacyPolicySupport.stylePolicyButton(
-            privacyPolicyButton,
-            title: "I agree to the Privacy & Policy",
-            traitCollection: traitCollection
-        )
+    private func findLogoPlaceholderImageView() -> UIImageView? {
+        allSubviews(in: view)
+            .compactMap { $0 as? UIImageView }
+            .filter { imageView in
+                let frame = imageView.convert(imageView.bounds, to: view)
+                return frame.minY < view.bounds.midY && frame.height >= 100
+            }
+            .sorted { lhs, rhs in
+                let lhsFrame = lhs.convert(lhs.bounds, to: view)
+                let rhsFrame = rhs.convert(rhs.bounds, to: view)
+                return lhsFrame.minY < rhsFrame.minY
+            }
+            .first
     }
 
-    @objc private func togglePrivacyConsent() {
-        hasAcceptedPrivacyPolicy.toggle()
-        stylePrivacyConsentUI()
-    }
-
-    @objc private func openPrivacyPolicy() {
-        PrivacyPolicySupport.present(from: self)
+    private func allSubviews(in root: UIView) -> [UIView] {
+        root.subviews + root.subviews.flatMap { allSubviews(in: $0) }
     }
     
     // MARK: - Validation
@@ -259,11 +273,6 @@ class AdminSignUpViewController: UIViewController {
     
     @IBAction func registerButton(_ sender: Any) {
         view.endEditing(true)
-
-        guard hasAcceptedPrivacyPolicy else {
-            showAlert(title: "Privacy & Policy", message: "Please accept the Privacy & Policy to continue.")
-            return
-        }
         
         guard !isSubmitting else { return }
         

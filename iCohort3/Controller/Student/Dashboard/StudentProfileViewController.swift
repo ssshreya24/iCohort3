@@ -4,9 +4,7 @@
 //
 
 import UIKit
-import SafariServices
 import Supabase
-import UserNotifications
 
 final class StudentProfileViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 
@@ -36,10 +34,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
     private let mainStack = UIStackView()
     private let academicHeadingLabel = UILabel()
     private let personalHeadingLabel = UILabel()
-    private let featuresHeadingLabel = UILabel()
-    private let privacyPolicyButton = UIButton(type: .system)
-    private var featuresCardView: UIView?
-    private var notificationsSwitch: UISwitch?
 
     private var rowTitleLabels: [UILabel] = []
     private var rowSeparators: [UIView] = []
@@ -87,7 +81,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         refreshTheme()
-        restoreSwitchState()
         loadCachedAvatar()
         if let personId = currentPersonId {
             loadProfileData(personId: personId)
@@ -118,8 +111,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         let profileCardView = makeCard()
         let academicCardView = makeCard()
         let personalCardView = makeCard()
-        let featuresCardView = makeCard()
-        let notificationsSwitch = UISwitch()
 
         self.backButton = backButton
         self.editButton = editButton
@@ -139,8 +130,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         self.profileCardView = profileCardView
         self.academicCardView = academicCardView
         self.personalCardView = personalCardView
-        self.featuresCardView = featuresCardView
-        self.notificationsSwitch = notificationsSwitch
         self.logOut = nil
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -185,21 +174,12 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         personalHeadingLabel.text = "Personal Details"
         personalHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
 
-        featuresHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
-        featuresHeadingLabel.text = "Features"
-        featuresHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
-
-        privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
-        privacyPolicyButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
-        privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
-
-        notificationsSwitch.translatesAutoresizingMaskIntoConstraints = false
-        notificationsSwitch.addTarget(self, action: #selector(notificationChanged(_:)), for: .valueChanged)
-
         allFields = [
             firstNameField, lastNameField, departmentField, srmMailField,
             regNoField, personalMailField, contactNumberField
         ]
+
+        configureFieldInputBehavior()
 
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
@@ -224,23 +204,16 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
             makeRow(title: "Personal Mail", field: personalMailField, showsSeparator: true),
             makeRow(title: "Contact Number", field: contactNumberField, showsSeparator: false)
         ]
-        let featuresRows = [
-            makeSwitchRow(title: "Notifications", control: notificationsSwitch)
-        ]
 
         populateCard(profileCardView, rows: profileRows)
         populateCard(academicCardView, rows: academicRows)
         populateCard(personalCardView, rows: personalRows)
-        populateCard(featuresCardView, rows: featuresRows)
 
         mainStack.addArrangedSubview(profileCardView)
         mainStack.addArrangedSubview(academicHeadingLabel)
         mainStack.addArrangedSubview(academicCardView)
         mainStack.addArrangedSubview(personalHeadingLabel)
         mainStack.addArrangedSubview(personalCardView)
-        mainStack.addArrangedSubview(featuresHeadingLabel)
-        mainStack.addArrangedSubview(featuresCardView)
-        mainStack.addArrangedSubview(privacyPolicyButton)
 
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
@@ -289,7 +262,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         mainStack.setCustomSpacing(12, after: academicHeadingLabel)
         mainStack.setCustomSpacing(16, after: academicCardView)
         mainStack.setCustomSpacing(12, after: personalHeadingLabel)
-        mainStack.setCustomSpacing(12, after: featuresHeadingLabel)
 
         refreshTheme()
     }
@@ -357,31 +329,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         return row
     }
 
-    private func makeSwitchRow(title: String, control: UISwitch) -> UIView {
-        let row = UIView()
-        row.translatesAutoresizingMaskIntoConstraints = false
-
-        let titleLabel = UILabel()
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
-        titleLabel.setContentHuggingPriority(.required, for: .horizontal)
-        rowTitleLabels.append(titleLabel)
-
-        row.addSubview(titleLabel)
-        row.addSubview(control)
-
-        NSLayoutConstraint.activate([
-            row.heightAnchor.constraint(equalToConstant: 50),
-            titleLabel.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 16),
-            titleLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            control.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -16),
-            control.centerYAnchor.constraint(equalTo: row.centerYAnchor)
-        ])
-
-        return row
-    }
-
     private func makeValueField() -> UITextField {
         let field = UITextField()
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -389,11 +336,37 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         field.font = .systemFont(ofSize: 17, weight: .regular)
         field.borderStyle = .none
         field.backgroundColor = .clear
-        field.adjustsFontSizeToFitWidth = true
-        field.minimumFontSize = 13
+        field.adjustsFontSizeToFitWidth = false
         field.clearButtonMode = .never
         field.placeholder = "Not Set"
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
+    }
+
+    private func configureFieldInputBehavior() {
+        firstNameField?.autocapitalizationType = .words
+        lastNameField?.autocapitalizationType = .words
+        departmentField?.autocapitalizationType = .words
+        srmMailField?.autocapitalizationType = .none
+        regNoField?.autocapitalizationType = .allCharacters
+        personalMailField?.autocapitalizationType = .none
+        contactNumberField?.autocapitalizationType = .none
+
+        firstNameField?.keyboardType = .default
+        lastNameField?.keyboardType = .default
+        departmentField?.keyboardType = .default
+        srmMailField?.keyboardType = .emailAddress
+        regNoField?.keyboardType = .asciiCapable
+        personalMailField?.keyboardType = .emailAddress
+        contactNumberField?.keyboardType = .phonePad
+
+        srmMailField?.autocorrectionType = .no
+        personalMailField?.autocorrectionType = .no
+        regNoField?.autocorrectionType = .no
+
+        [firstNameField, lastNameField, departmentField].forEach {
+            $0?.addTarget(self, action: #selector(capitalizeProfileField(_:)), for: .editingChanged)
+        }
     }
 
     private var editableFields: [UITextField] {
@@ -451,11 +424,13 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
     private func refreshTheme() {
         AppTheme.applyScreenBackground(to: view)
         view.tintColor = AppTheme.accent
+        scrollView.backgroundColor = .clear
+        contentView.backgroundColor = .clear
+        mainStack.backgroundColor = .clear
 
         titleLabel.textColor = .label
         academicHeadingLabel.textColor = .label
         personalHeadingLabel.textColor = .label
-        featuresHeadingLabel.textColor = .label
 
         if let backButton {
             styleFloatingButton(backButton, title: nil, foregroundColor: traitCollection.userInterfaceStyle == .dark ? .white : .black)
@@ -465,13 +440,8 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         }
 
         configureAvatarEditButton()
-        stylePrivacyPolicyButton()
-
         [profileCardView, academicCardView, personalCardView].compactMap { $0 }.forEach {
             AppTheme.styleElevatedCard($0, cornerRadius: 18)
-        }
-        if let featuresCardView {
-            AppTheme.styleElevatedCard(featuresCardView, cornerRadius: 18)
         }
 
         rowTitleLabels.forEach {
@@ -486,24 +456,13 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         let emptyColor = traitCollection.userInterfaceStyle == .dark ? UIColor.white.withAlphaComponent(0.78) : UIColor.black.withAlphaComponent(0.62)
         editableFields.forEach { field in
             field.textColor = (field.text?.isEmpty == false) ? filledColor : emptyColor
+            field.font = .systemFont(ofSize: 17, weight: .regular)
             field.attributedPlaceholder = NSAttributedString(
                 string: field.placeholder ?? "",
                 attributes: [.foregroundColor: emptyColor]
             )
             field.tintColor = AppTheme.accent
         }
-        styleNotificationSwitch()
-    }
-
-    private func stylePrivacyPolicyButton() {
-        AppTheme.styleCard(privacyPolicyButton, cornerRadius: 18)
-        PrivacyPolicySupport.stylePolicyButton(
-            privacyPolicyButton,
-            title: "Privacy & Policy",
-            traitCollection: traitCollection,
-            showsIcon: false,
-            horizontalInset: 18
-        )
     }
 
     private func styleFloatingButton(_ button: UIButton, title: String?, foregroundColor: UIColor, cornerRadius: CGFloat = 22) {
@@ -526,78 +485,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         button.backgroundColor = .clear
         button.tintColor = foregroundColor
         button.setTitleColor(foregroundColor, for: .normal)
-    }
-
-    private func styleNotificationSwitch() {
-        guard let notificationsSwitch else { return }
-        let offTrackColor: UIColor = traitCollection.userInterfaceStyle == .dark
-            ? UIColor.white.withAlphaComponent(0.18)
-            : UIColor(red: 0.21, green: 0.33, blue: 0.49, alpha: 0.24)
-
-        notificationsSwitch.onTintColor = AppTheme.accent
-        notificationsSwitch.tintColor = offTrackColor
-        notificationsSwitch.backgroundColor = offTrackColor
-        notificationsSwitch.thumbTintColor = .white
-        notificationsSwitch.layer.cornerRadius = notificationsSwitch.bounds.height / 2
-        notificationsSwitch.layer.masksToBounds = true
-    }
-
-    private func restoreSwitchState() {
-        guard let notificationsSwitch else { return }
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            DispatchQueue.main.async {
-                let isAuthorized = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
-                if !isAuthorized {
-                    notificationsSwitch.setOn(false, animated: false)
-                    UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
-                } else {
-                    if UserDefaults.standard.object(forKey: "profile_notifications_enabled") == nil {
-                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
-                    }
-                    notificationsSwitch.setOn(UserDefaults.standard.bool(forKey: "profile_notifications_enabled"), animated: false)
-                }
-            }
-        }
-    }
-
-    @objc private func notificationChanged(_ sender: UISwitch) {
-        if sender.isOn {
-            UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
-                guard let self else { return }
-                DispatchQueue.main.async {
-                    if settings.authorizationStatus == .notDetermined {
-                        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
-                            DispatchQueue.main.async {
-                                sender.setOn(granted, animated: true)
-                                UserDefaults.standard.set(granted, forKey: "profile_notifications_enabled")
-                            }
-                        }
-                    } else if settings.authorizationStatus == .denied {
-                        sender.setOn(false, animated: true)
-                        self.showSettingsAlert()
-                    } else {
-                        UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
-                    }
-                }
-            }
-        } else {
-            UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
-        }
-    }
-
-    private func showSettingsAlert() {
-        let alert = UIAlertController(
-            title: "Notifications Disabled",
-            message: "Please enable notifications in Settings to receive alerts.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
-            if let url = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(url)
-            }
-        })
-        present(alert, animated: true)
     }
 
     private func getCurrentUserPersonId() {
@@ -679,9 +566,9 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
             return
         }
 
-        firstNameField?.text = profile.first_name ?? ""
-        lastNameField?.text = profile.last_name ?? ""
-        departmentField?.text = profile.department ?? ""
+        firstNameField?.text = normalizedCapitalizedValue(profile.first_name)
+        lastNameField?.text = normalizedCapitalizedValue(profile.last_name)
+        departmentField?.text = normalizedCapitalizedValue(profile.department)
         srmMailField?.text = profile.srm_mail ?? ""
         regNoField?.text = profile.reg_no ?? ""
         personalMailField?.text = profile.personal_mail ?? ""
@@ -731,10 +618,6 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
             window.rootViewController = loginNav
             window.makeKeyAndVisible()
         }
-    }
-
-    @objc private func openPrivacyPolicy() {
-        PrivacyPolicySupport.present(from: self)
     }
 
     @IBAction func uploadButtonTapped(_ sender: UIButton) {
@@ -804,6 +687,9 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
                 $0.isEnabled = true
                 if $0.text?.isEmpty == true { $0.text = "" }
             }
+            firstNameField?.text = normalizedCapitalizedValue(firstNameField?.text)
+            lastNameField?.text = normalizedCapitalizedValue(lastNameField?.text)
+            departmentField?.text = normalizedCapitalizedValue(departmentField?.text)
             refreshTheme()
             firstNameField?.becomeFirstResponder()
         } else {
@@ -820,9 +706,9 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
             return
         }
 
-        let firstName = firstNameField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lastName = lastNameField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let department = departmentField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstName = normalizedCapitalizedValue(firstNameField?.text)
+        let lastName = normalizedCapitalizedValue(lastNameField?.text)
+        let department = normalizedCapitalizedValue(departmentField?.text)
         let srmMail = srmMailField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let regNo = regNoField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let personalMail = personalMailField?.text?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -876,5 +762,31 @@ final class StudentProfileViewController: UIViewController, UIImagePickerControl
         let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    @objc private func capitalizeProfileField(_ sender: UITextField) {
+        let currentCursorOffset = sender.offset(from: sender.beginningOfDocument, to: sender.selectedTextRange?.start ?? sender.endOfDocument)
+        let normalizedText = normalizedCapitalizedValue(sender.text) ?? ""
+        if sender.text != normalizedText {
+            sender.text = normalizedText
+            if let newPosition = sender.position(from: sender.beginningOfDocument, offset: min(currentCursorOffset, normalizedText.count)) {
+                sender.selectedTextRange = sender.textRange(from: newPosition, to: newPosition)
+            }
+        }
+    }
+
+    private func normalizedCapitalizedValue(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+
+        return trimmed
+            .split(separator: " ")
+            .map { word in
+                let lowercased = word.lowercased()
+                guard let firstCharacter = lowercased.first else { return "" }
+                return String(firstCharacter).uppercased() + lowercased.dropFirst()
+            }
+            .joined(separator: " ")
     }
 }

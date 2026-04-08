@@ -392,6 +392,7 @@ extension SupabaseManager {
         let description: String?
         let category: String?
         let color_hex: String?
+        let author: String?
     }
     
     struct MentorAnnouncementUpdate: Encodable {
@@ -399,6 +400,7 @@ extension SupabaseManager {
         let description: String?
         let category: String?
         let color_hex: String?
+        let author: String?
     }
     
     struct MentorAnnouncementRow: Decodable {
@@ -415,13 +417,15 @@ extension SupabaseManager {
         title: String,
         description: String?,
         category: String?,
-        colorHex: String?
+        colorHex: String?,
+        author: String?
     ) async throws {
         let announcement = MentorAnnouncement(
             title: title,
             description: description,
             category: category,
-            color_hex: colorHex
+            color_hex: colorHex,
+            author: author
         )
 
         _ = try await client
@@ -446,13 +450,15 @@ extension SupabaseManager {
         title: String?,
         description: String?,
         category: String?,
-        colorHex: String?
+        colorHex: String?,
+        author: String?
     ) async throws {
         let update = MentorAnnouncementUpdate(
             title: title,
             description: description,
             category: category,
-            color_hex: colorHex
+            color_hex: colorHex,
+            author: author
         )
         
         _ = try await client

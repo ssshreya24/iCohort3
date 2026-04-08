@@ -84,7 +84,7 @@ class AnnouncementsViewController: UIViewController {
                         tag: row.category,
                         tagColor: color,
                         createdAt: date,
-                        author: row.author ?? "Mentor",
+                        author: self.normalizedAuthorName(row.author),
                         attachments: decoded.attachments.isEmpty ? nil : decoded.attachments
                     )
                 }
@@ -101,6 +101,14 @@ class AnnouncementsViewController: UIViewController {
                 }
             }
         }
+    }
+
+    private func normalizedAuthorName(_ rawValue: String?) -> String {
+        let trimmed = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmed.isEmpty || trimmed.uppercased() == "PROGRAM MENTOR" {
+            return "Mentor"
+        }
+        return trimmed
     }
 
     private func setupViews() {

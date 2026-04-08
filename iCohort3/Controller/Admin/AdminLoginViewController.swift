@@ -25,10 +25,14 @@ class AdminLoginViewController: UIViewController {
     private var didConfigureAuxiliaryControls = false
     private var didConfigurePasswordToggle = false
     private var didInstallAnimatedLogo = false
+    private var pendingLoginNavigation: (() -> Void)?
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        modalPresentationStyle = .fullScreen
+        navigationController?.modalPresentationStyle = .fullScreen
+        constrainLogoPlaceholderIfNeeded()
         hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         
@@ -36,13 +40,19 @@ class AdminLoginViewController: UIViewController {
         applyAuthSymbolTint()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+        navigationController?.modalPresentationStyle = .fullScreen
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
         if !didInstallAnimatedLogo {
             didInstallAnimatedLogo = installAnimatedAuthLogoIfNeeded(
-                sizeMultiplier: 0.60,
-                verticalOffset: -10
+                sizeMultiplier: 0.72,
+                verticalOffset: -8
             )
         }
     }
@@ -154,6 +164,63 @@ class AdminLoginViewController: UIViewController {
                 }
                 return false
             }
+    }
+
+    private func constrainLogoPlaceholderIfNeeded() {
+        guard let imageView = findLogoPlaceholderImageView() else { return }
+
+        if let superview = imageView.superview {
+            superview.constraints
+                .filter { constraint in
+                    let firstView = constraint.firstItem as? UIView
+                    let secondView = constraint.secondItem as? UIView
+                    let involvesImageView = firstView == imageView || secondView == imageView
+                    let affectsHorizontalSize = [
+                        constraint.firstAttribute,
+                        constraint.secondAttribute
+                    ].contains { attribute in
+                        attribute == .leading || attribute == .trailing
+                    }
+                    return involvesImageView && affectsHorizontalSize
+                }
+                .forEach { $0.isActive = false }
+        }
+
+        let hasWidthConstraint = imageView.constraints.contains {
+            $0.firstAttribute == .width && $0.relation == .equal
+        }
+        let hasHeightConstraint = imageView.constraints.contains {
+            $0.firstAttribute == .height && $0.relation == .equal
+        }
+
+        if !hasWidthConstraint {
+            imageView.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        }
+        if !hasHeightConstraint {
+            imageView.heightAnchor.constraint(equalToConstant: 120).isActive = true
+        }
+        if let superview = imageView.superview,
+           !superview.constraints.contains(where: {
+               ($0.firstItem as? UIView == imageView || $0.secondItem as? UIView == imageView) &&
+               ($0.firstAttribute == .centerX || $0.secondAttribute == .centerX)
+           }) {
+            imageView.centerXAnchor.constraint(equalTo: superview.centerXAnchor).isActive = true
+        }
+    }
+
+    private func findLogoPlaceholderImageView() -> UIImageView? {
+        view.allDescendantSubviews()
+            .compactMap { $0 as? UIImageView }
+            .filter { imageView in
+                let frame = imageView.convert(imageView.bounds, to: view)
+                return frame.minY < view.bounds.midY && frame.height >= 100
+            }
+            .sorted { lhs, rhs in
+                let lhsFrame = lhs.convert(lhs.bounds, to: view)
+                let rhsFrame = rhs.convert(rhs.bounds, to: view)
+                return lhsFrame.minY < rhsFrame.minY
+            }
+            .first
     }
 
     private func styleStaticText() {
@@ -294,13 +361,35 @@ class AdminLoginViewController: UIViewController {
         
         Task {
             do {
+                if let debugSession = try await TestingPurpose.attemptDebugLogin(
+                    email: email,
+                    password: password,
+                    role: .admin
+                ) {
+                    print("🧪 Using DEBUG admin test login")
+                    await MainActor.run {
+                        self.hideLoadingIndicator()
+                        self.signInButton.isEnabled = true
+                        self.handlePrivacyConsentIfNeeded(email: email, role: .admin) {
+                            TestingPurpose.completeDebugLogin(
+                                debugSession,
+                                shouldRemember: self.rememberMeButton.isSelected,
+                                from: self
+                            )
+                        }
+                    }
+                    return
+                }
+
                 try await SupabaseManager.shared.startLoginOTP(email: email, password: password, role: .admin)
                 print("✅ Admin verification code sent")
                 
                 await MainActor.run {
                     self.hideLoadingIndicator()
                     self.signInButton.isEnabled = true
-                    self.navigateToOTPVerification(email: email, shouldRemember: self.rememberMeButton.isSelected)
+                    self.handlePrivacyConsentIfNeeded(email: email, role: .admin) {
+                        self.navigateToOTPVerification(email: email, shouldRemember: self.rememberMeButton.isSelected)
+                    }
                 }
                 
             } catch {
@@ -319,6 +408,25 @@ class AdminLoginViewController: UIViewController {
         let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
         otpVC.configureForLoginVerification(email: email, role: .admin, shouldRemember: shouldRemember)
         navigationController?.pushViewController(otpVC, animated: true)
+    }
+
+    @MainActor
+    private func handlePrivacyConsentIfNeeded(
+        email: String,
+        role: SupabaseManager.LoginOTPUserRole,
+        onAccepted: @escaping () -> Void
+    ) {
+        guard !PrivacyPolicySupport.hasAcceptedConsent(email: email, role: role.rawValue) else {
+            onAccepted()
+            return
+        }
+
+        pendingLoginNavigation = onAccepted
+        PrivacyPolicySupport.presentConsent(from: self, email: email, role: role.rawValue) { [weak self] in
+            let action = self?.pendingLoginNavigation
+            self?.pendingLoginNavigation = nil
+            action?()
+        }
     }
 
     @objc private func rememberMeTapped() {

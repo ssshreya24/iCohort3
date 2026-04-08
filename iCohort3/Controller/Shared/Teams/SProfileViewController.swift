@@ -2,14 +2,14 @@
 //  SProfileViewController.swift
 //  iCohort3
 //
-//  ✅ UPDATED: My Team button title updates to reflect team status.
-//              Tapping when full navigates to TeamDetailViewController.
+//  Based on the original XIB-driven profile layout, with added Legal/Support
+//  sections and the same near-full sheet presentation used elsewhere.
 //
 
 import UIKit
 import UserNotifications
 
-class SProfileViewController: UIViewController {
+final class SProfileViewController: UIViewController {
 
     @IBOutlet weak var closeButton: UIButton?
     @IBOutlet weak var avatarImageView: UIImageView?
@@ -19,22 +19,29 @@ class SProfileViewController: UIViewController {
     @IBOutlet weak var myTeamTapArea: UIButton?
     @IBOutlet weak var featuresCardView: UIView?
 
-    // Cached so myTeamTapped knows whether to show sheet or go to detail
     private var cachedTeamInfo: SupabaseManager.StudentTeamInfo?
     private var teamStatusTask: Task<Void, Never>?
     private var teamStatusRevision: Int = 0
+
+    private let legalHeadingLabel = UILabel()
+    private let legalCardView = UIView()
+    private let legalButton = UIButton(type: .system)
+
+    private let supportHeadingLabel = UILabel()
+    private let supportCardView = UIView()
+    private let supportButton = UIButton(type: .system)
+
     private let signOutButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
 
-    // MARK: - Lifecycle
-
     override func viewDidLoad() {
         super.viewDidLoad()
         configureStaticUI()
         restoreSwitchState()
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleTeamMembershipDidChange),
@@ -71,12 +78,10 @@ class SProfileViewController: UIViewController {
         refreshTheme()
     }
 
-    // MARK: - Static UI
-
     private func configureStaticUI() {
         configureDefaultAvatar()
         avatarImageView?.clipsToBounds = true
-        installSignOutButton()
+        installAdditionalSections()
         styleNotificationSwitch()
         refreshTheme()
     }
@@ -111,8 +116,6 @@ class SProfileViewController: UIViewController {
         avatarImageView?.contentMode = .scaleAspectFill
     }
 
-    // MARK: - Team Status
-
     private func loadTeamStatus() {
         teamStatusRevision += 1
         let revision = teamStatusRevision
@@ -137,89 +140,62 @@ class SProfileViewController: UIViewController {
         }
     }
 
-    /// Updates myTeamTapArea title and tint to reflect current team state.
-    /// No separate badge view — the button itself carries the status.
     private func applyTeamButtonStyle(teamInfo: SupabaseManager.StudentTeamInfo?) {
         guard let btn = myTeamTapArea else { return }
 
-        guard let info = teamInfo else {
-            // No team yet — right side says "Not Set"
-            btn.setTitle("Not Set", for: .normal)
-            btn.setTitleColor(.secondaryLabel, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .regular)
-            return
+        var title = "Not Set"
+        var color = UIColor.secondaryLabel
+        var weight = UIFont.Weight.regular
+
+        if let info = teamInfo {
+            if info.isFull {
+                title = "Team \(info.teamNumber)"
+                color = .systemGreen
+                weight = .semibold
+            } else {
+                title = "Team \(info.teamNumber)  ·  \(info.memberCount)/3"
+                color = AppTheme.accent
+                weight = .medium
+            }
         }
 
-        // Has team — show team info on button
-        if info.isFull {
-            // ✅ Green text: "Team 3  ·  Full ✓"
-            let title = "Team \(info.teamNumber) "
-            btn.setTitle(title, for: .normal)
-            btn.setTitleColor(.systemGreen, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        } else {
-            // Blue text: "Team 3  ·  2/3"
-            let title = "Team \(info.teamNumber)  ·  \(info.memberCount)/3"
-            btn.setTitle(title, for: .normal)
-            btn.setTitleColor(.systemBlue, for: .normal)
-            btn.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
-        }
+        btn.titleLabel?.font = .systemFont(ofSize: 15, weight: weight)
+        btn.setTitleColor(color, for: .normal)
+        btn.tintColor = color
+
+        var config = btn.configuration ?? UIButton.Configuration.plain()
+        config.title = title
+        config.image = UIImage(systemName: "chevron.down")
+        config.imagePlacement = .trailing
+        config.imagePadding = 6
+        config.baseForegroundColor = color
+        config.contentInsets = .zero
+        btn.configuration = config
     }
-
-    // MARK: - Actions
 
     @IBAction func myDetailsTapped(_ sender: Any) {
         let vc = StudentProfileViewController(nibName: "StudentProfileViewController", bundle: nil)
-        vc.modalPresentationStyle = .pageSheet
-        vc.modalTransitionStyle = .coverVertical
-
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [
-                .custom(identifier: .init("almostFull")) { context in
-                    context.maximumDetentValue
-                }
-            ]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 24
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-        }
-        present(vc, animated: true)
+        presentAsProfileSheet(vc)
     }
 
     @IBAction func myTeamTapped(_ sender: Any) {
-        // ✅ If team is full — navigate straight to TeamDetailViewController
         if let info = cachedTeamInfo, info.isFull {
             let detailVC = TeamDetailViewController(teamInfo: info)
-            detailVC.modalPresentationStyle = .pageSheet
-            detailVC.modalTransitionStyle = .coverVertical
-
-            if let sheet = detailVC.sheetPresentationController {
-                sheet.detents = [
-                    .custom(identifier: .init("almostFull")) { context in
-                        context.maximumDetentValue
-                    }
-                ]
-                sheet.prefersGrabberVisible = true
-                sheet.preferredCornerRadius = 24
-                sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-            }
-            present(detailVC, animated: true)
+            presentAsProfileSheet(detailVC)
             return
         }
 
-        // Not full — go directly to TeamViewController (handles both create and join)
         presentTeamVC(startMode: .create)
     }
 
     @IBAction func notificationChanged(_ sender: UISwitch) {
         let isOn = sender.isOn
-        
+
         if isOn {
             UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
-                guard let self = self else { return }
+                guard let self else { return }
                 DispatchQueue.main.async {
                     if settings.authorizationStatus == .notDetermined {
-                        // Ask once
                         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
                             DispatchQueue.main.async {
                                 sender.setOn(granted, animated: true)
@@ -227,11 +203,9 @@ class SProfileViewController: UIViewController {
                             }
                         }
                     } else if settings.authorizationStatus == .denied {
-                        // Already denied
                         sender.setOn(false, animated: true)
                         self.showSettingsAlert()
                     } else {
-                        // Already authorized
                         UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
                     }
                 }
@@ -241,18 +215,26 @@ class SProfileViewController: UIViewController {
         }
     }
 
+    @objc private func openPrivacyPolicy() {
+        PrivacyPolicySupport.present(from: self)
+    }
+
+    @objc private func openSupportHelp() {
+        presentAsProfileSheet(SupportHelpViewController())
+    }
+
     private func showSettingsAlert() {
         let alert = UIAlertController(
             title: "Notifications Disabled",
             message: "Please enable notifications in Settings to receive alerts.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-        alert.addAction(UIAlertAction(title: "Settings", style: .default, handler: { _ in
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(url)
             }
-        }))
+        })
         present(alert, animated: true)
     }
 
@@ -318,14 +300,12 @@ class SProfileViewController: UIViewController {
         NotificationCenter.default.removeObserver(self)
     }
 
-    // MARK: - Helpers
-
     private func restoreSwitchState() {
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                let isAuthorized = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
-                
+                let isAuthorized = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+
                 if !isAuthorized {
                     self.notificationSwitch?.setOn(false, animated: false)
                     UserDefaults.standard.set(false, forKey: "profile_notifications_enabled")
@@ -333,16 +313,129 @@ class SProfileViewController: UIViewController {
                     if UserDefaults.standard.object(forKey: "profile_notifications_enabled") == nil {
                         UserDefaults.standard.set(true, forKey: "profile_notifications_enabled")
                     }
-                    let on = UserDefaults.standard.bool(forKey: "profile_notifications_enabled")
-                    self.notificationSwitch?.setOn(on, animated: false)
+                    self.notificationSwitch?.setOn(UserDefaults.standard.bool(forKey: "profile_notifications_enabled"), animated: false)
                 }
             }
         }
     }
 
+    private func installAdditionalSections() {
+        guard legalHeadingLabel.superview == nil,
+              let featuresCardView,
+              let container = featuresCardView.superview else { return }
+
+        let legalRow = makeStandaloneActionRow(title: "Privacy & Policy", button: legalButton)
+        let supportRow = makeStandaloneActionRow(title: "Support & Help", button: supportButton)
+
+        legalHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        legalCardView.translatesAutoresizingMaskIntoConstraints = false
+        supportHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        supportCardView.translatesAutoresizingMaskIntoConstraints = false
+
+        legalHeadingLabel.text = "Legal"
+        legalHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+
+        supportHeadingLabel.text = "Support"
+        supportHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+
+        legalButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
+        supportButton.addTarget(self, action: #selector(openSupportHelp), for: .touchUpInside)
+        signOutButton.addTarget(self, action: #selector(signOutTapped), for: .touchUpInside)
+
+        legalCardView.addSubview(legalRow)
+        supportCardView.addSubview(supportRow)
+
+        legalRow.translatesAutoresizingMaskIntoConstraints = false
+        supportRow.translatesAutoresizingMaskIntoConstraints = false
+
+        container.addSubview(legalHeadingLabel)
+        container.addSubview(legalCardView)
+        container.addSubview(supportHeadingLabel)
+        container.addSubview(supportCardView)
+        container.addSubview(signOutButton)
+
+        if let oldSignOutConstraints = container.constraints.filter({
+            ($0.firstItem as? UIButton) === signOutButton || ($0.secondItem as? UIButton) === signOutButton
+        }) as [NSLayoutConstraint]? {
+            oldSignOutConstraints.forEach { $0.isActive = false }
+        }
+
+        NSLayoutConstraint.activate([
+            legalRow.topAnchor.constraint(equalTo: legalCardView.topAnchor),
+            legalRow.leadingAnchor.constraint(equalTo: legalCardView.leadingAnchor),
+            legalRow.trailingAnchor.constraint(equalTo: legalCardView.trailingAnchor),
+            legalRow.bottomAnchor.constraint(equalTo: legalCardView.bottomAnchor),
+
+            supportRow.topAnchor.constraint(equalTo: supportCardView.topAnchor),
+            supportRow.leadingAnchor.constraint(equalTo: supportCardView.leadingAnchor),
+            supportRow.trailingAnchor.constraint(equalTo: supportCardView.trailingAnchor),
+            supportRow.bottomAnchor.constraint(equalTo: supportCardView.bottomAnchor),
+
+            legalHeadingLabel.topAnchor.constraint(equalTo: featuresCardView.bottomAnchor, constant: 18),
+            legalHeadingLabel.leadingAnchor.constraint(equalTo: featuresCardView.leadingAnchor),
+            legalHeadingLabel.trailingAnchor.constraint(equalTo: featuresCardView.trailingAnchor),
+
+            legalCardView.topAnchor.constraint(equalTo: legalHeadingLabel.bottomAnchor, constant: 8),
+            legalCardView.leadingAnchor.constraint(equalTo: featuresCardView.leadingAnchor),
+            legalCardView.trailingAnchor.constraint(equalTo: featuresCardView.trailingAnchor),
+            legalCardView.heightAnchor.constraint(equalToConstant: 50),
+
+            supportHeadingLabel.topAnchor.constraint(equalTo: legalCardView.bottomAnchor, constant: 18),
+            supportHeadingLabel.leadingAnchor.constraint(equalTo: legalHeadingLabel.leadingAnchor),
+            supportHeadingLabel.trailingAnchor.constraint(equalTo: legalHeadingLabel.trailingAnchor),
+
+            supportCardView.topAnchor.constraint(equalTo: supportHeadingLabel.bottomAnchor, constant: 8),
+            supportCardView.leadingAnchor.constraint(equalTo: legalCardView.leadingAnchor),
+            supportCardView.trailingAnchor.constraint(equalTo: legalCardView.trailingAnchor),
+            supportCardView.heightAnchor.constraint(equalToConstant: 50),
+
+            signOutButton.topAnchor.constraint(equalTo: supportCardView.bottomAnchor, constant: 18),
+            signOutButton.leadingAnchor.constraint(equalTo: featuresCardView.leadingAnchor),
+            signOutButton.trailingAnchor.constraint(equalTo: featuresCardView.trailingAnchor),
+            signOutButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+
+    private func makeStandaloneActionRow(title: String, button: UIButton) -> UIView {
+        let row = UIView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = UILabel()
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        titleLabel.textColor = .label
+
+        var config = UIButton.Configuration.plain()
+        config.title = nil
+        config.image = UIImage(systemName: "chevron.right")
+        config.baseForegroundColor = .secondaryLabel
+        config.contentInsets = .zero
+        button.configuration = config
+        button.translatesAutoresizingMaskIntoConstraints = false
+
+        row.addSubview(titleLabel)
+        row.addSubview(button)
+
+        NSLayoutConstraint.activate([
+            row.heightAnchor.constraint(equalToConstant: 50),
+
+            titleLabel.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 16),
+            titleLabel.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+
+            button.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -16),
+            button.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            button.widthAnchor.constraint(equalToConstant: 28),
+            button.heightAnchor.constraint(equalToConstant: 28)
+        ])
+
+        return row
+    }
+
     private func applyThemeToHierarchy() {
         styleViewHierarchy(view)
-        [infoCardView, featuresCardView].forEach { card in
+
+        [infoCardView, featuresCardView, legalCardView, supportCardView].forEach { card in
             guard let card else { return }
             AppTheme.styleElevatedCard(card, cornerRadius: 20)
             card.layer.cornerCurve = .continuous
@@ -357,6 +450,8 @@ class SProfileViewController: UIViewController {
         styleSignOutButton()
         applyThemeToHierarchy()
         styleOuterHierarchy(in: view)
+        legalHeadingLabel.textColor = .label
+        supportHeadingLabel.textColor = .label
     }
 
     private func styleNotificationSwitch() {
@@ -372,21 +467,6 @@ class SProfileViewController: UIViewController {
         notificationSwitch.thumbTintColor = .white
         notificationSwitch.layer.cornerRadius = notificationSwitch.bounds.height / 2
         notificationSwitch.layer.masksToBounds = true
-    }
-
-    private func installSignOutButton() {
-        guard signOutButton.superview == nil,
-              let featuresCardView,
-              let container = featuresCardView.superview else { return }
-        container.addSubview(signOutButton)
-        signOutButton.addTarget(self, action: #selector(signOutTapped), for: .touchUpInside)
-
-        NSLayoutConstraint.activate([
-            signOutButton.topAnchor.constraint(equalTo: featuresCardView.bottomAnchor, constant: 20),
-            signOutButton.leadingAnchor.constraint(equalTo: featuresCardView.leadingAnchor),
-            signOutButton.trailingAnchor.constraint(equalTo: featuresCardView.trailingAnchor),
-            signOutButton.heightAnchor.constraint(equalToConstant: 44)
-        ])
     }
 
     private func styleSignOutButton() {
@@ -443,33 +523,24 @@ class SProfileViewController: UIViewController {
                 if button === closeButton {
                     button.tintColor = .label
                 } else {
-                    button.tintColor = .secondaryLabel
-                    button.setTitleColor(.label, for: .normal)
-                    if let config = button.configuration {
-                        var updated = config
-                        if button === myTeamTapArea {
-                            // Team status tint is applied separately.
-                        } else {
-                            updated.baseForegroundColor = .secondaryLabel
-                        }
-                        button.configuration = updated
+                    button.backgroundColor = .clear
+                    if button !== myTeamTapArea {
+                        button.tintColor = .secondaryLabel
                     }
                 }
-                button.backgroundColor = .clear
             case let imageView as UIImageView:
                 if imageView !== avatarImageView {
                     imageView.tintColor = .secondaryLabel
                 }
                 imageView.backgroundColor = .clear
-            case let stack as UIStackView:
-                stack.backgroundColor = .clear
-            case let scroll as UIScrollView:
-                scroll.backgroundColor = .clear
+            case is UIStackView, is UIScrollView:
+                subview.backgroundColor = .clear
             default:
-                if subview !== infoCardView && subview !== featuresCardView {
+                if subview !== infoCardView && subview !== featuresCardView && subview !== legalCardView && subview !== supportCardView {
                     subview.backgroundColor = .clear
                 }
             }
+
             styleViewHierarchy(subview)
         }
     }
@@ -489,11 +560,9 @@ class SProfileViewController: UIViewController {
 
             if subview is UILabel || subview is UIStackView || subview is UIImageView || subview is UIScrollView {
                 subview.backgroundColor = .clear
-            } else if subview is UISwitch {
-                // Keep system switch rendering.
             } else if let button = subview as? UIButton, button !== closeButton {
                 button.backgroundColor = .clear
-            } else if subview !== infoCardView && subview !== featuresCardView {
+            } else if subview !== infoCardView && subview !== featuresCardView && subview !== legalCardView && subview !== supportCardView {
                 subview.backgroundColor = .clear
             }
 
@@ -508,13 +577,14 @@ class SProfileViewController: UIViewController {
             }
 
             switch subview {
-            case infoCardView, featuresCardView, closeButton, avatarImageView:
+            case infoCardView, featuresCardView, legalCardView, supportCardView, closeButton, avatarImageView:
                 break
             case is UILabel, is UIStackView, is UIScrollView, is UIImageView:
                 subview.backgroundColor = .clear
             default:
                 subview.backgroundColor = .clear
             }
+
             styleOuterHierarchy(in: subview)
         }
     }
@@ -531,20 +601,6 @@ class SProfileViewController: UIViewController {
     private func presentTeamVC(startMode: TeamStartMode) {
         let vc = TeamViewController(nibName: "TeamViewController", bundle: nil)
         vc.startMode = startMode
-        vc.modalPresentationStyle = .pageSheet
-        vc.modalTransitionStyle = .coverVertical
-
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [
-                .custom(identifier: .init("almostFull")) { context in
-                    context.maximumDetentValue
-                }
-            ]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 24
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-        }
-        present(vc, animated: true)
+        presentAsProfileSheet(vc)
     }
-
 }

@@ -56,4 +56,22 @@ extension UIViewController {
     @objc private func handleKeyboardDismissTap() {
         view.endEditing(true)
     }
+
+    func presentAsProfileSheet(_ viewController: UIViewController, animated: Bool = true) {
+        viewController.modalPresentationStyle = .pageSheet
+        viewController.modalTransitionStyle = .coverVertical
+
+        if let sheet = viewController.sheetPresentationController {
+            sheet.detents = [
+                .custom(identifier: .init("almostFull")) { context in
+                    context.maximumDetentValue
+                }
+            ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+
+        present(viewController, animated: animated)
+    }
 }

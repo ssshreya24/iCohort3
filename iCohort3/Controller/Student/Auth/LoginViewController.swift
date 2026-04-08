@@ -22,6 +22,7 @@ class LoginViewController: UIViewController {
     private var backdropView: UIView?
     private var loadingIndicator: UIActivityIndicatorView?
     private var didInstallAnimatedLogo = false
+    private var pendingLoginNavigation: (() -> Void)?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -185,16 +186,30 @@ class LoginViewController: UIViewController {
         
         signInButton.isEnabled = false
         showLoadingIndicator()
-        performLogin(email: email, password: password)
+        performLogin(email: email, password: password, shouldRemember: rememberMeButton.isSelected)
     }
     
     // MARK: - Login Logic
     
-    private func performLogin(email: String, password: String) {
+    private func performLogin(email: String, password: String, shouldRemember: Bool) {
         Task {
             do {
+                if let debugSession = try await TestingPurpose.attemptDebugLogin(
+                    email: email,
+                    password: password,
+                    role: .student
+                ) {
+                    print("🧪 Using DEBUG student test login")
+                    await finishLogin {
+                        self.handlePrivacyConsentIfNeeded(email: email, role: .student) {
+                            TestingPurpose.completeDebugLogin(debugSession, shouldRemember: shouldRemember, from: self)
+                        }
+                    }
+                    return
+                }
+
                 print("📝 Starting student login OTP flow...")
-                
+
                 try await withLoginTimeout {
                     try await SupabaseManager.shared.startLoginOTP(
                         email: email,
@@ -204,9 +219,10 @@ class LoginViewController: UIViewController {
                 }
                 print("✅ Verification code sent")
 
-                let shouldRemember = rememberMeButton.isSelected
                 finishLogin {
-                    self.navigateToOTPVerification(email: email, role: .student, shouldRemember: shouldRemember)
+                    self.handlePrivacyConsentIfNeeded(email: email, role: .student) {
+                        self.navigateToOTPVerification(email: email, role: .student, shouldRemember: shouldRemember)
+                    }
                 }
                 
             } catch let error as NSError where error.domain == "LoginTimeout" {
@@ -251,6 +267,25 @@ class LoginViewController: UIViewController {
         hideLoadingIndicator()
         signInButton.isEnabled = true
         action?()
+    }
+
+    @MainActor
+    private func handlePrivacyConsentIfNeeded(
+        email: String,
+        role: SupabaseManager.LoginOTPUserRole,
+        onAccepted: @escaping () -> Void
+    ) {
+        guard !PrivacyPolicySupport.hasAcceptedConsent(email: email, role: role.rawValue) else {
+            onAccepted()
+            return
+        }
+
+        pendingLoginNavigation = onAccepted
+        PrivacyPolicySupport.presentConsent(from: self, email: email, role: role.rawValue) { [weak self] in
+            let action = self?.pendingLoginNavigation
+            self?.pendingLoginNavigation = nil
+            action?()
+        }
     }
     
     /// Races the login operation against a 15-second timeout.

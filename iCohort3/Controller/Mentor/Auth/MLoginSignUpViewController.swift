@@ -20,6 +20,7 @@ class MLoginSignUpViewController: UIViewController {
     
     private var loadingIndicator: UIActivityIndicatorView?
     private var didInstallAnimatedLogo = false
+    private var pendingLoginNavigation: (() -> Void)?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -174,12 +175,28 @@ class MLoginSignUpViewController: UIViewController {
         signInButton.isEnabled = false
         showLoadingIndicator()
         
-        performLogin(email: email, password: password)
+        performLogin(email: email, password: password, shouldRemember: rememberMeButton.isSelected)
     }
     
-    private func performLogin(email: String, password: String) {
+    private func performLogin(email: String, password: String, shouldRemember: Bool) {
         Task {
             do {
+                if let debugSession = try await TestingPurpose.attemptDebugLogin(
+                    email: email,
+                    password: password,
+                    role: .mentor
+                ) {
+                    print("🧪 Using DEBUG mentor test login")
+                    await MainActor.run {
+                        hideLoadingIndicator()
+                        signInButton.isEnabled = true
+                        self.handlePrivacyConsentIfNeeded(email: email, role: .mentor) {
+                            TestingPurpose.completeDebugLogin(debugSession, shouldRemember: shouldRemember, from: self)
+                        }
+                    }
+                    return
+                }
+
                 print("📝 Starting mentor login OTP flow...")
                 
                 try await SupabaseManager.shared.startLoginOTP(email: email, password: password, role: .mentor)
@@ -188,7 +205,9 @@ class MLoginSignUpViewController: UIViewController {
                 await MainActor.run {
                     hideLoadingIndicator()
                     signInButton.isEnabled = true
-                    navigateToOTPVerification(email: email, role: .mentor, shouldRemember: rememberMeButton.isSelected)
+                    self.handlePrivacyConsentIfNeeded(email: email, role: .mentor) {
+                        self.navigateToOTPVerification(email: email, role: .mentor, shouldRemember: shouldRemember)
+                    }
                 }
                 
             } catch {
@@ -210,6 +229,25 @@ class MLoginSignUpViewController: UIViewController {
         let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
         otpVC.configureForLoginVerification(email: email, role: role, shouldRemember: shouldRemember)
         navigationController?.pushViewController(otpVC, animated: true)
+    }
+
+    @MainActor
+    private func handlePrivacyConsentIfNeeded(
+        email: String,
+        role: SupabaseManager.LoginOTPUserRole,
+        onAccepted: @escaping () -> Void
+    ) {
+        guard !PrivacyPolicySupport.hasAcceptedConsent(email: email, role: role.rawValue) else {
+            onAccepted()
+            return
+        }
+
+        pendingLoginNavigation = onAccepted
+        PrivacyPolicySupport.presentConsent(from: self, email: email, role: role.rawValue) { [weak self] in
+            let action = self?.pendingLoginNavigation
+            self?.pendingLoginNavigation = nil
+            action?()
+        }
     }
 
     func handleLoginSuccess() {

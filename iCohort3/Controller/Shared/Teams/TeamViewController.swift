@@ -19,6 +19,7 @@ final class TeamViewController: UIViewController {
     enum Section: Int, CaseIterable {
         case summary
         case members
+        case createCTA
         case requestSwitcher
         case search
         case requests
@@ -215,6 +216,8 @@ final class TeamViewController: UIViewController {
         
         collectionView.register(SearchCell.self,
                                 forCellWithReuseIdentifier: "SearchCell")
+        collectionView.register(CreateTeamCTACollectionViewCell.self,
+                                forCellWithReuseIdentifier: "CreateTeamCTACollectionViewCell")
     }
 
     private func applyTheme() {
@@ -271,6 +274,20 @@ final class TeamViewController: UIViewController {
 
                 let s = NSCollectionLayoutSection(group: group)
                 s.contentInsets = .init(top: 8, leading: 16, bottom: 8, trailing: 16)
+                return s
+
+            case .createCTA:
+                let item = NSCollectionLayoutItem(
+                    layoutSize: .init(widthDimension: .fractionalWidth(1.0),
+                                      heightDimension: .estimated(52))
+                )
+                let group = NSCollectionLayoutGroup.vertical(
+                    layoutSize: .init(widthDimension: .fractionalWidth(1.0),
+                                      heightDimension: .estimated(52)),
+                    subitems: [item]
+                )
+                let s = NSCollectionLayoutSection(group: group)
+                s.contentInsets = .init(top: 4, leading: 16, bottom: 4, trailing: 16)
                 return s
 
             case .requestSwitcher:
@@ -541,9 +558,17 @@ final class TeamViewController: UIViewController {
 
             // 1) Students list for SEND tab
             let students = try await SupabaseManager.shared.fetchAllEligibleStudents()
+            let activeTeams = try await SupabaseManager.shared.fetchAllActiveTeams()
+            let occupiedMemberIds = Set(
+                activeTeams.flatMap { team in
+                    [team.createdById, team.member2Id, team.member3Id].compactMap { $0 }
+                }
+            )
             
-            // ✅ Filter out self AND anyone in current team
-            var filtered = students.filter { $0.person_id != myUserId }
+            // ✅ Filter out self, current team members, and any student already in another active team
+            var filtered = students.filter {
+                $0.person_id != myUserId && !occupiedMemberIds.contains($0.person_id)
+            }
             
             if let team = currentTeam {
                 let teamMemberIds = [team.createdById, team.member2Id, team.member3Id].compactMap { $0 }
@@ -953,6 +978,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
         switch sec {
         case .summary:         return 1
         case .members:         return currentTeam?.maxMembers ?? 3
+        case .createCTA:       return currentTeam == nil ? 1 : 0
         case .requestSwitcher: return 1
         case .search:          return requestSegment == 0 ? 1 : 0
         case .requests:
@@ -1019,6 +1045,13 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                 dept: memberInfo.dept,
                 onTapAdd: {}
             )
+            return cell
+
+        case .createCTA:
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "CreateTeamCTACollectionViewCell", for: indexPath) as! CreateTeamCTACollectionViewCell
+            cell.configure(title: "Create Team") { [weak self] in
+                self?.didTapCreateTeamAuth()
+            }
             return cell
 
         case .requestSwitcher:
@@ -1244,6 +1277,69 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
 
             return cell
         }
+    }
+}
+
+private final class CreateTeamCTACollectionViewCell: UICollectionViewCell {
+    private let button = UIButton(type: .system)
+    private var onTap: (() -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        buildUI()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        buildUI()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: 22)
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        onTap = nil
+    }
+
+    func configure(title: String, onTap: @escaping () -> Void) {
+        self.onTap = onTap
+        var config = UIButton.Configuration.plain()
+        config.title = title
+        config.baseForegroundColor = .label
+        config.background.backgroundColor = .clear
+        config.cornerStyle = .capsule
+        config.attributedTitle = AttributedString(
+            title,
+            attributes: AttributeContainer([.foregroundColor: UIColor.label])
+        )
+        button.configuration = config
+        button.setTitleColor(.label, for: .normal)
+        button.tintColor = .label
+        AppTheme.styleNativeFloatingControl(button, cornerRadius: 22)
+    }
+
+    private func buildUI() {
+        contentView.backgroundColor = .clear
+        backgroundColor = .clear
+
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(didTapButton), for: .touchUpInside)
+        contentView.addSubview(button)
+
+        NSLayoutConstraint.activate([
+            button.topAnchor.constraint(equalTo: contentView.topAnchor),
+            button.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            button.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            button.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            button.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+
+    @objc private func didTapButton() {
+        onTap?()
     }
 }
 
