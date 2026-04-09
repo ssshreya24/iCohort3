@@ -15,7 +15,7 @@ class AdminDashboardViewController: UIViewController {
     private let headerContainerView = UIView()
     private let titleLabel = UILabel()
     private let institutionLabel = UILabel()
-    private let logoutButton = UIButton(type: .system)
+    private let profileButton = UIButton(type: .system)
     private var gradientLayer: CAGradientLayer!
     
     // Statistics Cards
@@ -93,10 +93,10 @@ class AdminDashboardViewController: UIViewController {
         institutionLabel.translatesAutoresizingMaskIntoConstraints = false
         headerContainerView.addSubview(institutionLabel)
         
-        logoutButton.translatesAutoresizingMaskIntoConstraints = false
-        AdminUIStyle.styleDestructiveCompactButton(logoutButton, systemImage: "rectangle.portrait.and.arrow.right")
-        logoutButton.addTarget(self, action: #selector(logoutTapped), for: .touchUpInside)
-        headerContainerView.addSubview(logoutButton)
+        profileButton.translatesAutoresizingMaskIntoConstraints = false
+        AdminUIStyle.styleCompactActionButton(profileButton, systemImage: "person.crop.circle")
+        profileButton.addTarget(self, action: #selector(profileTapped), for: .touchUpInside)
+        headerContainerView.addSubview(profileButton)
         
         statisticsStackView.axis = .horizontal
         statisticsStackView.spacing = 16
@@ -174,16 +174,16 @@ class AdminDashboardViewController: UIViewController {
             
             titleLabel.topAnchor.constraint(equalTo: headerContainerView.topAnchor, constant: 2),
             titleLabel.leadingAnchor.constraint(equalTo: headerContainerView.leadingAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: logoutButton.leadingAnchor, constant: -12),
-            
-            logoutButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            logoutButton.trailingAnchor.constraint(equalTo: headerContainerView.trailingAnchor),
-            logoutButton.widthAnchor.constraint(equalToConstant: 36),
-            logoutButton.heightAnchor.constraint(equalToConstant: 36),
+            titleLabel.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
+
+            profileButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            profileButton.trailingAnchor.constraint(equalTo: headerContainerView.trailingAnchor),
+            profileButton.widthAnchor.constraint(equalToConstant: 36),
+            profileButton.heightAnchor.constraint(equalToConstant: 36),
             
             institutionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
             institutionLabel.leadingAnchor.constraint(equalTo: headerContainerView.leadingAnchor),
-            institutionLabel.trailingAnchor.constraint(equalTo: logoutButton.leadingAnchor, constant: -12),
+            institutionLabel.trailingAnchor.constraint(equalTo: profileButton.leadingAnchor, constant: -12),
             institutionLabel.bottomAnchor.constraint(equalTo: headerContainerView.bottomAnchor),
             
             statisticsStackView.topAnchor.constraint(equalTo: headerContainerView.bottomAnchor, constant: 24),
@@ -769,6 +769,15 @@ class AdminDashboardViewController: UIViewController {
         })
         
         present(alert, animated: true)
+    }
+
+    @objc private func profileTapped() {
+        let profileVC = AdminProfileViewController(
+            instituteName: instituteName,
+            instituteDomain: instituteDomain,
+            adminEmail: adminEmail
+        )
+        presentAsProfileSheet(profileVC)
     }
     
     @objc private func viewApprovedStudents() {

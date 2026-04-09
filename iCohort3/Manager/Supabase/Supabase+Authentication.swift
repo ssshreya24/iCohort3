@@ -246,6 +246,54 @@ extension SupabaseManager {
         
         return results.first
     }
+
+    func updateAdminProfile(
+        currentAdminEmail: String,
+        newAdminEmail: String,
+        instituteName: String,
+        instituteDomain: String
+    ) async throws {
+        let currentEmail = currentAdminEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let updatedEmail = newAdminEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let updatedInstituteName = instituteName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let updatedInstituteDomain = instituteDomain.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        guard !currentEmail.isEmpty, !updatedEmail.isEmpty, !updatedInstituteName.isEmpty, !updatedInstituteDomain.isEmpty else {
+            throw NSError(
+                domain: "SupabaseManager",
+                code: -20,
+                userInfo: [NSLocalizedDescriptionKey: "All admin profile fields are required."]
+            )
+        }
+
+        struct InstituteUpdate: Encodable {
+            let name: String
+            let domain: String
+            let admin_email: String
+        }
+
+        struct AdminAccountUpdate: Encodable {
+            let email: String
+        }
+
+        try await client
+            .from("institutes")
+            .update(
+                InstituteUpdate(
+                    name: updatedInstituteName,
+                    domain: updatedInstituteDomain,
+                    admin_email: updatedEmail
+                )
+            )
+            .eq("admin_email", value: currentEmail)
+            .execute()
+
+        try await client
+            .from("admin_accounts")
+            .update(AdminAccountUpdate(email: updatedEmail))
+            .eq("email", value: currentEmail)
+            .execute()
+    }
     
     // MARK: - Admin Authentication
     

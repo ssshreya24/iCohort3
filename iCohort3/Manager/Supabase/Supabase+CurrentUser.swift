@@ -140,6 +140,25 @@ extension SupabaseManager {
         try? await client.auth.signOut()
     }
 
+    func deleteAdminAccount(email: String) async throws {
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedEmail.isEmpty else {
+            throw NSError(
+                domain: "SupabaseManager",
+                code: -12,
+                userInfo: [NSLocalizedDescriptionKey: "Admin email is missing."]
+            )
+        }
+
+        try await client
+            .from("admin_accounts")
+            .delete()
+            .eq("email", value: normalizedEmail)
+            .execute()
+
+        try? await client.auth.signOut()
+    }
+
     private func cleanupStudentTeamState(personId: String) async throws {
         guard let team = try await fetchActiveTeamForUser(userId: personId) else { return }
 
