@@ -63,8 +63,10 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     private var isShowingPlaceholderAvatar = true
     private let privacyPolicyButton = UIButton(type: .system)
     private let privacyHeadingLabel = UILabel()
+    private let deleteAccountButton = UIButton(type: .system)
     private let supportButton = UIButton(type: .system)
     private let supportHeadingLabel = UILabel()
+    private var isDeletingAccount = false
 
     // MARK: - Convenience
     private var allTextFields: [UITextField?] {
@@ -292,6 +294,9 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         privacyPolicyButton.translatesAutoresizingMaskIntoConstraints = false
         privacyPolicyButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
 
+        deleteAccountButton.translatesAutoresizingMaskIntoConstraints = false
+        deleteAccountButton.addTarget(self, action: #selector(confirmDeleteAccount), for: .touchUpInside)
+
         supportHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
         supportHeadingLabel.text = "Support"
         supportHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
@@ -301,6 +306,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
         container.addSubview(privacyHeadingLabel)
         container.addSubview(privacyPolicyButton)
+        container.addSubview(deleteAccountButton)
         container.addSubview(supportHeadingLabel)
         container.addSubview(supportButton)
 
@@ -312,9 +318,13 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
             privacyPolicyButton.trailingAnchor.constraint(equalTo: signOutButton.trailingAnchor),
             privacyPolicyButton.topAnchor.constraint(equalTo: privacyHeadingLabel.bottomAnchor, constant: 8),
             privacyPolicyButton.heightAnchor.constraint(equalToConstant: 50),
+            deleteAccountButton.leadingAnchor.constraint(equalTo: privacyPolicyButton.leadingAnchor),
+            deleteAccountButton.trailingAnchor.constraint(equalTo: privacyPolicyButton.trailingAnchor),
+            deleteAccountButton.topAnchor.constraint(equalTo: privacyPolicyButton.bottomAnchor, constant: 10),
+            deleteAccountButton.heightAnchor.constraint(equalToConstant: 50),
             supportHeadingLabel.leadingAnchor.constraint(equalTo: privacyHeadingLabel.leadingAnchor),
             supportHeadingLabel.trailingAnchor.constraint(equalTo: privacyHeadingLabel.trailingAnchor),
-            supportHeadingLabel.topAnchor.constraint(equalTo: privacyPolicyButton.bottomAnchor, constant: 18),
+            supportHeadingLabel.topAnchor.constraint(equalTo: deleteAccountButton.bottomAnchor, constant: 18),
             supportButton.leadingAnchor.constraint(equalTo: privacyPolicyButton.leadingAnchor),
             supportButton.trailingAnchor.constraint(equalTo: privacyPolicyButton.trailingAnchor),
             supportButton.topAnchor.constraint(equalTo: supportHeadingLabel.bottomAnchor, constant: 8),
@@ -323,6 +333,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         ])
 
         stylePrivacyPolicyButton()
+        styleDeleteAccountButton()
         styleSupportButton()
     }
 
@@ -378,6 +389,7 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         privacyHeadingLabel.textColor = .label
         supportHeadingLabel.textColor = .label
         stylePrivacyPolicyButton()
+        styleDeleteAccountButton()
         styleSupportButton()
         styleNotificationSwitch()
         loadingIndicator?.color = AppTheme.accent
@@ -475,6 +487,22 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
         supportButton.configuration = config
         supportButton.contentHorizontalAlignment = .fill
         supportButton.tintColor = .secondaryLabel
+    }
+
+    private func styleDeleteAccountButton() {
+        AppTheme.styleCard(deleteAccountButton, cornerRadius: 18)
+        var config = UIButton.Configuration.plain()
+        config.title = "Delete Your Account"
+        config.image = UIImage(systemName: "chevron.right")
+        config.imagePlacement = .trailing
+        config.imagePadding = 10
+        config.baseForegroundColor = .systemRed
+        config.background.backgroundColor = .clear
+        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18)
+        config.titleAlignment = .leading
+        deleteAccountButton.configuration = config
+        deleteAccountButton.contentHorizontalAlignment = .fill
+        deleteAccountButton.tintColor = .systemRed
     }
     
     private func styleNotificationSwitch() {
@@ -629,6 +657,9 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
     }
 
     @IBAction func signOutButtonTapped(_ sender: UIButton) {
+        Task {
+            try? await SupabaseManager.shared.client.auth.signOut()
+        }
         // ✅ Clear stored data
         UserDefaults.standard.removeObject(forKey: "current_person_id")
         UserDefaults.standard.removeObject(forKey: "current_user_name")
@@ -674,6 +705,49 @@ class ProfileViewController: UIViewController, UIImagePickerControllerDelegate,
 
     @objc private func openSupportHelp() {
         presentAsProfileSheet(SupportHelpViewController())
+    }
+
+    @objc private func confirmDeleteAccount() {
+        let alert = UIAlertController(
+            title: "Delete Your Account",
+            message: "This will permanently delete your account data from Supabase. This action cannot be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete Account", style: .destructive) { [weak self] _ in
+            self?.deleteAccount()
+        })
+        present(alert, animated: true)
+    }
+
+    private func deleteAccount() {
+        guard !isDeletingAccount else { return }
+        guard let personId = currentPersonId, !personId.isEmpty else { return }
+
+        isDeletingAccount = true
+        let email = UserDefaults.standard.string(forKey: "current_user_email")
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await SupabaseManager.shared.deleteAccount(role: "mentor", personId: personId, email: email)
+                await MainActor.run {
+                    self.isDeletingAccount = false
+                    self.signOutButtonTapped(self.signOutButton)
+                }
+            } catch {
+                await MainActor.run {
+                    self.isDeletingAccount = false
+                    self.showDeletionError(message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func showDeletionError(message: String) {
+        let alert = UIAlertController(title: "Delete Failed", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 
     @IBAction func personalMailSwitchChanged(_ sender: UISwitch) {

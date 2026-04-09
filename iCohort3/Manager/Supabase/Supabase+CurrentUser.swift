@@ -84,6 +84,73 @@ extension SupabaseManager {
         UserDefaults.standard.set(personId, forKey: "current_person_id")
         print("✅ Set current person_id:", personId)
     }
+
+    func deleteAccount(role: String, personId: String, email: String?) async throws {
+        let normalizedRole = role.lowercased()
+        let normalizedEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        if normalizedRole == "student" {
+            try await cleanupStudentTeamState(personId: personId)
+            _ = try? await client.from("team_member_invites").delete().eq("from_person_id", value: personId).execute()
+            _ = try? await client.from("team_member_invites").delete().eq("to_person_id", value: personId).execute()
+            _ = try? await client.from("team_join_requests").delete().eq("from_person_id", value: personId).execute()
+            _ = try? await client.from("team_join_requests").delete().eq("to_created_by_id", value: personId).execute()
+
+            try await client
+                .from("student_profiles")
+                .delete()
+                .eq("person_id", value: personId)
+                .execute()
+
+            if let normalizedEmail, !normalizedEmail.isEmpty {
+                _ = try? await client
+                    .from("student_registrations")
+                    .delete()
+                    .eq("email", value: normalizedEmail)
+                    .execute()
+            }
+        } else if normalizedRole == "mentor" {
+            try await client
+                .from("mentor_profiles")
+                .delete()
+                .eq("person_id", value: personId)
+                .execute()
+
+            if let normalizedEmail, !normalizedEmail.isEmpty {
+                _ = try? await client
+                    .from("mentor_registrations")
+                    .delete()
+                    .eq("email", value: normalizedEmail)
+                    .execute()
+            }
+        } else {
+            throw NSError(
+                domain: "SupabaseManager",
+                code: -11,
+                userInfo: [NSLocalizedDescriptionKey: "Unsupported role for deletion."]
+            )
+        }
+
+        _ = try? await client
+            .from("people")
+            .delete()
+            .eq("id", value: personId)
+            .execute()
+
+        try? await client.auth.signOut()
+    }
+
+    private func cleanupStudentTeamState(personId: String) async throws {
+        guard let team = try await fetchActiveTeamForUser(userId: personId) else { return }
+
+        let hasOtherMembers = [team.member2Id, team.member3Id].compactMap { $0 }.isEmpty == false
+
+        if team.createdById == personId, !hasOtherMembers {
+            try await deleteTeam(teamId: team.id, creatorId: personId)
+        } else {
+            try await leaveTeam(team: team, userId: personId)
+        }
+    }
 }
 
 // ============================================================================

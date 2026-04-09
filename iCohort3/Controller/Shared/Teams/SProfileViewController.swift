@@ -26,6 +26,7 @@ final class SProfileViewController: UIViewController {
     private let legalHeadingLabel = UILabel()
     private let legalCardView = UIView()
     private let legalButton = UIButton(type: .system)
+    private let deleteAccountButton = UIButton(type: .system)
 
     private let supportHeadingLabel = UILabel()
     private let supportCardView = UIView()
@@ -36,6 +37,7 @@ final class SProfileViewController: UIViewController {
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
+    private var isDeletingAccount = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -223,6 +225,50 @@ final class SProfileViewController: UIViewController {
         presentAsProfileSheet(SupportHelpViewController())
     }
 
+    @objc private func confirmDeleteAccount() {
+        let alert = UIAlertController(
+            title: "Delete Your Account",
+            message: "This will permanently delete your account data from Supabase. This action cannot be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete Account", style: .destructive) { [weak self] _ in
+            self?.deleteAccount()
+        })
+        present(alert, animated: true)
+    }
+
+    private func deleteAccount() {
+        guard !isDeletingAccount else { return }
+        guard let personId = UserDefaults.standard.string(forKey: "current_person_id"),
+              !personId.isEmpty else { return }
+
+        isDeletingAccount = true
+        let email = UserDefaults.standard.string(forKey: "current_user_email")
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await SupabaseManager.shared.deleteAccount(role: "student", personId: personId, email: email)
+                await MainActor.run {
+                    self.isDeletingAccount = false
+                    self.signOutTapped()
+                }
+            } catch {
+                await MainActor.run {
+                    self.isDeletingAccount = false
+                    self.showDeletionError(message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func showDeletionError(message: String) {
+        let alert = UIAlertController(title: "Delete Failed", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
     private func showSettingsAlert() {
         let alert = UIAlertController(
             title: "Notifications Disabled",
@@ -325,6 +371,7 @@ final class SProfileViewController: UIViewController {
               let container = featuresCardView.superview else { return }
 
         let legalRow = makeStandaloneActionRow(title: "Privacy & Policy", button: legalButton)
+        let deleteRow = makeStandaloneActionRow(title: "Delete Your Account", button: deleteAccountButton)
         let supportRow = makeStandaloneActionRow(title: "Support & Help", button: supportButton)
 
         legalHeadingLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -339,13 +386,16 @@ final class SProfileViewController: UIViewController {
         supportHeadingLabel.font = .systemFont(ofSize: 22, weight: .semibold)
 
         legalButton.addTarget(self, action: #selector(openPrivacyPolicy), for: .touchUpInside)
+        deleteAccountButton.addTarget(self, action: #selector(confirmDeleteAccount), for: .touchUpInside)
         supportButton.addTarget(self, action: #selector(openSupportHelp), for: .touchUpInside)
         signOutButton.addTarget(self, action: #selector(signOutTapped), for: .touchUpInside)
 
         legalCardView.addSubview(legalRow)
+        legalCardView.addSubview(deleteRow)
         supportCardView.addSubview(supportRow)
 
         legalRow.translatesAutoresizingMaskIntoConstraints = false
+        deleteRow.translatesAutoresizingMaskIntoConstraints = false
         supportRow.translatesAutoresizingMaskIntoConstraints = false
 
         container.addSubview(legalHeadingLabel)
@@ -364,7 +414,11 @@ final class SProfileViewController: UIViewController {
             legalRow.topAnchor.constraint(equalTo: legalCardView.topAnchor),
             legalRow.leadingAnchor.constraint(equalTo: legalCardView.leadingAnchor),
             legalRow.trailingAnchor.constraint(equalTo: legalCardView.trailingAnchor),
-            legalRow.bottomAnchor.constraint(equalTo: legalCardView.bottomAnchor),
+
+            deleteRow.topAnchor.constraint(equalTo: legalRow.bottomAnchor),
+            deleteRow.leadingAnchor.constraint(equalTo: legalCardView.leadingAnchor),
+            deleteRow.trailingAnchor.constraint(equalTo: legalCardView.trailingAnchor),
+            deleteRow.bottomAnchor.constraint(equalTo: legalCardView.bottomAnchor),
 
             supportRow.topAnchor.constraint(equalTo: supportCardView.topAnchor),
             supportRow.leadingAnchor.constraint(equalTo: supportCardView.leadingAnchor),
@@ -378,7 +432,7 @@ final class SProfileViewController: UIViewController {
             legalCardView.topAnchor.constraint(equalTo: legalHeadingLabel.bottomAnchor, constant: 8),
             legalCardView.leadingAnchor.constraint(equalTo: featuresCardView.leadingAnchor),
             legalCardView.trailingAnchor.constraint(equalTo: featuresCardView.trailingAnchor),
-            legalCardView.heightAnchor.constraint(equalToConstant: 50),
+            legalCardView.heightAnchor.constraint(equalToConstant: 100),
 
             supportHeadingLabel.topAnchor.constraint(equalTo: legalCardView.bottomAnchor, constant: 18),
             supportHeadingLabel.leadingAnchor.constraint(equalTo: legalHeadingLabel.leadingAnchor),
@@ -409,7 +463,7 @@ final class SProfileViewController: UIViewController {
         var config = UIButton.Configuration.plain()
         config.title = nil
         config.image = UIImage(systemName: "chevron.right")
-        config.baseForegroundColor = .secondaryLabel
+        config.baseForegroundColor = title == "Delete Your Account" ? .systemRed : .secondaryLabel
         config.contentInsets = .zero
         button.configuration = config
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -558,7 +612,12 @@ final class SProfileViewController: UIViewController {
                 continue
             }
 
-            if subview is UILabel || subview is UIStackView || subview is UIImageView || subview is UIScrollView {
+            if let label = subview as? UILabel {
+                label.backgroundColor = .clear
+                if label.text == "Delete Your Account" {
+                    label.textColor = .systemRed
+                }
+            } else if subview is UIStackView || subview is UIImageView || subview is UIScrollView {
                 subview.backgroundColor = .clear
             } else if let button = subview as? UIButton, button !== closeButton {
                 button.backgroundColor = .clear
