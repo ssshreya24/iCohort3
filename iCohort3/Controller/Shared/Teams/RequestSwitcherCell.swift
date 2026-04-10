@@ -27,6 +27,12 @@ class RequestSwitcherCell: UICollectionViewCell {
             segmented.insertSegment(withTitle: "Join a Team", at: 2, animated: false)
             contentView.backgroundColor = .clear
             backgroundColor = .clear
+            segmented.apportionsSegmentWidthsByContent = false
+            segmented.contentHorizontalAlignment = .fill
+            segmented.contentVerticalAlignment = .center
+            segmented.layer.cornerRadius = 16
+            segmented.layer.cornerCurve = .continuous
+            segmented.clipsToBounds = true
             segmented.backgroundColor = AppTheme.cardBackground
             segmented.selectedSegmentTintColor = AppTheme.accent.withAlphaComponent(0.28)
             let normalAttrs: [NSAttributedString.Key : Any] = [
@@ -39,6 +45,7 @@ class RequestSwitcherCell: UICollectionViewCell {
             ]
             segmented.setTitleTextAttributes(normalAttrs, for: .normal)
             segmented.setTitleTextAttributes(selectedAttrs, for: .selected)
+            segmented.setContentPositionAdjustment(.zero, forSegmentType: .any, barMetrics: .default)
         }
 
         private func wireAction() {
@@ -73,5 +80,4 @@ class RequestSwitcherCell: UICollectionViewCell {
             wireAction()
         }
     }
-
 

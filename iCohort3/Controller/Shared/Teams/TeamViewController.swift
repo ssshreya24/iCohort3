@@ -228,6 +228,19 @@ final class TeamViewController: UIViewController {
         styleButtons(in: view)
     }
 
+    private func reloadRequestSections() {
+        let sections = IndexSet([
+            Section.search.rawValue,
+            Section.requests.rawValue
+        ])
+
+        UIView.performWithoutAnimation {
+            collectionView.performBatchUpdates({
+                collectionView.reloadSections(sections)
+            })
+        }
+    }
+
     private func styleButtons(in root: UIView) {
         for subview in root.subviews {
             if let button = subview as? UIButton {
@@ -414,27 +427,14 @@ final class TeamViewController: UIViewController {
     // MARK: - Create Team (explicit user action)
 
     @objc private func didTapCreateTeam() {
-        // Ask for team size first
-        let sizeSheet = UIAlertController(
-            title: "Team Size",
-            message: "How many members will this team have?",
-            preferredStyle: .actionSheet
-        )
-        for size in [2, 3, 4] {
-            sizeSheet.addAction(UIAlertAction(title: "\(size) Members", style: .default) { [weak self] _ in
-                self?.createTeamWithSize(size)
-            })
-        }
-        sizeSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        if let popover = sizeSheet.popoverPresentationController {
-            popover.sourceView = view
-            popover.sourceRect = CGRect(x: view.bounds.width/2, y: view.bounds.height/2, width: 1, height: 1)
-        }
-        present(sizeSheet, animated: true)
+        createTeamWithSize(3)
     }
 
     private func createTeamWithSize(_ maxMembers: Int) {
         Task {
+            let loadingAlert = await MainActor.run {
+                self.presentLoadingAlert(title: "Creating Team...")
+            }
             do {
                 let newTeam = try await SupabaseManager.shared.createTeamIfNone(
                     personIdString: myUserId,
@@ -447,12 +447,15 @@ final class TeamViewController: UIViewController {
                 await loadSendAndReceivedLists()
 
                 await MainActor.run {
+                    self.notifyTeamMembershipUpdated()
+                    self.dismissLoadingAlert(loadingAlert)
                     self.requestSegment = 0  // Switch to Send Invites
                     self.applyTeamToUI()
                     self.collectionView.reloadData()
                 }
             } catch {
                 await MainActor.run {
+                    self.dismissLoadingAlert(loadingAlert)
                     self.showAlert(title: "Error", message: error.localizedDescription)
                 }
             }
@@ -643,6 +646,9 @@ final class TeamViewController: UIViewController {
         print("📨 [TeamVC] inviteStudent:", student.displayName, "id:", student.person_id)
 
         Task {
+            let loadingAlert = await MainActor.run {
+                self.presentLoadingAlert(title: "Sending Request...")
+            }
             do {
                 try await SupabaseManager.shared.sendInviteToStudent(
                     teamId: team.id,
@@ -656,6 +662,7 @@ final class TeamViewController: UIViewController {
                 await loadSendAndReceivedLists()
 
                 await MainActor.run {
+                    self.dismissLoadingAlert(loadingAlert)
                     self.showAlert(title: "Invite Sent", message: "Invite sent to \(student.displayName)")
                 }
             } catch {
@@ -667,6 +674,7 @@ final class TeamViewController: UIViewController {
                 }
                 
                 await MainActor.run {
+                    self.dismissLoadingAlert(loadingAlert)
                     self.showAlert(title: "Invite Failed", message: errorMessage)
                 }
             }
@@ -684,6 +692,9 @@ final class TeamViewController: UIViewController {
         print("📨 [TeamVC] Sending join request to Team #\(team.teamNumber)")
 
         Task {
+            let loadingAlert = await MainActor.run {
+                self.presentLoadingAlert(title: "Sending Request...")
+            }
             do {
                 try await SupabaseManager.shared.sendTeamJoinRequest(
                     fromPersonId: myUserId,
@@ -699,6 +710,7 @@ final class TeamViewController: UIViewController {
                 await loadSendAndReceivedLists()
 
                 await MainActor.run {
+                    self.dismissLoadingAlert(loadingAlert)
                     self.showAlert(title: "Request Sent", message: "Join request sent to Team #\(team.teamNumber) ✅")
                 }
             } catch {
@@ -712,6 +724,7 @@ final class TeamViewController: UIViewController {
                 }
 
                 await MainActor.run {
+                    self.dismissLoadingAlert(loadingAlert)
                     self.showAlert(title: "Error", message: errorMessage)
                 }
             }
@@ -781,8 +794,13 @@ final class TeamViewController: UIViewController {
             await loadSendAndReceivedLists()
             print("✅ Reload complete")
             
+            let redirected = await redirectToFullTeamDetailIfNeeded()
+
             await MainActor.run {
-                self.showAlert(title: "Success", message: "You joined team #\(invite.team_number)! ✅")
+                self.notifyTeamMembershipUpdated()
+                if !redirected {
+                    self.showAlert(title: "Success", message: "You joined team #\(invite.team_number)! ✅")
+                }
             }
             
             print("🎉 COMPLETE SUCCESS\n")
@@ -854,8 +872,13 @@ final class TeamViewController: UIViewController {
             await loadExistingTeam(personIdString: myUserId)
             await loadSendAndReceivedLists()
             
+            let redirected = await redirectToFullTeamDetailIfNeeded()
+
             await MainActor.run {
-                self.showAlert(title: "Success", message: "\(req.from_name) added to your team. ✅")
+                self.notifyTeamMembershipUpdated()
+                if !redirected {
+                    self.showAlert(title: "Success", message: "\(req.from_name) added to your team. ✅")
+                }
             }
         } catch {
             await MainActor.run { loadingAlert.dismiss(animated: true) }
@@ -947,11 +970,60 @@ final class TeamViewController: UIViewController {
         present(a, animated: true)
     }
 
+    @MainActor
+    private func presentLoadingAlert(title: String) -> UIAlertController {
+        let loadingAlert = UIAlertController(title: title, message: "\nPlease wait", preferredStyle: .alert)
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.startAnimating()
+        loadingAlert.view.addSubview(spinner)
+
+        NSLayoutConstraint.activate([
+            spinner.centerXAnchor.constraint(equalTo: loadingAlert.view.centerXAnchor),
+            spinner.topAnchor.constraint(equalTo: loadingAlert.view.topAnchor, constant: 54)
+        ])
+
+        present(loadingAlert, animated: true)
+        return loadingAlert
+    }
+
+    @MainActor
+    private func dismissLoadingAlert(_ alert: UIAlertController?) {
+        guard let alert else { return }
+        alert.dismiss(animated: true)
+    }
+
     private func clearLocalStudentTeamCache() {
         UserDefaults.standard.removeObject(forKey: TeamCacheKeys.currentTeamId)
         UserDefaults.standard.removeObject(forKey: TeamCacheKeys.currentTeamNumber)
         NotificationCenter.default.post(name: .tasksDidUpdate, object: nil)
         NotificationCenter.default.post(name: .teamMembershipDidChange, object: nil)
+    }
+
+    private func notifyTeamMembershipUpdated() {
+        NotificationCenter.default.post(name: .tasksDidUpdate, object: nil)
+        NotificationCenter.default.post(name: .teamMembershipDidChange, object: nil)
+    }
+
+    private func redirectToFullTeamDetailIfNeeded() async -> Bool {
+        guard let teamInfo = try? await SupabaseManager.shared.fetchTeamInfoForStudent(personId: myUserId),
+              teamInfo.isFull else {
+            return false
+        }
+
+        await MainActor.run {
+            let detailVC = TeamDetailViewController(teamInfo: teamInfo)
+
+            if let presenter = self.presentingViewController {
+                self.dismiss(animated: false) {
+                    presenter.presentAsProfileSheet(detailVC)
+                }
+            } else {
+                self.presentAsProfileSheet(detailVC)
+            }
+        }
+
+        return true
     }
 
     @objc private func handleTeamMembershipDidChange() {
@@ -1060,9 +1132,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                 guard let self else { return }
                 self.requestSegment = index
                 self.searchQuery = "" // Reset search when switching tabs
-                UIView.performWithoutAnimation {
-                    self.collectionView.reloadData()
-                }
+                self.reloadRequestSections()
             }
             return cell
 
@@ -1073,9 +1143,7 @@ extension TeamViewController: UICollectionViewDataSource, UICollectionViewDelega
                 guard self?.searchQuery != query else { return }
                 guard self?.requestSegment == 0 else { return }
                 self?.searchQuery = query
-                UIView.performWithoutAnimation {
-                    self?.collectionView.reloadData()
-                }
+                self?.reloadRequestSections()
             }
             return cell
 

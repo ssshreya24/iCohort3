@@ -16,12 +16,6 @@ extension SupabaseManager {
         case mentor
     }
 
-    struct LoginOTPStartResponse: Decodable {
-        let success: Bool?
-        let message: String?
-        let error: String?
-    }
-
     struct LoginOTPSession: Decodable {
         let role: String
         let email: String
@@ -31,29 +25,6 @@ extension SupabaseManager {
         let institute_domain: String?
     }
 
-    struct LoginOTPVerifyResponse: Decodable {
-        let success: Bool?
-        let status: Int?
-        let error: String?
-        let session: LoginOTPSession?
-    }
-
-    private struct LoginOTPErrorResponse: Decodable {
-        let error: String?
-    }
-
-    private struct StartLoginOTPRequest: Encodable {
-        let email: String
-        let password: String
-        let role: String
-    }
-
-    private struct VerifyLoginOTPRequest: Encodable {
-        let email: String
-        let otp: String
-        let role: String
-    }
-
     private func sanitizedLoginOTPMessage(_ rawMessage: String) -> String {
         let message = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowercased = message.lowercased()
@@ -61,7 +32,7 @@ extension SupabaseManager {
         if lowercased.contains("invalid_grant") ||
             lowercased.contains("token has been expired or revoked") ||
             lowercased.contains("failed to get google access token") {
-            return "The OTP email service is temporarily unavailable. Please try again in a few minutes. If the issue continues, contact support."
+            return "OTP email is failing because the Gmail refresh token configured in the Supabase Edge Function has expired or been revoked. Update the Google mail secrets in Supabase and try again."
         }
 
         if lowercased.contains("failed to send gmail message") {
@@ -80,90 +51,144 @@ extension SupabaseManager {
         return hashed.compactMap { String(format: "%02x", $0) }.joined()
     }
 
-    private func invokeLoginOTPFunction<Request: Encodable, Response: Decodable>(
-        path: String,
-        body: Request,
-        responseType: Response.Type
-    ) async throws -> Response {
-        let endpoint = supabaseURL
-            .appendingPathComponent("functions")
-            .appendingPathComponent("v1")
-            .appendingPathComponent("login-otp")
-            .appendingPathComponent(path)
+    func startLoginOTP(email: String, password: String, role: LoginOTPUserRole) async throws {
+        let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let credentialsAreValid: Bool
 
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(supabaseAnonKey)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONEncoder().encode(body)
+        switch role {
+        case .student:
+            credentialsAreValid = try await verifyStudent(email: normalizedEmail, password: password)
+        case .mentor:
+            credentialsAreValid = try await verifyMentor(email: normalizedEmail, password: password)
+        case .admin:
+            credentialsAreValid = try await verifyAdmin(email: normalizedEmail, password: password)
+        }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let httpResponse = response as? HTTPURLResponse
-
-        guard (200..<300).contains(httpResponse?.statusCode ?? 0) else {
-            let errorPayload = try? JSONDecoder().decode(LoginOTPErrorResponse.self, from: data)
-            let message = errorPayload?.error?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let rawBody = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let resolvedMessage: String
-
-            if let message, !message.isEmpty {
-                resolvedMessage = sanitizedLoginOTPMessage(message)
-            } else if let rawBody, !rawBody.isEmpty {
-                resolvedMessage = sanitizedLoginOTPMessage(rawBody)
-            } else {
-                resolvedMessage = "Failed to process OTP request"
-            }
-
+        guard credentialsAreValid else {
             throw NSError(
-                domain: "LoginOTPFunction",
-                code: httpResponse?.statusCode ?? -1,
-                userInfo: [NSLocalizedDescriptionKey: resolvedMessage]
+                domain: "LoginOTPStart",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid email or password."]
             )
         }
 
-        return try JSONDecoder().decode(responseType, from: data)
-    }
-
-    func startLoginOTP(email: String, password: String, role: LoginOTPUserRole) async throws {
-        let response = try await invokeLoginOTPFunction(
-            path: "start",
-            body: StartLoginOTPRequest(email: email, password: password, role: role.rawValue),
-            responseType: LoginOTPStartResponse.self
-        )
-
-        if response.success != true {
-            let message = sanitizedLoginOTPMessage(
-                response.error ?? response.message ?? "Failed to send verification code"
-            )
+        do {
+            try await sendPasswordResetEmail(email: normalizedEmail, purpose: .verification)
+        } catch {
             throw NSError(
                 domain: "LoginOTPStart",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: message]
+                userInfo: [NSLocalizedDescriptionKey: sanitizedLoginOTPMessage(error.localizedDescription)]
             )
         }
     }
 
     func verifyLoginOTP(email: String, otp: String, role: LoginOTPUserRole) async throws -> LoginOTPSession {
-        let response = try await invokeLoginOTPFunction(
-            path: "verify",
-            body: VerifyLoginOTPRequest(email: email, otp: otp, role: role.rawValue),
-            responseType: LoginOTPVerifyResponse.self
-        )
+        let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if let session = response.session, response.success == true {
-            return session
+        do {
+            try await verifyOTPForPasswordReset(email: normalizedEmail, otp: otp)
+            try? await deleteOTP(email: normalizedEmail)
+            return try await buildLoginOTPSession(email: normalizedEmail, role: role)
+        } catch {
+            throw NSError(
+                domain: "LoginOTPVerify",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: sanitizedLoginOTPMessage(error.localizedDescription)]
+            )
         }
+    }
 
-        let message = sanitizedLoginOTPMessage(
-            response.error ?? "Failed to verify verification code"
-        )
-        throw NSError(
-            domain: "LoginOTPVerify",
-            code: response.status ?? -1,
-            userInfo: [NSLocalizedDescriptionKey: message]
-        )
+    private func buildLoginOTPSession(email: String, role: LoginOTPUserRole) async throws -> LoginOTPSession {
+        switch role {
+        case .student:
+            struct StudentLoginRow: Decodable {
+                let person_id: String
+                let first_name: String?
+                let last_name: String?
+                let srm_mail: String?
+            }
+
+            let rows: [StudentLoginRow] = try await client
+                .from("student_profiles")
+                .select("person_id, first_name, last_name, srm_mail")
+                .eq("srm_mail", value: email)
+                .limit(1)
+                .execute()
+                .value
+
+            guard let row = rows.first else {
+                throw NSError(
+                    domain: "LoginOTPVerify",
+                    code: -2,
+                    userInfo: [NSLocalizedDescriptionKey: "Student profile not found."]
+                )
+            }
+
+            let displayName = [row.first_name, row.last_name]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+
+            return LoginOTPSession(
+                role: role.rawValue,
+                email: row.srm_mail ?? email,
+                person_id: row.person_id,
+                display_name: displayName.isEmpty ? "Student" : displayName,
+                institute_name: nil,
+                institute_domain: nil
+            )
+
+        case .mentor:
+            struct MentorLoginRow: Decodable {
+                let person_id: String
+                let first_name: String?
+                let last_name: String?
+                let email: String?
+                let institute_name: String?
+            }
+
+            let rows: [MentorLoginRow] = try await client
+                .from("mentor_profiles")
+                .select("person_id, first_name, last_name, email, institute_name")
+                .eq("email", value: email)
+                .limit(1)
+                .execute()
+                .value
+
+            guard let row = rows.first else {
+                throw NSError(
+                    domain: "LoginOTPVerify",
+                    code: -3,
+                    userInfo: [NSLocalizedDescriptionKey: "Mentor profile not found."]
+                )
+            }
+
+            let displayName = [row.first_name, row.last_name]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+
+            return LoginOTPSession(
+                role: role.rawValue,
+                email: row.email ?? email,
+                person_id: row.person_id,
+                display_name: displayName.isEmpty ? "Mentor" : displayName,
+                institute_name: row.institute_name,
+                institute_domain: nil
+            )
+
+        case .admin:
+            let institute = try await getInstitute(byAdminEmail: email)
+            return LoginOTPSession(
+                role: role.rawValue,
+                email: email,
+                person_id: nil,
+                display_name: "Admin",
+                institute_name: institute?.name,
+                institute_domain: institute?.domain
+            )
+        }
     }
     
     // MARK: - Institute Management

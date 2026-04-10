@@ -29,6 +29,7 @@ class SignUpViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        constrainLogoPlaceholderIfNeeded()
         hideAnimatedAuthLogoPlaceholderIfNeeded()
         enableKeyboardDismissOnTap()
         setupBackButton()
@@ -56,6 +57,67 @@ class SignUpViewController: UIViewController {
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         guard previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle else { return }
+    }
+
+    private func constrainLogoPlaceholderIfNeeded() {
+        guard let imageView = findLogoPlaceholderImageView() else { return }
+
+        if let superview = imageView.superview {
+            superview.constraints
+                .filter { constraint in
+                    let firstView = constraint.firstItem as? UIView
+                    let secondView = constraint.secondItem as? UIView
+                    let involvesImageView = firstView == imageView || secondView == imageView
+                    let affectsHorizontalSize = [
+                        constraint.firstAttribute,
+                        constraint.secondAttribute
+                    ].contains { attribute in
+                        attribute == .leading || attribute == .trailing
+                    }
+                    return involvesImageView && affectsHorizontalSize
+                }
+                .forEach { $0.isActive = false }
+        }
+
+        let hasWidthConstraint = imageView.constraints.contains {
+            $0.firstAttribute == .width && $0.relation == .equal
+        }
+        let hasHeightConstraint = imageView.constraints.contains {
+            $0.firstAttribute == .height && $0.relation == .equal
+        }
+
+        if !hasWidthConstraint {
+            imageView.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        }
+        if !hasHeightConstraint {
+            imageView.heightAnchor.constraint(equalToConstant: 120).isActive = true
+        }
+        if let superview = imageView.superview,
+           !superview.constraints.contains(where: {
+               ($0.firstItem as? UIView == imageView || $0.secondItem as? UIView == imageView) &&
+               ($0.firstAttribute == .centerX || $0.secondAttribute == .centerX)
+           }) {
+            imageView.centerXAnchor.constraint(equalTo: superview.centerXAnchor).isActive = true
+        }
+    }
+
+    private func findLogoPlaceholderImageView() -> UIImageView? {
+        allSubviews(in: view)
+            .compactMap { $0 as? UIImageView }
+            .filter { imageView in
+                let frame = imageView.convert(imageView.bounds, to: view)
+                return frame.minY < view.bounds.midY && frame.height >= 100
+            }
+            .sorted { lhs, rhs in
+                let lhsFrame = lhs.convert(lhs.bounds, to: view)
+                let rhsFrame = rhs.convert(rhs.bounds, to: view)
+                return lhsFrame.minY < rhsFrame.minY
+            }
+            .first
+    }
+
+    private func allSubviews(in view: UIView) -> [UIView] {
+        view.subviews + view.subviews.flatMap { allSubviews(in: $0) }
     }
     
     func setupPlaceholders() {

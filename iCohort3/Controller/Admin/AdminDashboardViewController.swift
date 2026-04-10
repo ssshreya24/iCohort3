@@ -12,6 +12,7 @@ class AdminDashboardViewController: UIViewController {
     // MARK: - UI Components
     private let scrollView = UIScrollView()
     private let contentView = UIView()
+    private let refreshControl = UIRefreshControl()
     private let headerContainerView = UIView()
     private let titleLabel = UILabel()
     private let institutionLabel = UILabel()
@@ -72,6 +73,8 @@ class AdminDashboardViewController: UIViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.showsVerticalScrollIndicator = true
         scrollView.alwaysBounceVertical = true
+        refreshControl.addTarget(self, action: #selector(handlePullToRefresh), for: .valueChanged)
+        scrollView.refreshControl = refreshControl
         view.addSubview(scrollView)
         
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -231,6 +234,7 @@ class AdminDashboardViewController: UIViewController {
         AdminUIStyle.styleCard(teamsContainerView)
         styleSegmentedControl()
         loadingIndicator?.color = AppTheme.accent
+        refreshControl.tintColor = AppTheme.accent
         approvedStudentsCard?.applyTheme()
         approvedMentorsCard?.applyTheme()
     }
@@ -371,6 +375,14 @@ class AdminDashboardViewController: UIViewController {
                     self.showAlert(title: "Error", message: "Failed to load data: \(error.localizedDescription)")
                 }
             }
+        }
+    }
+
+    @objc private func handlePullToRefresh() {
+        if adminEmail.isEmpty {
+            getAdminInfo()
+        } else {
+            loadAllData()
         }
     }
     private func updateUI() {
@@ -1019,6 +1031,9 @@ class AdminDashboardViewController: UIViewController {
     
     private func hideLoadingIndicator() {
         loadingIndicator?.stopAnimating()
+        if refreshControl.isRefreshing {
+            refreshControl.endRefreshing()
+        }
         view.isUserInteractionEnabled = true
     }
     
