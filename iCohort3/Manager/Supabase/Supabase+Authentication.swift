@@ -83,6 +83,30 @@ extension SupabaseManager {
         }
     }
 
+    func loginDirect(email: String, password: String, role: LoginOTPUserRole) async throws -> LoginOTPSession {
+        let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let credentialsAreValid: Bool
+
+        switch role {
+        case .student:
+            credentialsAreValid = try await verifyStudent(email: normalizedEmail, password: password)
+        case .mentor:
+            credentialsAreValid = try await verifyMentor(email: normalizedEmail, password: password)
+        case .admin:
+            credentialsAreValid = try await verifyAdmin(email: normalizedEmail, password: password)
+        }
+
+        guard credentialsAreValid else {
+            throw NSError(
+                domain: "DirectLogin",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid email or password."]
+            )
+        }
+
+        return try await buildLoginOTPSession(email: normalizedEmail, role: role)
+    }
+
     func verifyLoginOTP(email: String, otp: String, role: LoginOTPUserRole) async throws -> LoginOTPSession {
         let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
 

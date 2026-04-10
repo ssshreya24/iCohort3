@@ -357,29 +357,27 @@ class MSignUpViewController: UIViewController {
                     return
                 }
                 
-                print("✅ No existing registration found, sending OTP...")
-                try await SupabaseManager.shared.sendPasswordResetEmail(email: email)
+                print("✅ No existing registration found, creating mentor registration...")
+                _ = try await SupabaseManager.shared.registerMentorWithDomain(
+                    fullName: fullName,
+                    email: email,
+                    employeeId: employeeId,
+                    designation: designation,
+                    department: department,
+                    instituteName: instituteName,
+                    instituteDomain: instituteDomain,
+                    password: password
+                )
                 
                 await MainActor.run {
                     hideLoadingIndicator()
                     signUpButton.isEnabled = true
-
-                    let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
-                    otpVC.configureForRegistrationVerification(
-                        RegistrationVerificationContext(
-                            role: .mentor,
-                            email: email,
-                            password: password,
-                            fullName: fullName,
-                            regNumber: nil,
-                            employeeId: employeeId,
-                            designation: designation,
-                            department: department,
-                            instituteName: instituteName,
-                            instituteDomain: instituteDomain
-                        )
-                    )
-                    self.navigationController?.pushViewController(otpVC, animated: true)
+                    self.showAlert(
+                        title: "Registration Submitted",
+                        message: "Your information has been submitted successfully. You can log in once your college approves your registration."
+                    ) {
+                        self.navigationController?.popViewController(animated: true)
+                    }
                 }
                 
             } catch SupabaseError.alreadyRegistered {

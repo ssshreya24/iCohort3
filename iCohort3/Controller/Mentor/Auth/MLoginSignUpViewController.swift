@@ -181,32 +181,16 @@ class MLoginSignUpViewController: UIViewController {
     private func performLogin(email: String, password: String, shouldRemember: Bool) {
         Task {
             do {
-                if let debugSession = try await TestingPurpose.attemptDebugLogin(
-                    email: email,
-                    password: password,
-                    role: .mentor
-                ) {
-                    print("🧪 Using DEBUG mentor test login")
-                    await MainActor.run {
-                        hideLoadingIndicator()
-                        signInButton.isEnabled = true
-                        self.handlePrivacyConsentIfNeeded(email: email, role: .mentor) {
-                            TestingPurpose.completeDebugLogin(debugSession, shouldRemember: shouldRemember, from: self)
-                        }
-                    }
-                    return
-                }
-
-                print("📝 Starting mentor login OTP flow...")
+                print("📝 Starting direct mentor login...")
                 
-                try await SupabaseManager.shared.startLoginOTP(email: email, password: password, role: .mentor)
-                print("✅ Verification code sent")
+                let session = try await SupabaseManager.shared.loginDirect(email: email, password: password, role: .mentor)
+                print("✅ Mentor login verified")
                 
                 await MainActor.run {
                     hideLoadingIndicator()
                     signInButton.isEnabled = true
                     self.handlePrivacyConsentIfNeeded(email: email, role: .mentor) {
-                        self.navigateToOTPVerification(email: email, role: .mentor, shouldRemember: shouldRemember)
+                        self.finalizeDirectLogin(session: session, shouldRemember: shouldRemember)
                     }
                 }
                 
@@ -219,16 +203,6 @@ class MLoginSignUpViewController: UIViewController {
                 }
             }
         }
-    }
-
-    private func navigateToOTPVerification(
-        email: String,
-        role: SupabaseManager.LoginOTPUserRole,
-        shouldRemember: Bool
-    ) {
-        let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
-        otpVC.configureForLoginVerification(email: email, role: role, shouldRemember: shouldRemember)
-        navigationController?.pushViewController(otpVC, animated: true)
     }
 
     @MainActor
@@ -262,6 +236,38 @@ class MLoginSignUpViewController: UIViewController {
 
         UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
             window.rootViewController = tab
+        }
+    }
+
+    @MainActor
+    private func finalizeDirectLogin(
+        session: SupabaseManager.LoginOTPSession,
+        shouldRemember: Bool
+    ) {
+        guard let personId = session.person_id, !personId.isEmpty else {
+            showAlert(title: "Login Failed", message: "Mentor session is missing person id.")
+            return
+        }
+
+        UserDefaults.standard.set(personId, forKey: "current_person_id")
+        UserDefaults.standard.set(session.display_name ?? "Mentor", forKey: "current_user_name")
+        UserDefaults.standard.set(session.email, forKey: "current_user_email")
+        UserDefaults.standard.set("mentor", forKey: "current_user_role")
+        UserDefaults.standard.set(true, forKey: "is_logged_in")
+
+        applyRememberMePreference(shouldRemember: shouldRemember, email: session.email, role: "mentor")
+        handleLoginSuccess()
+    }
+
+    private func applyRememberMePreference(shouldRemember: Bool, email: String, role: String) {
+        if shouldRemember {
+            UserDefaults.standard.set(true, forKey: "remember_me")
+            UserDefaults.standard.set(email, forKey: "remembered_email")
+            UserDefaults.standard.set(role, forKey: "remembered_user_role")
+        } else {
+            UserDefaults.standard.set(false, forKey: "remember_me")
+            UserDefaults.standard.removeObject(forKey: "remembered_email")
+            UserDefaults.standard.removeObject(forKey: "remembered_user_role")
         }
     }
     

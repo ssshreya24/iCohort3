@@ -194,34 +194,20 @@ class LoginViewController: UIViewController {
     private func performLogin(email: String, password: String, shouldRemember: Bool) {
         Task {
             do {
-                if let debugSession = try await TestingPurpose.attemptDebugLogin(
-                    email: email,
-                    password: password,
-                    role: .student
-                ) {
-                    print("🧪 Using DEBUG student test login")
-                    await finishLogin {
-                        self.handlePrivacyConsentIfNeeded(email: email, role: .student) {
-                            TestingPurpose.completeDebugLogin(debugSession, shouldRemember: shouldRemember, from: self)
-                        }
-                    }
-                    return
-                }
+                print("📝 Starting direct student login...")
 
-                print("📝 Starting student login OTP flow...")
-
-                try await withLoginTimeout {
-                    try await SupabaseManager.shared.startLoginOTP(
+                let session = try await withLoginTimeout {
+                    try await SupabaseManager.shared.loginDirect(
                         email: email,
                         password: password,
                         role: .student
                     )
                 }
-                print("✅ Verification code sent")
+                print("✅ Student login verified")
 
                 finishLogin {
                     self.handlePrivacyConsentIfNeeded(email: email, role: .student) {
-                        self.navigateToOTPVerification(email: email, role: .student, shouldRemember: shouldRemember)
+                        self.finalizeDirectLogin(session: session, shouldRemember: shouldRemember)
                     }
                 }
                 
@@ -243,23 +229,6 @@ class LoginViewController: UIViewController {
         }
     }
 
-    @MainActor
-    private func navigateToOTPVerification(
-        email: String,
-        role: SupabaseManager.LoginOTPUserRole,
-        shouldRemember: Bool
-    ) {
-        let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
-        otpVC.configureForLoginVerification(email: email, role: role, shouldRemember: shouldRemember)
-
-        if let nav = navigationController {
-            nav.pushViewController(otpVC, animated: true)
-        } else {
-            otpVC.modalPresentationStyle = .fullScreen
-            present(otpVC, animated: true)
-        }
-    }
-    
     /// Always called at end of login — hides loader, re-enables button, runs optional UI block.
     /// Marked @MainActor so it's always safe to update UI directly — no DispatchQueue needed.
     @MainActor
@@ -317,6 +286,38 @@ class LoginViewController: UIViewController {
         guard let window else { return }
         UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
             window.rootViewController = tab
+        }
+    }
+
+    @MainActor
+    private func finalizeDirectLogin(
+        session: SupabaseManager.LoginOTPSession,
+        shouldRemember: Bool
+    ) {
+        guard let personId = session.person_id, !personId.isEmpty else {
+            showAlert(title: "Login Failed", message: "Student session is missing person id.")
+            return
+        }
+
+        UserDefaults.standard.set(personId, forKey: "current_person_id")
+        UserDefaults.standard.set(session.display_name ?? "Student", forKey: "current_user_name")
+        UserDefaults.standard.set(session.email, forKey: "current_user_email")
+        UserDefaults.standard.set("student", forKey: "current_user_role")
+        UserDefaults.standard.set(true, forKey: "is_logged_in")
+
+        applyRememberMePreference(shouldRemember: shouldRemember, email: session.email, role: "student")
+        handleLoginSuccess()
+    }
+
+    private func applyRememberMePreference(shouldRemember: Bool, email: String, role: String) {
+        if shouldRemember {
+            UserDefaults.standard.set(true, forKey: "remember_me")
+            UserDefaults.standard.set(email, forKey: "remembered_email")
+            UserDefaults.standard.set(role, forKey: "remembered_user_role")
+        } else {
+            UserDefaults.standard.set(false, forKey: "remember_me")
+            UserDefaults.standard.removeObject(forKey: "remembered_email")
+            UserDefaults.standard.removeObject(forKey: "remembered_user_role")
         }
     }
     

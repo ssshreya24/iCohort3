@@ -307,29 +307,47 @@ class AdminSignUpViewController: UIViewController {
                     throw SupabaseError.instituteAlreadyExists
                 }
 
-                try await SupabaseManager.shared.sendPasswordResetEmail(email: email)
+                try await SupabaseManager.shared.registerAdmin(
+                    email: email,
+                    password: password,
+                    instituteId: nil
+                )
+
+                struct AdminAccountResponse: Codable {
+                    let id: String
+                }
+
+                let adminAccounts: [AdminAccountResponse] = try await SupabaseManager.shared.client
+                    .from("admin_accounts")
+                    .select("id")
+                    .eq("email", value: email)
+                    .limit(1)
+                    .execute()
+                    .value
+
+                guard let adminId = adminAccounts.first?.id else {
+                    throw NSError(
+                        domain: "AdminSignUp",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve the admin account after registration."]
+                    )
+                }
+
+                try await SupabaseManager.shared.registerInstitute(
+                    name: institutionName,
+                    domain: domain,
+                    adminEmail: email,
+                    adminId: adminId
+                )
 
                 await MainActor.run {
                     isSubmitting = false
                     registerButtonOutlet.isEnabled = true
                     registerButtonOutlet.setTitle("Register", for: .normal)
-
-                    let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
-                    otpVC.configureForRegistrationVerification(
-                        RegistrationVerificationContext(
-                            role: .admin,
-                            email: email,
-                            password: password,
-                            fullName: nil,
-                            regNumber: nil,
-                            employeeId: nil,
-                            designation: nil,
-                            department: nil,
-                            instituteName: institutionName,
-                            instituteDomain: domain
-                        )
+                    self.showSuccessAlert(
+                        title: "Registration Successful",
+                        message: "Your institute and admin account have been created successfully. You can now sign in."
                     )
-                    self.navigationController?.pushViewController(otpVC, animated: true)
                 }
                 
             } catch let error as SupabaseError {

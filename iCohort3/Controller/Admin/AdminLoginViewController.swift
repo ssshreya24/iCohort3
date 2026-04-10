@@ -330,6 +330,37 @@ class AdminLoginViewController: UIViewController {
         let dashboardVC = AdminDashboardViewController()
         navigationController?.pushViewController(dashboardVC, animated: true)
     }
+
+    @MainActor
+    private func finalizeDirectLogin(
+        session: SupabaseManager.LoginOTPSession,
+        shouldRemember: Bool
+    ) {
+        UserDefaults.standard.removeObject(forKey: "current_person_id")
+        UserDefaults.standard.set(session.display_name ?? "Admin", forKey: "current_user_name")
+        UserDefaults.standard.set(session.email, forKey: "admin_email")
+        UserDefaults.standard.set(session.email, forKey: "current_user_email")
+        UserDefaults.standard.set("admin", forKey: "current_user_role")
+        UserDefaults.standard.set(true, forKey: "is_logged_in")
+        UserDefaults.standard.set(session.institute_name, forKey: "admin_institute_name")
+        UserDefaults.standard.set(session.institute_domain, forKey: "admin_institute_domain")
+        UserDefaults.standard.set(true, forKey: "is_admin")
+
+        applyRememberMePreference(shouldRemember: shouldRemember, email: session.email, role: "admin")
+        handleLoginSuccess()
+    }
+
+    private func applyRememberMePreference(shouldRemember: Bool, email: String, role: String) {
+        if shouldRemember {
+            UserDefaults.standard.set(true, forKey: "remember_me")
+            UserDefaults.standard.set(email, forKey: "remembered_email")
+            UserDefaults.standard.set(role, forKey: "remembered_user_role")
+        } else {
+            UserDefaults.standard.set(false, forKey: "remember_me")
+            UserDefaults.standard.removeObject(forKey: "remembered_email")
+            UserDefaults.standard.removeObject(forKey: "remembered_user_role")
+        }
+    }
     
     // MARK: - Actions
     @IBAction func signInTapped(_ sender: UIButton) {
@@ -361,34 +392,14 @@ class AdminLoginViewController: UIViewController {
         
         Task {
             do {
-                if let debugSession = try await TestingPurpose.attemptDebugLogin(
-                    email: email,
-                    password: password,
-                    role: .admin
-                ) {
-                    print("🧪 Using DEBUG admin test login")
-                    await MainActor.run {
-                        self.hideLoadingIndicator()
-                        self.signInButton.isEnabled = true
-                        self.handlePrivacyConsentIfNeeded(email: email, role: .admin) {
-                            TestingPurpose.completeDebugLogin(
-                                debugSession,
-                                shouldRemember: self.rememberMeButton.isSelected,
-                                from: self
-                            )
-                        }
-                    }
-                    return
-                }
-
-                try await SupabaseManager.shared.startLoginOTP(email: email, password: password, role: .admin)
-                print("✅ Admin verification code sent")
+                let session = try await SupabaseManager.shared.loginDirect(email: email, password: password, role: .admin)
+                print("✅ Admin login verified")
                 
                 await MainActor.run {
                     self.hideLoadingIndicator()
                     self.signInButton.isEnabled = true
                     self.handlePrivacyConsentIfNeeded(email: email, role: .admin) {
-                        self.navigateToOTPVerification(email: email, shouldRemember: self.rememberMeButton.isSelected)
+                        self.finalizeDirectLogin(session: session, shouldRemember: self.rememberMeButton.isSelected)
                     }
                 }
                 
@@ -402,12 +413,6 @@ class AdminLoginViewController: UIViewController {
                 }
             }
         }
-    }
-
-    private func navigateToOTPVerification(email: String, shouldRemember: Bool) {
-        let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
-        otpVC.configureForLoginVerification(email: email, role: .admin, shouldRemember: shouldRemember)
-        navigationController?.pushViewController(otpVC, animated: true)
     }
 
     @MainActor

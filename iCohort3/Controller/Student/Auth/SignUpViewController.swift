@@ -326,7 +326,6 @@ class SignUpViewController: UIViewController {
         signUpButton.isEnabled = false
         showLoadingIndicator()
         
-        // Start OTP verification before registration
         performRegistration(
             institute: institute,
             name: name,
@@ -371,30 +370,25 @@ class SignUpViewController: UIViewController {
                     return
                 }
                 
-                print("✅ No existing registration found, sending OTP...")
-                try await SupabaseManager.shared.sendPasswordResetEmail(email: email)
+                print("✅ No existing registration found, creating student registration...")
+                _ = try await SupabaseManager.shared.registerStudent(
+                    fullName: name,
+                    email: email,
+                    regNumber: regNumber,
+                    password: password,
+                    instituteDomain: institute.domain
+                )
                 
                 // Update UI on main thread
                 await MainActor.run {
                     hideLoadingIndicator()
                     signUpButton.isEnabled = true
-
-                    let otpVC = OTPViewController(nibName: "OTPViewController", bundle: nil)
-                    otpVC.configureForRegistrationVerification(
-                        RegistrationVerificationContext(
-                            role: .student,
-                            email: email,
-                            password: password,
-                            fullName: name,
-                            regNumber: regNumber,
-                            employeeId: nil,
-                            designation: nil,
-                            department: nil,
-                            instituteName: institute.name,
-                            instituteDomain: institute.domain
-                        )
-                    )
-                    self.navigationController?.pushViewController(otpVC, animated: true)
+                    self.showAlert(
+                        title: "Registration Submitted",
+                        message: "Your information has been submitted successfully. You can log in once your college approves your registration."
+                    ) {
+                        self.navigationController?.popViewController(animated: true)
+                    }
                 }
                 
             } catch SupabaseError.alreadyRegistered {
